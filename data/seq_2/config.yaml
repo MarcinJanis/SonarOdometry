@@ -1,0 +1,73 @@
+# ==========================================================
+# SENSOR CONFIGURATION FOR MACHINE LEARNING DATASET
+# ==========================================================
+
+# Forward Looking Sonar
+# Configuration compliant with forward looking sonar Teledyne Blue View P900-130. 
+# Datasheet: https://www.cidco.ca/sites/default/files/%C3%89quipements%20CIDCO/BlueView%20P900-130.pdf
+
+fls:
+  rate: 2.0 # data sampling frequency [Hz]
+  resolution: 
+    beams: 768 # horizontal resolution
+    bins: 800 # distance (vertical) resolution
+  fov:
+    horizontal: 130 # [deg]
+    vertical: 20 # [deg]
+  range:
+    min: 0.5 # [m]
+    max: 100 # [m]
+  position:
+    x: 0.2 # [m]
+    y: 0.0 # [m]
+    z: 1.0 # [m]
+    roll: 0.0 # [rad]
+    pitch: 0.2 # [rad]
+    yaw: 0.0 # [rad]
+
+# Inertial Measurement Unit (IMU)
+imu:
+  rate: 100.0 # [Hz] 
+  position:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    roll: 0.0 # [rad]
+    pitch: 0.0 # [rad]
+    yaw: 0.0 # [rad]
+
+# Doppler Velocity Log (DVL) 
+dvl:
+  rate: 5.0  # [Hz]
+  specs:
+    beam_angle: 30.0  # [deg] in relation to vertical axis
+  range:
+    velocity_max: [9.0, 9.0, 9.0] # [m/s] in relation to [x, y, z] axis
+    altitude_min: 0.2 # [m]
+    altitude_max: 50.0 # [m]
+  position:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    roll: 0.0
+    pitch: 0.0
+    yaw: 0..0
+
+# Terrain
+seabed:
+  filename: "seabed_moon.png"
+  scalex: 0.1
+  scaley: 0.1
+  height: 30.0
+  transform_xyz: [0.0, 0.0, 30.0]
+  transform_rpy: [0.0, 0.0, 0.0]
+
+
+# sensors position:
+# axis directions (in relation to default position of robot):
+# x axis - forward
+# y axis - sideway, left
+# z axis - down 
+# roll - rotation along x xais 
+# pitch - rotation along y xais
+# yaw - rotation along z xais
