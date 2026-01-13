@@ -12,6 +12,8 @@ class Patchifier(nn.Module):
     def __init__(self, patches_per_frame, patch_size:int=3, grid_size:tuple=(24, 24)):
         super().__init__()
 
+        self.debug_dict = {}
+
         assert patches_per_frame <= grid_size[0]*grid_size[1], f'[Error]: Patchifier module.\n number of patches can\'t be greater than number of cells in grid.'
 
         self.patches_per_frame = patches_per_frame
@@ -23,6 +25,13 @@ class Patchifier(nn.Module):
         self.context_extractor = Encoder(in_ch = 1, out_ch = 128, dim = 32, dropout=0.5)
         self.downsize_factor = 4
 
+    def _norm_frame(self, frame, v_max = 255):
+        # mean = torch.mean(frame)
+        # std = torch.std(frame)
+        # return (frame - mean)/std * v_max
+        # t_min, t_max = frame.min(), frame.max()
+        # return (frame - t_min) / (t_max - t_min + 1e-8)
+        pass
     def _harris_response(self, frame, ksize=7, padding=3):
 
         b, n, c, h, w = frame.shape
@@ -100,6 +109,41 @@ class Patchifier(nn.Module):
     def _get_patches(self, coords):
         pass
 
+    def _patchifier_debug(self, frame, coords):
+            
+            # create copy of new frame
+            frame_np = frame.squeeze(0).squeeze(0).squeeze(0)
+            frame_np = frame_np.detach().cpu().numpy()
+            frame_np = frame_np.astype(np.uint8)
+            frame_np = cv2.cvtColor(frame_np, cv2.COLOR_GRAY2BGR)
+
+            # create copy of coords
+            coords_np = coords.squeeze(0).detach().cpu().numpy()
+            coords_np = coords_np.astype(np.int16) * self.downsize_factor  
+
+            # draw grid 
+            h, w, _ = frame_np.shape
+
+            step_y = h // self.grid_size_h
+            step_x = w // self.grid_size_w
+
+            for i in range(self.grid_size_h + 1): 
+                y = int(i * step_y)
+                cv2.line(frame_np, (0, y), (w, y), (255, 0, 0), 1)
+
+            for i in range(self.grid_size_w + 1):
+                x = int(i * step_x)
+                cv2.line(frame_np, (x, 0), (x, h), (255, 0, 0), 1)
+
+            # draw points
+            for i in range(coords_np.shape[0]):
+                x, y = coords_np[i,:]     
+                cv2.circle(frame_np, (x, y), 2, (0, 255, 0), 4)
+
+            # save in debug dict
+            self.debug_dict['key_points'] =  frame_np
+            
+
     # extract patches from new frame
     def forward(self, frame, mode = 'harris'):
 
@@ -125,39 +169,16 @@ class Patchifier(nn.Module):
 
         # for debug purpose:
         elif mode == 'harris_debug':
-            # create copy of new frame
-            frame_np = frame.squeeze(0).squeeze(0).squeeze(0)
-            frame_np = frame_np.detach().cpu().numpy()
-            frame_np = frame_np.astype(np.uint8)
-            # frame_np = cv2.resize(frame_np, None, dst = None, fx = 1/self.downsize_factor, fy = 1/self.downsize_factor, interpolation = cv2.INTER_LINEAR)
-            frame_np = cv2.cvtColor(frame_np, cv2.COLOR_GRAY2BGR)
+            
+            # normalize frame
+            # frame = self._norm_frame(frame, v_max=255)
             # get strongest structures from frame
             g = self._harris_response(frame, ksize=7, padding=3)
             # get coords
             coords = self._get_best_coords(g)
-
-            coords_np = coords.squeeze(0).detach().cpu().numpy()
-            coords_np = coords_np.astype(np.int16) * self.downsize_factor  
-
-            print(f'coords {coords_np.shape}')
-            # draw grid 
-            h, w, _ = frame_np.shape
-
-            step_y = h // self.grid_size_h
-            step_x = w // self.grid_size_w
-
-            for i in range(self.grid_size_h + 1): 
-                y = int(i * step_y)
-                cv2.line(frame_np, (0, y), (w, y), (255, 0, 0), 1)
-
-            for i in range(self.grid_size_w + 1):
-                x = int(i * step_x)
-                cv2.line(frame_np, (x, 0), (x, h), (255, 0, 0), 1)
-
-            for i in range(coords_np.shape[0]):
-                x, y = coords_np[i,:]     
-                cv2.circle(frame_np, (x, y), 2, (0, 255, 0), 4)
-           
-        return frame_np
+            self._patchifier_debug(frame, coords)
+            
+        return g
+        
 
         
