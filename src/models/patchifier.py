@@ -2,11 +2,17 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from encoders import Encoder
+from .encoders import Encoder
+
+# for debug purpose:
+import numpy as np 
+import cv2
 
 class Patchifier(nn.Module):
     def __init__(self, patches_per_frame, patch_size:int=3, grid_size:tuple=(24, 24)):
         super().__init__()
+
+        assert patches_per_frame <= grid_size[0]*grid_size[1], f'[Error]: Patchifier module.\n number of patches can\'t be greater than number of cells in grid.'
 
         self.patches_per_frame = patches_per_frame
         self.patch_size = patch_size
@@ -44,20 +50,20 @@ class Patchifier(nn.Module):
 
         device = g.device
 
-        bn, h, w = g.shape
+        bn, c, h, w = g.shape
 
-        pix_per_cell_h = (h + self.grid_size_h) // self.grid_size_h - 1
-        pix_per_cell_w = (w + self.grid_size_w) // self.grid_size_w - 1
+        pix_per_cell_h = (h + self.grid_size_h - 1) // self.grid_size_h
+        pix_per_cell_w = (w + self.grid_size_w - 1) // self.grid_size_w
 
         pad_h = pix_per_cell_h * self.grid_size_h - h 
         pad_w = pix_per_cell_w * self.grid_size_w - w
-
+        
         if pad_h > 0 or pad_w > 0:
             g = F.pad(g, (0, pad_w, 0, pad_h), mode='constant', value=0) # pad: right side and bottom
 
         # devide into grid of cells
         g = g.view(bn, 1, self.grid_size_h, pix_per_cell_h, self.grid_size_w, pix_per_cell_w)
-        g = g.permute(0, 2, 4, 3, 5).contiguous()
+        g = g.permute(0, 2, 4, 1, 3, 5).contiguous()
         g = g.view(bn, self.grid_size_h, self.grid_size_w, pix_per_cell_h * pix_per_cell_w)
 
         # find strongest features in each cell
@@ -95,7 +101,7 @@ class Patchifier(nn.Module):
         pass
 
     # extract patches from new frame
-    def forward(self, frame:torch.tensor, n:int, mode = 'harris'):
+    def forward(self, frame, mode = 'harris'):
 
         # frame shape: (b, n, c, h, w)
         # b - batch size
@@ -116,5 +122,42 @@ class Patchifier(nn.Module):
             # get coords
             coords = self._get_best_coords(g)
 
+
+        # for debug purpose:
+        elif mode == 'harris_debug':
+            # create copy of new frame
+            frame_np = frame.squeeze(0).squeeze(0).squeeze(0)
+            frame_np = frame_np.detach().cpu().numpy()
+            frame_np = frame_np.astype(np.uint8)
+            # frame_np = cv2.resize(frame_np, None, dst = None, fx = 1/self.downsize_factor, fy = 1/self.downsize_factor, interpolation = cv2.INTER_LINEAR)
+            frame_np = cv2.cvtColor(frame_np, cv2.COLOR_GRAY2BGR)
+            # get strongest structures from frame
+            g = self._harris_response(frame, ksize=7, padding=3)
+            # get coords
+            coords = self._get_best_coords(g)
+
+            coords_np = coords.squeeze(0).detach().cpu().numpy()
+            coords_np = coords_np.astype(np.int16) * self.downsize_factor  
+
+            print(f'coords {coords_np.shape}')
+            # draw grid 
+            h, w, _ = frame_np.shape
+
+            step_y = h // self.grid_size_h
+            step_x = w // self.grid_size_w
+
+            for i in range(self.grid_size_h + 1): 
+                y = int(i * step_y)
+                cv2.line(frame_np, (0, y), (w, y), (255, 0, 0), 1)
+
+            for i in range(self.grid_size_w + 1):
+                x = int(i * step_x)
+                cv2.line(frame_np, (x, 0), (x, h), (255, 0, 0), 1)
+
+            for i in range(coords_np.shape[0]):
+                x, y = coords_np[i,:]     
+                cv2.circle(frame_np, (x, y), 2, (0, 255, 0), 4)
+           
+        return frame_np
 
         
