@@ -49,6 +49,8 @@ def affine_matrix(state, invert = False):
     """
     Generates a 4x4 homogeneous transformation matrix.
     state: (x, y, z, roll, pitch, yaw) in radians.
+
+    if invert == True, returns also inverse affine matrix
     """
     x, y, z, roll, pitch, yaw = state
 
@@ -69,7 +71,7 @@ def affine_matrix(state, invert = False):
         R = T[:3, :3]
         t = T[:3, 3]
 
-        # Invert rotation (transpose)
+        # Invert rotation 
         R_inv = R.T
         
         # Invert translation: -R^T * t
@@ -79,7 +81,7 @@ def affine_matrix(state, invert = False):
         T_inv = np.eye(4)
         T_inv[:3, :3] = R_inv
         T_inv[:3, 3] = t_inv
-        T = T_inv
-
-    return T
+        return T, T_inv
+    else:
+        return T
 
