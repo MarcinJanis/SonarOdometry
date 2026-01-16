@@ -40,17 +40,46 @@ class Graph(nn.Module):
 
     # graph edges:
 
-    self.register_buffer('edge_i', torch.zeors(0, dtype=torch.int32)) # keeps idx of patch
-    self.register_buffer('edge_j', torch.zeors(0, dtype=torch.int32)) # keeps idx of frame where patch is track
-    self.register_buffer('edge_xy', torch.zeors(0, dtype=torch.int32)) # keeps local, 2d coordinates of patch i in frame j 
+    self.register_buffer('edge_i', torch.zeros(0, dtype=torch.int32)) # keeps idx of patch
+    self.register_buffer('edge_j', torch.zeros(0, dtype=torch.int32)) # keeps idx of frame where patch is track
+    self.register_buffer('edge_xy', torch.zeros(0, dtype=torch.float)) # keeps local, 2d coordinates of patch i in frame j 
 
 
     def add_frame(self):
+      '''
+      add new frame to frame graph (context map), assign id, (what about initial 6 dof pose???)
+      delete oldest frame from graph, if buffer is full
+      '''
       pass
 
     def add_patch(self):
+      '''
+      use patchifier, extract fmap, coords and inverse depth (probably elevation angle coord in my case)
+      add to buffers
+      '''
       pass
 
-    
+    def create_edges(self, nframes):
+      '''
+      create edges: connect new patches with nlast frames:
+        1) Add edge new patch with new frame (easy)
+        2) for rach older frame, take its 6 dof pose, reproject point 2d -> 3d -> tranformation with pose -> 2d 
+        
 
+      
+      calculating correlation betweenn patch and frame, assign coordinates with biggest correlation
+      '''
+      pass
+
+    def garbage_grabber(self):
+      '''
+      delete patches with coordinates out the bounds from patch graph
+      '''
+      pass
+
+    def forward(self, frame):
+      '''
+      execute all of above
+      '''
+      
     
