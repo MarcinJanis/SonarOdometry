@@ -85,3 +85,15 @@ def affine_matrix(state, invert = False):
     else:
         return T
 
+
+def transform_points(x, T):
+    '''
+    Transform points with rotation and shift defined in affine matrix T
+    :x: torch tensor of points, shape (n, 4):  [x1, y1, z1, 1;
+                                                x2, y2, z2, 1; 
+                                                xn, yn, zn, 1]
+    :T: affine matrix, shape (4,4)
+    '''
+    x_t = T @ x.T
+    return x_t.T
+    
