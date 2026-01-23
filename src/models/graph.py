@@ -23,34 +23,83 @@ Edges:
   - coords -> przewidywana projekja punktu reprezentującego patch i na klatce j 
 '''
 
+# Ring buffers:
+      # we operates on: buff_size - max size of buffer, and n - counter, buff
+      # 1. Add new_record to ring buffer
+      #   buff[n % buff_size] = new_record; n += 1
+      # 2. Read from buffer from global index x
+      #   record = buff[x % buff_size]
+      # 3. Delete from buffer, something with global idx y, where y belongs to range [0, n - 1]
+      #   indices = torch.arange(y, self.n - 1, device="cuda") # returns list of indexes
+      #   target_idx = idices % buff_size 
+      #   source_idx = (indices + 1) % buff_size
+      #   buff[target_idx] = buff[source_idx] # -> to place with idx target_idx shift item with ind source_idx 
+      #   n -= 1 # lower index, (on place n-1 there is a garbage) 
+
 
 class Graph(nn.Module):
-  def __init__(self, window_size, fmap_dim, fmap_h, fmap_w, patch_size):
+  def __init__(self, cfg):
+    # window_size = actial window size + 1, to store new frame in buffor, before old frame will be delete
     super().__init__()
-    # graph nodes:
+      self.cfg = cfg
+      # --- import configuration ---
+      self.buff_size = self.cfg.BUFF_SIZE
     
-    # frames graph buffors
-    self.register_buffer('fg_poses', torch.zeros(window_size, 7)) # keeps estimated vehicle position in 6 DoF (x, y, z, q1, q2, q3, q4)
-    self.register_buffer('fg_imap', torch.zeros(window_size, fmap_dim, fmap_h, fmap_w)) # keeps contex maps of frames in time window
+      self.patches_per_frame = self.cfg.PATCHES_PER_FRAME
+      self.patch_size = self.cfg.PATCH_SIZE 
+      
+    
+      self.fmap_c = self.cfg.F_MAP_C
+      self.fmap_h = self.cfg.F_MAP_H
+      self.fmap_w = self.cfg.F_MAP_W
+    
+      # --- poses buffers ---
+      # self.register_buffer('time', torch.zeros(self.buff_size, dtype=torch.float)) # time stamp
+      # self.register_buffer('poses', torch.zeros(self.buff_size, 7, dtype=torch.float)) # poses 
 
-    # patches graph buffors
-    self.register_buffer('pg_xy', torch.zeros(0, 2))
-    self.register_buffer('pg_frameidx', torch.zeros(0))
-    self.register_buffer('pg_features', torch.zeros(0, fmap_dim*patch_size*patch_size))
+    
+      # --- frame buffers ---
 
-    # graph edges:
+      self.frame_n = 0 # frame counter for ring buffer 
+    
+      self.register_buffer('fmap', torch.zeros((self.buff_size, self.fmap_h, self.fmap_w, self.fmap_c), dtype = torch.float)) # frames: features map 
+      self.register_buffer('imap', torch.zeros((self.buff_size, self.fmap_h, self.fmap_w, self.fmap_c), dtype = torch.float)) # frames: context map 
 
-    self.register_buffer('edge_i', torch.zeros(0, dtype=torch.int32)) # keeps idx of patch
-    self.register_buffer('edge_j', torch.zeros(0, dtype=torch.int32)) # keeps idx of frame where patch is track
-    self.register_buffer('edge_xy', torch.zeros(0, dtype=torch.float)) # keeps local, 2d coordinates of patch i in frame j 
+    
+
+      # --- patches buffers ---
+      self.register_buffer('patches', torch.zeros((self.buff_size, self.patches_per_frame, self.patch_size, self.patch_size, self.fmap_c), dtype = torch.float)) # patches 
+
+      # --- points 3D buffers ---
+      self.register_buffer('points', torch.zeors((self.buff_size * self.patches_per_frame, 3), dtype = torch.float)) # points 3D (x, y, z) refered to patches
+    
+      window_size, fmap_dim, fmap_h, fmap_w, patch_size, patches_per_frame
+
+    # self.register_buffer('edge_i', torch.zeros(0, dtype=torch.int32)) # keeps idx of patch
+    # self.register_buffer('edge_j', torch.zeros(0, dtype=torch.int32)) # keeps idx of frame where patch is track
+    # self.register_buffer('edge_xy', torch.zeros(0, dtype=torch.float)) # keeps local, 2d coordinates of patch i in frame j 
 
 
-    def add_frame(self):
-      '''
-      add new frame to frame graph (context map), assign id, (what about initial 6 dof pose???)
-      delete oldest frame from graph, if buffer is full
-      '''
-      pass
+    def add_frame(self, imap, fmap): # zmienić: tutaj używac forward() seici do ekstrakcji oatchy -> zrobimy matriszkę, czyli nie przekawać jako argumenty, przekazać jedynie nową ramke
+      
+      # local index for ring buffer 
+      local_idx = self.frame_n % self.buff_size
+      # add context map to buffer 
+      self.imap[local_idx, :, :, :] = imap.squeeze() # !!!!! sprawdzic czy squeeze ale prawdopodbnie trzeba pozbyc sie rozmiaru batcha
+      # add features map to buffer 
+      self.fmap[local_idx, :, :, :] = fmap.squeeze() # !!!!! sprawdzic czy squeeze ale prawdopodbnie trzeba pozbyc sie rozmiaru batcha
+      # increment global frame index
+      self.frame_n += 1
+      
+ 
+      # # approximate movement - constant speed model
+      # self.fg_poses[-1,:] = self._approx_movement()
+
+      # # assign idx to new frame
+      # self.frame_idx += 1
+      # self.fg_idx[-1] = self.frame_idx
+      return 
+      
 
     def add_patch(self):
       '''
@@ -77,6 +126,11 @@ class Graph(nn.Module):
       '''
       pass
 
+    def _approx_movement(self):
+      # aprroximate new pose based on two previous poses 
+      pass
+
+    
     def forward(self, frame):
       '''
       execute all of above
