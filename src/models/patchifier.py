@@ -138,7 +138,7 @@ class Patchifier(nn.Module):
             align_corners=False
         )
         
-        patches = patches.view(b*n, c, self.patches_per_frame, self.patch_size, self.patch_size)
+        patches = patches.view(b*n, self.patches_per_frame, c, self.patch_size, self.patch_size)
         # return patches.permute(0, 2, 3, 4, 1)
         return patches
 
@@ -197,14 +197,19 @@ class Patchifier(nn.Module):
 
         if mode == 'harris':
             # get strongest structures from frame
-            g = self._harris_response(frame, ksize=7, padding=3)
-            # get coords
-            coords = self._get_best_coords(g)
-
-        if self.debug_mode:
-            self._patchifier_draw_keypoints(frame, coords)
+            g = self._harris_response(frame, ksize=7, padding=3) # g.shape = [b*n, c, h, w]
             
-        return coords 
+            # get coords
+            coords = self._get_best_coords(g) # coords.shape = [b*n, self.patches_per_frame, 2], coords are in orginal frame coords system
+            patches = self._get_patches(self, coords, map) #patches.shape = [b*n, self.patches_per_frame, c, self.patch_size, self.patch_size]
+
+            # debug functionalities
+            if self.debug_mode:
+                # draw grid on orginal frame, mark key points, accesible via self.debug_dict['key_points'], as numpy RGB img
+                self._patchifier_draw_keypoints(frame, coords) 
+
+        
+        return coords, patches 
         
 
         
