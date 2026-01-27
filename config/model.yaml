@@ -35,7 +35,7 @@ F_MAP_FIRST_DIM: 32 # or 64; first dimension upsize in encoder's residual block
 
 # === Graph configuration === #
 
-BUFF_SIZE: 10 # Ring buffer size, amount of last frames that are kept
+BUFF_SIZE: 36 # Ring buffer size, amount of last frames that are kept
 
 PATCHES_PER_FRAME: 40 # Amount of patches extracted from single frame 
 
