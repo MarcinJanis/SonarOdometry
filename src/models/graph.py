@@ -1,3 +1,9 @@
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+from .patchifier import Patchifier
+
 # Graf w DPVO =
 # Element	Typ	Tensor
 # Frame	węzeł	poses[frame_id]
@@ -52,6 +58,14 @@ class Graph(nn.Module):
     
       self.fmap_h = self.cfg.F_MAP_H # <- change!
       self.fmap_w = self.cfg.F_MAP_W # <- change!
+
+      self.grid_size = (self.cfg.GRID_SIZE.y, self.cfg.GRID_SIZE.x)
+
+      # --- Patchifier ---
+      self.patchifier = Patchifier(patches_per_frame = self.patches_per_frame, 
+                                   patch_size = self.patch_size, 
+                                   grid_size = self.grid_size, 
+                                   debug_mode = False)
     
       # --- poses buffers ---
       # self.register_buffer('time', torch.zeros(self.buff_size, dtype=torch.float)) # time stamp
@@ -64,8 +78,6 @@ class Graph(nn.Module):
     
       self.register_buffer('fmap', torch.zeros((self.buff_size, self.fmap_h, self.fmap_w, self.fmap_c), dtype = torch.float)) # frames: features map 
       self.register_buffer('imap', torch.zeros((self.buff_size, self.fmap_h, self.fmap_w, self.fmap_c), dtype = torch.float)) # frames: context map 
-
-    
 
       # --- patches buffers ---
       self.register_buffer('patches', torch.zeros((self.buff_size, self.patches_per_frame, self.patch_size, self.patch_size, self.fmap_c), dtype = torch.float)) # patches 
@@ -101,10 +113,11 @@ class Graph(nn.Module):
       return 
       
 
-    def add_patch(self):
+    def add_patches(self):
       '''
       use patchifier, extract fmap, coords and inverse depth (probably elevation angle coord in my case)
       add to buffers
+      
       '''
       pass
 
