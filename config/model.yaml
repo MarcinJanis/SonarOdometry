@@ -45,10 +45,11 @@ PATCH_GRID_SIZE: # Size of grid that divides sonar img in equals part to extract
 
 PATCH_SIZE: # Patch size, extracted from features map 
   x: 3
-
+  y: 3
+  
 # PATCHIFIER_METHOD: 'harris' # Extract patches center from points with stringest Harris Response -> Key Points
 PATCHIFIER_METHOD: 'harris_debug' # harris method with debug and visualisation functionallities
 
 
-  y: 3
+
   
