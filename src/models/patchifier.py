@@ -9,9 +9,10 @@ import numpy as np
 import cv2
 
 class Patchifier(nn.Module):
-    def __init__(self, patches_per_frame, patch_size:int=3, grid_size:tuple=(24, 24)):
+    def __init__(self, patches_per_frame, patch_size:int=3, grid_size:tuple=(24, 24), debug_mode = False):
         super().__init__()
 
+        self.debug_mode = debug_mode
         self.debug_dict = {}
 
         assert patches_per_frame <= grid_size[0]*grid_size[1], f'[Error]: Patchifier module.\n number of patches can\'t be greater than number of cells in grid.'
@@ -109,7 +110,7 @@ class Patchifier(nn.Module):
     def _get_patches(self, coords):
         pass
 
-    def _patchifier_debug(self, frame, coords):
+    def _patchifier_draw_keypoints(self, frame, coords):
             
             # create copy of new frame
             frame_np = frame.squeeze(0).squeeze(0).squeeze(0)
@@ -166,19 +167,10 @@ class Patchifier(nn.Module):
             # get coords
             coords = self._get_best_coords(g)
 
-
-        # for debug purpose:
-        elif mode == 'harris_debug':
+        if self.debug_mode:
+            self._patchifier_draw_keypoints(frame, coords)
             
-            # normalize frame
-            # frame = self._norm_frame(frame, v_max=255)
-            # get strongest structures from frame
-            g = self._harris_response(frame, ksize=7, padding=3)
-            # get coords
-            coords = self._get_best_coords(g)
-            self._patchifier_debug(frame, coords)
-            
-        return g
+        return coords 
         
 
         
