@@ -105,10 +105,42 @@ class Patchifier(nn.Module):
         # stack coords, rescale to downsized shape (compliance with output of encoder)
         coords = torch.stack([x_best, y_best], dim=-1).float() / self.downsize_factor
 
-        return coords
-    
-    def _get_patches(self, coords):
-        pass
+        return coords # shape [b*n, patches_per_frame, 2]
+
+    def _get_patches(self, coords, map):
+
+        # scale coords to features map
+        coords = coords / self.downsize_factor 
+
+        # offsets to get patches
+        r = torch.arange(-(self.patc_size//2), self.patch_size//2 + 1, device=device)
+        dy, dx = torch.meshgrid(r, r, indexing="ij")
+        coords_offsets = torch.stack([dx, dy], dim=-1).float() # shape [K, K, 2]
+
+        # add offsets dim to coords
+        coords = coords.unsqueeze(-2).unsqueeze(-2) + coords_offsets.unsqueeze(0).unsqueeze(0) # [B*N, patches_per_frame, K, K, 2]
+        
+        # normalize to (-1, 1) range
+        b, n, c, h, w = map.shape
+        
+        x_norm = (2 * coords[:, :, :, :, 0] + 1) / w - 1
+        y_norm = (2 * coords[:, :, :, :, 1] + 1) / h - 1
+
+        # sampling grid with norm coords of patches ceneter 
+        grid = torch.stack([x_norm, y_norm], dim=-1) # grid shape [b*n, patcher_per_frame, K, K 2]
+
+        # sample patches
+        patches = torch.nn.functional.grid_sample(
+            map.view(b*n, c, h, w),
+            grid.view(b*n, self.patches_per_frame*self.patch_size*self.patch_size, 1, 2), # shape: [frames_num, total_pts_num, 1, xy]
+            mode="bilinear",
+            padding_mode="zeros",
+            align_corners=False
+        )
+        
+        patches = patches.view(b*n, c, self.patches_per_frame, self.patch_size, self.patch_size)
+        # return patches.permute(0, 2, 3, 4, 1)
+        return patches
 
     def _patchifier_draw_keypoints(self, frame, coords):
             
@@ -128,10 +160,12 @@ class Patchifier(nn.Module):
             step_y = h // self.grid_size_h
             step_x = w // self.grid_size_w
 
+            # draw verticall lines
             for i in range(self.grid_size_h + 1): 
                 y = int(i * step_y)
                 cv2.line(frame_np, (0, y), (w, y), (255, 0, 0), 1)
 
+            # draw horizontal lines
             for i in range(self.grid_size_w + 1):
                 x = int(i * step_x)
                 cv2.line(frame_np, (x, 0), (x, h), (255, 0, 0), 1)
