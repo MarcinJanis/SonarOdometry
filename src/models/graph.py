@@ -48,10 +48,10 @@ class Graph(nn.Module):
       self.patches_per_frame = self.cfg.PATCHES_PER_FRAME
       self.patch_size = self.cfg.PATCH_SIZE 
       
-    
       self.fmap_c = self.cfg.F_MAP_C
-      self.fmap_h = self.cfg.F_MAP_H
-      self.fmap_w = self.cfg.F_MAP_W
+    
+      self.fmap_h = self.cfg.F_MAP_H # <- change!
+      self.fmap_w = self.cfg.F_MAP_W # <- change!
     
       # --- poses buffers ---
       # self.register_buffer('time', torch.zeros(self.buff_size, dtype=torch.float)) # time stamp
