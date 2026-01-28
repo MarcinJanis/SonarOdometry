@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from .patchifier import Patchifier
-
+from utils import hamilton_product
 # Graf w DPVO =
 # Element	Typ	Tensor
 # Frame	węzeł	poses[frame_id]
@@ -67,9 +67,9 @@ class Graph(nn.Module):
                                    grid_size = self.grid_size, 
                                    debug_mode = False)
     
-      # --- poses buffers ---
-      # self.register_buffer('time', torch.zeros(self.buff_size, dtype=torch.float)) # time stamp
-      # self.register_buffer('poses', torch.zeros(self.buff_size, 7, dtype=torch.float)) # poses 
+      # --- poses and time stamp buffers ---
+      self.register_buffer('time', torch.zeros((self.buff_size), dtype=torch.float)) # time stamp
+      self.register_buffer('poses', torch.zeros((self.buff_size, 7), dtype=torch.float)) # poses 
 
     
       # --- frame buffers ---
@@ -85,42 +85,33 @@ class Graph(nn.Module):
       # --- points 3D buffers ---
       self.register_buffer('points', torch.zeors((self.buff_size * self.patches_per_frame, 3), dtype = torch.float)) # points 3D (x, y, z) refered to patches
     
-      window_size, fmap_dim, fmap_h, fmap_w, patch_size, patches_per_frame
+      # window_size, fmap_dim, fmap_h, fmap_w, patch_size, patches_per_frame
 
     # self.register_buffer('edge_i', torch.zeros(0, dtype=torch.int32)) # keeps idx of patch
     # self.register_buffer('edge_j', torch.zeros(0, dtype=torch.int32)) # keeps idx of frame where patch is track
     # self.register_buffer('edge_xy', torch.zeros(0, dtype=torch.float)) # keeps local, 2d coordinates of patch i in frame j 
 
 
-    def add_frame(self, imap, fmap): # zmienić: tutaj używac forward() seici do ekstrakcji oatchy -> zrobimy matriszkę, czyli nie przekawać jako argumenty, przekazać jedynie nową ramke
-      
+    def add_frame(self, fmap, imap, time_stamp): 
       # local index for ring buffer 
       local_idx = self.frame_n % self.buff_size
-      # add context map to buffer 
-      self.imap[local_idx, :, :, :] = imap.squeeze() # !!!!! sprawdzic czy squeeze ale prawdopodbnie trzeba pozbyc sie rozmiaru batcha
       # add features map to buffer 
-      self.fmap[local_idx, :, :, :] = fmap.squeeze() # !!!!! sprawdzic czy squeeze ale prawdopodbnie trzeba pozbyc sie rozmiaru batcha
-      # increment global frame index
-      self.frame_n += 1
-      
- 
-      # # approximate movement - constant speed model
-      # self.fg_poses[-1,:] = self._approx_movement()
-
-      # # assign idx to new frame
-      # self.frame_idx += 1
-      # self.fg_idx[-1] = self.frame_idx
+      self.fmap[local_idx, :, :, :] = fmap.squeeze(0) # !!!!! sprawdzic czy squeeze ale prawdopodbnie trzeba pozbyc sie rozmiaru batcha
+      # add context map to buffer 
+      self.imap[local_idx, :, :, :] = imap.squeeze(0) # !!!!! sprawdzic czy squeeze ale prawdopodbnie trzeba pozbyc sie rozmiaru batcha
+      # add time stamp 
+      self.time[local_idx] = time_stamp 
       return 
       
 
-    def add_patches(self):
-      '''
-      use patchifier, extract fmap, coords and inverse depth (probably elevation angle coord in my case)
-      add to buffers
+    def add_patches(self, patches):
+      # local index for ring buffer
+      local_idx_min = self.frame_n % self.buff_size * self.patches_per_frame # powinno być tożsame z : self.frame_n*self.patches_per_frame % self.buff_size*self.patches_per_frame
+      local_idx_max =  (self.frame_n + 1) % self.buff_size * self.patches_per_frame
+      # add patches to graph 
+      self.patches[local_idx_min:local_idx_max,:,:,:]
+      return 
       
-      '''
-      pass
-
     def create_edges(self, nframes):
       '''
       create edges: connect new patches with nlast frames:
@@ -140,11 +131,62 @@ class Graph(nn.Module):
       pass
 
     def _approx_movement(self):
-      # aprroximate new pose based on two previous poses 
-      pass
+      # next pose approximation: constant speed model 
+      # local indeks for ringing buffer 
+      k_idx = self.frame_n % self.buff_size
+
+      t0 = self.time[k_idx] # actal time stamp 
+      
+      # get two last poses
+      x1, q1, t1 = self.poses[k_idx-1, :3], self.poses[k_idx-1, 3:], self.time[k_idx-1] # pose, quaterions from time k-1
+      x2, q2, t2 = self.poses[k_idx-2, :3], self.poses[k_idx-2, 3:], self.time[k_idx-2] # pose, quaterions from time k-2
+
+      # calc linear speed 
+      dxdt=(x1-x2)/(t1-t2)
+      
+      # calc angular speed - dq = q1 * conjugate(q2)
+      q2_conj = q2 * torch.tensor([-1, -1, -1, 1])
+      dqdt = hamilton_product(q1, q2_conj) / (t1-t2)
+
+      # approximate new linear shift 
+      x_new = dxdt * (t0 - t1) + x1
+
+      # approximate new roatation (Spherical Linear Interpolation SLER)
+      # q_new = hamilton_product(dqdt * (t0 - t1), q1)
+
+      new_pose = torch.stack()(x_new, q_new), dim=0)
+      # add to buffer 
+      self.poses[k_idx, :] = new_pose
+      
+      return new_pose
 
     
-    def forward(self, frame):
+    def forward(self, fmap, imap, patches, coords, time_stamp):
+    
+      # !!! Patchifier on next level, here only add to graph and eventually run GRU
+      # # exctract data from new frame
+      # coords, patches, fmap, imap = self.patchifier(frame)
+      # # coords.shape = [b, n, self.patches_per_frame, 2]
+      # # patches.shape = [b, n, self.patches_per_frame, c, self.patch_size, self.patch_size]
+      # # fmap.shape = [b, n, c, h, w]
+      # # imap.shape = [b, n, c, h, w]
+      
+      # add frame to graph
+      self.add_frame(fmap, imap, time_stamp)
+
+      # add patches to graph
+      self.add_patches(patches)
+
+      # approximation of new initial pose 
+       self._approx_movement()
+
+      # increment global frame idx 
+      self.frame_n += 1
+      
+      # create graph edges
+      
+
+      
       '''
       execute all of above
       '''
