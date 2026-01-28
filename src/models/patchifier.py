@@ -190,7 +190,7 @@ class Patchifier(nn.Module):
         # w
 
         fmap = self.feature_extractor(frame)
-        cmap = self.context_extractor(frame)
+        imap = self.context_extractor(frame)
 
         b, n, c, h, w = fmap.shape
         bn = b*n
@@ -201,7 +201,7 @@ class Patchifier(nn.Module):
             
             # get coords
             coords = self._get_best_coords(g) # coords.shape = [b*n, self.patches_per_frame, 2], coords are in orginal frame coords system
-            patches = self._get_patches(self, coords, map) #patches.shape = [b*n, self.patches_per_frame, c, self.patch_size, self.patch_size]
+            patches = self._get_patches(coords, fmap) #patches.shape = [b*n, self.patches_per_frame, c, self.patch_size, self.patch_size]
 
             # debug functionalities
             if self.debug_mode:
@@ -209,7 +209,7 @@ class Patchifier(nn.Module):
                 self._patchifier_draw_keypoints(frame, coords) 
 
         
-        return coords, patches 
+        return coords, patches, fmap, imap
         
 
         
