@@ -104,8 +104,8 @@ class Patchifier(nn.Module):
         
         # stack coords, rescale to downsized shape (compliance with output of encoder)
         coords = torch.stack([x_best, y_best], dim=-1).float() / self.downsize_factor
-
-        return coords # shape [b*n, patches_per_frame, 2]
+        coords.view(b, n, self.patches_per_frame, 2)
+        return coords
 
     def _get_patches(self, coords, map):
 
@@ -138,7 +138,7 @@ class Patchifier(nn.Module):
             align_corners=False
         )
         
-        patches = patches.view(b*n, self.patches_per_frame, c, self.patch_size, self.patch_size)
+        patches = patches.view(b, n, self.patches_per_frame, c, self.patch_size, self.patch_size)
         # return patches.permute(0, 2, 3, 4, 1)
         return patches
 
