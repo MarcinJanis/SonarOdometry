@@ -96,4 +96,21 @@ def transform_points(x, T):
     '''
     x_t = T @ x.T
     return x_t.T
+
+def hamilton_product(q1, q2):
+    '''
+    Calculate Hamiltion product for two quaterion tensors.
+    q = [x, y, z, w] -> w + i*x + j*y + k*z
+    '''
+    x1, y1, z1, w1 = q1.unbind(dim=-1)
+    x2, y2, z2, w2 = q2.unbind(dim=-1)
+
+    # vector (x, y, z)
+    x =  w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2
+    y =  w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2
+    z =  w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2
     
+    # scalar (w)
+    w = w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2
+    
+    return torch.stack((x, y, z, w), dim=-1)
