@@ -92,9 +92,9 @@ class Graph(nn.Module):
     
       # window_size, fmap_dim, fmap_h, fmap_w, patch_size, patches_per_frame
 
-    # self.register_buffer('edge_i', torch.zeros(0, dtype=torch.int32)) # keeps idx of patch
-    # self.register_buffer('edge_j', torch.zeros(0, dtype=torch.int32)) # keeps idx of frame where patch is track
-    # self.register_buffer('edge_xy', torch.zeros(0, dtype=torch.float)) # keeps local, 2d coordinates of patch i in frame j 
+      self.register_buffer('edge_i', torch.zeros(0, dtype=torch.int32)) # keeps idx of patch
+      self.register_buffer('edge_j', torch.zeros(0, dtype=torch.int32)) # keeps idx of frame where patch is track
+      # self.register_buffer('edge_xy', torch.zeros(0, dtype=torch.float)) # keeps local, 2d coordinates of patch i in frame j 
 
 
     def add_frame(self, fmap, imap, time_stamp): 
@@ -117,7 +117,14 @@ class Graph(nn.Module):
       self.patches[local_idx_min:local_idx_max,:,:,:]
       return 
       
-    def create_edges(self, nframes):
+    def create_edges(self):
+
+      # new patches -> new frame
+      
+      
+      # new patches -> old frame
+
+      # old patches -> new frame
       '''
       create edges: connect new patches with nlast frames:
         1) Add edge new patch with new frame (easy)
