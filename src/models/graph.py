@@ -4,6 +4,9 @@ import torch.nn.functional as F
 
 from .patchifier import Patchifier
 from utils import hamilton_product
+
+from .lietorch import SE3
+
 # Graf w DPVO =
 # Element	Typ	Tensor
 # Frame	węzeł	poses[frame_id]
@@ -59,6 +62,8 @@ class Graph(nn.Module):
       self.fmap_h = self.cfg.F_MAP_H # <- change!
       self.fmap_w = self.cfg.F_MAP_W # <- change!
 
+      self.motion_model = self.cfg.MOTION_MODEL
+      self.motion_damping = self.cfg.MOTION_DAMPING
       self.grid_size = (self.cfg.GRID_SIZE.y, self.cfg.GRID_SIZE.x)
 
       # --- Patchifier ---
@@ -131,38 +136,6 @@ class Graph(nn.Module):
       pass
 
     def _approx_movement(self):
-      # next pose approximation: constant speed model 
-      # local indeks for ringing buffer 
-      k_idx = self.frame_n % self.buff_size
-
-      t0 = self.time[k_idx] # actal time stamp 
-      
-      # get two last poses
-      x1, q1, t1 = self.poses[k_idx-1, :3], self.poses[k_idx-1, 3:], self.time[k_idx-1] # pose, quaterions from time k-1
-      x2, q2, t2 = self.poses[k_idx-2, :3], self.poses[k_idx-2, 3:], self.time[k_idx-2] # pose, quaterions from time k-2
-
-      # time intervals
-      dt_apost = t1 - t2
-      dt_aprio = t0 - t1
-      
-      # new linear position 
-      x_new = x1 + (x1 - x2) * dt_aprio / dt_apost
-
-      # new angular position - quaterions 
-      q2_conj = q2 * torch.tensor([-1, -1, -1, 1])
-      dq = hamilton_product(q1, q2_conj)
-      q_new = hamilton_product(dq, q1)
-      _q, _w = q_new[:-1], q_new[-1]
-      
-      # connect components of new pose 
-      new_pose = torch.stack()(x_new, _q*dt_aprio/dt_apost, _w), dim=0)
-      
-      # add to buffer 
-      self.poses[k_idx, :] = new_pose
-      
-      return new_pose
-
-    def _approx_movement(self):
         k_idx = self.frame_n % self.buff_size
         k1_idx = (k_idx - 1) % self.buff_size  
         k2_idx = (k_idx - 2) % self.buff_size
@@ -172,40 +145,22 @@ class Graph(nn.Module):
         t1 = self.time[k1_idx]
         t2 = self.time[k2_idx]
         
-        dt_apost = t1 - t2
-        dt_aprio = t0 - t1
-
-        # avoiding - division
-        if dt_apost < 1e-6: dt_apost = 1.0
-
         # get previous position
-        x1 = self.poses[idx_1, :3]
-        x2 = self.poses[idx_2, :3]
+        x1 = self.poses[k1_idx, :]
+        x2 = self.poses[k2_idx, :]
         
-        # Ekstrapolacja liniowa: x_new = x1 + v * dt_new
-        x_new = x1 + (x1 - x2) * (dt_aprio / dt_apost)
+        if self.motion_model == 'DAMPED_LINEAR':
+          P1 = SE3(x1)
+          P2 = SE3(x2)
 
-        # 4. ROTACJA (Tutaj była pułapka)
-        q1 = self.poses[idx_1, 3:] # x,y,z,w
-        q2 = self.poses[idx_2, 3:]
-
-        # Obliczamy współczynnik "t" dla interpolacji/ekstrapolacji
-        # t=1.0 oznaczałoby "zostań w q1".
-        # t > 1.0 oznacza "pociągnij ruch dalej w przyszłość"
-        ratio = dt_aprio / dt_apost
-        slerp_t = 1.0 + ratio
-
-        # Używamy slerpa do ekstrapolacji (dużo bezpieczniejsze niż mnożenie ręczne)
-        # Zakładam, że masz funkcję slerp z poprzedniej odpowiedzi
-        q_new = slerp(q2, q1, slerp_t)
-
-        # 5. SKŁADANIE WYNIKU
-        # Używamy torch.cat (łączenie), a nie stack (tworzenie nowej osi)
-        new_pose = torch.cat((x_new, q_new), dim=0)
-
-        # Zapis do bufora
+          # To deal with varying camera hz
+          fac = (t0-t1) / (t1-t2)
+          xi = self.motion_damping * fac * (P1 * P2.inv()).log()
+          new_pose = (SE3.exp(xi) * P1).data
+        else:
+          new_pose = x1
+          
         self.poses[k_idx, :] = new_pose
-        
         return new_pose
     
     def forward(self, fmap, imap, patches, coords, time_stamp):
@@ -225,7 +180,7 @@ class Graph(nn.Module):
       self.add_patches(patches)
 
       # approximation of new initial pose 
-       self._approx_movement()
+      _ = self._approx_movement()
 
       # increment global frame idx 
       self.frame_n += 1
