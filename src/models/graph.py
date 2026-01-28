@@ -141,25 +141,72 @@ class Graph(nn.Module):
       x1, q1, t1 = self.poses[k_idx-1, :3], self.poses[k_idx-1, 3:], self.time[k_idx-1] # pose, quaterions from time k-1
       x2, q2, t2 = self.poses[k_idx-2, :3], self.poses[k_idx-2, 3:], self.time[k_idx-2] # pose, quaterions from time k-2
 
-      # calc linear speed 
-      dxdt=(x1-x2)/(t1-t2)
+      # time intervals
+      dt_apost = t1 - t2
+      dt_aprio = t0 - t1
       
-      # calc angular speed - dq = q1 * conjugate(q2)
+      # new linear position 
+      x_new = x1 + (x1 - x2) * dt_aprio / dt_apost
+
+      # new angular position - quaterions 
       q2_conj = q2 * torch.tensor([-1, -1, -1, 1])
-      dqdt = hamilton_product(q1, q2_conj) / (t1-t2)
-
-      # approximate new linear shift 
-      x_new = dxdt * (t0 - t1) + x1
-
-      # approximate new roatation (Spherical Linear Interpolation SLER)
-      # q_new = hamilton_product(dqdt * (t0 - t1), q1)
-
-      new_pose = torch.stack()(x_new, q_new), dim=0)
+      dq = hamilton_product(q1, q2_conj)
+      q_new = hamilton_product(dq, q1)
+      _q, _w = q_new[:-1], q_new[-1]
+      
+      # connect components of new pose 
+      new_pose = torch.stack()(x_new, _q*dt_aprio/dt_apost, _w), dim=0)
+      
       # add to buffer 
       self.poses[k_idx, :] = new_pose
       
       return new_pose
 
+    def _approx_movement(self):
+        k_idx = self.frame_n % self.buff_size
+        k1_idx = (k_idx - 1) % self.buff_size  
+        k2_idx = (k_idx - 2) % self.buff_size
+
+        # get time stams
+        t0 = self.time[k_idx]
+        t1 = self.time[k1_idx]
+        t2 = self.time[k2_idx]
+        
+        dt_apost = t1 - t2
+        dt_aprio = t0 - t1
+
+        # avoiding - division
+        if dt_apost < 1e-6: dt_apost = 1.0
+
+        # get previous position
+        x1 = self.poses[idx_1, :3]
+        x2 = self.poses[idx_2, :3]
+        
+        # Ekstrapolacja liniowa: x_new = x1 + v * dt_new
+        x_new = x1 + (x1 - x2) * (dt_aprio / dt_apost)
+
+        # 4. ROTACJA (Tutaj była pułapka)
+        q1 = self.poses[idx_1, 3:] # x,y,z,w
+        q2 = self.poses[idx_2, 3:]
+
+        # Obliczamy współczynnik "t" dla interpolacji/ekstrapolacji
+        # t=1.0 oznaczałoby "zostań w q1".
+        # t > 1.0 oznacza "pociągnij ruch dalej w przyszłość"
+        ratio = dt_aprio / dt_apost
+        slerp_t = 1.0 + ratio
+
+        # Używamy slerpa do ekstrapolacji (dużo bezpieczniejsze niż mnożenie ręczne)
+        # Zakładam, że masz funkcję slerp z poprzedniej odpowiedzi
+        q_new = slerp(q2, q1, slerp_t)
+
+        # 5. SKŁADANIE WYNIKU
+        # Używamy torch.cat (łączenie), a nie stack (tworzenie nowej osi)
+        new_pose = torch.cat((x_new, q_new), dim=0)
+
+        # Zapis do bufora
+        self.poses[k_idx, :] = new_pose
+        
+        return new_pose
     
     def forward(self, fmap, imap, patches, coords, time_stamp):
     
