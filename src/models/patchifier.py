@@ -21,8 +21,8 @@ class Patchifier(nn.Module):
 
         self.grid_size_h, self.grid_size_w = grid_size
 
-        self.feature_extractor = Encoder(in_ch = 1, out_ch = 128, dim = 32, dropout=0.5)
-        self.context_extractor = Encoder(in_ch = 1, out_ch = 128, dim = 32, dropout=0.5)
+        self.feature_extractor = Encoder(in_ch = 1, out_ch = 128, dim = 32, dropout=0.5, norm_fn='instance')
+        self.context_extractor = Encoder(in_ch = 1, out_ch = 128, dim = 32, dropout=0.5, norm_fn=None)
         self.downsize_factor = 4
 
     def _norm_frame(self, frame, v_max = 255):
@@ -104,10 +104,25 @@ class Patchifier(nn.Module):
         # stack coords, rescale to downsized shape (compliance with output of encoder)
         coords = torch.stack([x_best, y_best], dim=-1).float() / self.downsize_factor
 
-        return coords
+        return coords # shape (bn, patches_per_frame, 2)
     
-    def _get_patches(self, coords):
-        pass
+    def _extract_patches(self, coords, map, patch_size, stride = 1):
+
+        device = map.device
+
+        bn, c, h, w = map.shape
+
+        # (b, n, c2, h2, w2) -> (b, n, c_2, num_patches_h, num_patches_w, patch_size, patch_size)``
+        map = map.unfold(-1, patch_size, stride).unfold(-2, patch_size, stride)
+
+        # b, n, c_2, num_patches_h, num_patches_w, _, _ = map.shape
+        iy = ((coords[..., 1] - (patch_size // 2)) // stride).long().clamp(0, h - 1)
+        ix = ((coords[..., 0] - (patch_size // 2)) // stride).long().clamp(0, w - 1)
+    
+        batch_idx = torch.arange(bn, device)
+
+        patches = map[batch_idx,:,:,ix,iy,:]
+        return patches # (bn, c_2, num_patches_h, num_patches_w, patch_size, patch_size)``
 
     def _patchifier_debug(self, frame, coords):
             
@@ -163,8 +178,11 @@ class Patchifier(nn.Module):
         if mode == 'harris':
             # get strongest structures from frame
             g = self._harris_response(frame, ksize=7, padding=3)
-            # get coords
             coords = self._get_best_coords(g)
+
+
+
+
 
 
         # for debug purpose:
