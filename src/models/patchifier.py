@@ -9,9 +9,10 @@ import numpy as np
 import cv2
 
 class Patchifier(nn.Module):
-    def __init__(self, patches_per_frame, patch_size:int=3, grid_size:tuple=(24, 24)):
+    def __init__(self, patches_per_frame, patch_size:int=3, grid_size:tuple=(24, 24), debug_mode = False):
         super().__init__()
 
+        self.debug_mode = debug_mode
         self.debug_dict = {}
 
         assert patches_per_frame <= grid_size[0]*grid_size[1], f'[Error]: Patchifier module.\n number of patches can\'t be greater than number of cells in grid.'
@@ -103,28 +104,45 @@ class Patchifier(nn.Module):
         
         # stack coords, rescale to downsized shape (compliance with output of encoder)
         coords = torch.stack([x_best, y_best], dim=-1).float() / self.downsize_factor
+        coords.view(b, n, self.patches_per_frame, 2)
+        return coords
 
-        return coords # shape (bn, patches_per_frame, 2)
-    
-    def _extract_patches(self, coords, map, patch_size, stride = 1):
+    def _get_patches(self, coords, map):
 
-        device = map.device
+        # scale coords to features map
+        coords = coords / self.downsize_factor 
 
-        bn, c, h, w = map.shape
+        # offsets to get patches
+        r = torch.arange(-(self.patc_size//2), self.patch_size//2 + 1, device=device)
+        dy, dx = torch.meshgrid(r, r, indexing="ij")
+        coords_offsets = torch.stack([dx, dy], dim=-1).float() # shape [K, K, 2]
 
-        # (b, n, c2, h2, w2) -> (b, n, c_2, num_patches_h, num_patches_w, patch_size, patch_size)``
-        map = map.unfold(-1, patch_size, stride).unfold(-2, patch_size, stride)
+        # add offsets dim to coords
+        coords = coords.unsqueeze(-2).unsqueeze(-2) + coords_offsets.unsqueeze(0).unsqueeze(0) # [B*N, patches_per_frame, K, K, 2]
+        
+        # normalize to (-1, 1) range
+        b, n, c, h, w = map.shape
+        
+        x_norm = (2 * coords[:, :, :, :, 0] + 1) / w - 1
+        y_norm = (2 * coords[:, :, :, :, 1] + 1) / h - 1
 
-        # b, n, c_2, num_patches_h, num_patches_w, _, _ = map.shape
-        iy = ((coords[..., 1] - (patch_size // 2)) // stride).long().clamp(0, h - 1)
-        ix = ((coords[..., 0] - (patch_size // 2)) // stride).long().clamp(0, w - 1)
-    
-        batch_idx = torch.arange(bn, device)
+        # sampling grid with norm coords of patches ceneter 
+        grid = torch.stack([x_norm, y_norm], dim=-1) # grid shape [b*n, patcher_per_frame, K, K 2]
 
-        patches = map[batch_idx,:,:,ix,iy,:]
-        return patches # (bn, c_2, num_patches_h, num_patches_w, patch_size, patch_size)``
+        # sample patches
+        patches = torch.nn.functional.grid_sample(
+            map.view(b*n, c, h, w),
+            grid.view(b*n, self.patches_per_frame*self.patch_size*self.patch_size, 1, 2), # shape: [frames_num, total_pts_num, 1, xy]
+            mode="bilinear",
+            padding_mode="zeros",
+            align_corners=False
+        )
+        
+        patches = patches.view(b, n, self.patches_per_frame, c, self.patch_size, self.patch_size)
+        # return patches.permute(0, 2, 3, 4, 1)
+        return patches
 
-    def _patchifier_debug(self, frame, coords):
+    def _patchifier_draw_keypoints(self, frame, coords):
             
             # create copy of new frame
             frame_np = frame.squeeze(0).squeeze(0).squeeze(0)
@@ -142,10 +160,12 @@ class Patchifier(nn.Module):
             step_y = h // self.grid_size_h
             step_x = w // self.grid_size_w
 
+            # draw verticall lines
             for i in range(self.grid_size_h + 1): 
                 y = int(i * step_y)
                 cv2.line(frame_np, (0, y), (w, y), (255, 0, 0), 1)
 
+            # draw horizontal lines
             for i in range(self.grid_size_w + 1):
                 x = int(i * step_x)
                 cv2.line(frame_np, (x, 0), (x, h), (255, 0, 0), 1)
@@ -170,33 +190,26 @@ class Patchifier(nn.Module):
         # w
 
         fmap = self.feature_extractor(frame)
-        cmap = self.context_extractor(frame)
+        imap = self.context_extractor(frame)
 
         b, n, c, h, w = fmap.shape
         bn = b*n
 
         if mode == 'harris':
             # get strongest structures from frame
-            g = self._harris_response(frame, ksize=7, padding=3)
-            coords = self._get_best_coords(g)
-
-
-
-
-
-
-        # for debug purpose:
-        elif mode == 'harris_debug':
+            g = self._harris_response(frame, ksize=7, padding=3) # g.shape = [b*n, c, h, w]
             
-            # normalize frame
-            # frame = self._norm_frame(frame, v_max=255)
-            # get strongest structures from frame
-            g = self._harris_response(frame, ksize=7, padding=3)
             # get coords
-            coords = self._get_best_coords(g)
-            self._patchifier_debug(frame, coords)
-            
-        return g
+            coords = self._get_best_coords(g) # coords.shape = [b*n, self.patches_per_frame, 2], coords are in orginal frame coords system
+            patches = self._get_patches(coords, fmap) #patches.shape = [b*n, self.patches_per_frame, c, self.patch_size, self.patch_size]
+
+            # debug functionalities
+            if self.debug_mode:
+                # draw grid on orginal frame, mark key points, accesible via self.debug_dict['key_points'], as numpy RGB img
+                self._patchifier_draw_keypoints(frame, coords) 
+
+        
+        return coords, patches, fmap, imap
         
 
         

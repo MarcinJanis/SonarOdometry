@@ -49,6 +49,8 @@ def affine_matrix(state, invert = False):
     """
     Generates a 4x4 homogeneous transformation matrix.
     state: (x, y, z, roll, pitch, yaw) in radians.
+
+    if invert == True, returns also inverse affine matrix
     """
     x, y, z, roll, pitch, yaw = state
 
@@ -69,7 +71,7 @@ def affine_matrix(state, invert = False):
         R = T[:3, :3]
         t = T[:3, 3]
 
-        # Invert rotation (transpose)
+        # Invert rotation 
         R_inv = R.T
         
         # Invert translation: -R^T * t
@@ -79,7 +81,36 @@ def affine_matrix(state, invert = False):
         T_inv = np.eye(4)
         T_inv[:3, :3] = R_inv
         T_inv[:3, 3] = t_inv
-        T = T_inv
+        return T, T_inv
+    else:
+        return T
 
-    return T
 
+def transform_points(x, T):
+    '''
+    Transform points with rotation and shift defined in affine matrix T
+    :x: torch tensor of points, shape (n, 4):  [x1, y1, z1, 1;
+                                                x2, y2, z2, 1; 
+                                                xn, yn, zn, 1]
+    :T: affine matrix, shape (4,4)
+    '''
+    x_t = T @ x.T
+    return x_t.T
+
+def hamilton_product(q1, q2):
+    '''
+    Calculate Hamiltion product for two quaterion tensors.
+    q = [x, y, z, w] -> w + i*x + j*y + k*z
+    '''
+    x1, y1, z1, w1 = q1.unbind(dim=-1)
+    x2, y2, z2, w2 = q2.unbind(dim=-1)
+
+    # vector (x, y, z)
+    x =  w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2
+    y =  w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2
+    z =  w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2
+    
+    # scalar (w)
+    w = w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2
+    
+    return torch.stack((x, y, z, w), dim=-1)
