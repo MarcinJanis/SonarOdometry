@@ -1,4 +1,6 @@
 import numpy as np
+import torch 
+
 from enum import IntEnum
 
 
@@ -96,6 +98,13 @@ def transform_points(x, T):
     '''
     x_t = T @ x.T
     return x_t.T
+
+
+
+def q_conjugate(q):
+    # quaterion conjugate
+    return q * torch.tensor([-1, -1, -1, 1])
+
 
 def hamilton_product(q1, q2):
     '''

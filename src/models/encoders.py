@@ -17,8 +17,8 @@ class ResidualBlock(nn.Module):
             self.norm1 = nn.BatchNorm2d(out_ch)
             self.norm2 = nn.BatchNorm2d(out_ch)
         elif norm_fn == 'group':
-            self.norm1 = nn.GroupNorm(num_channels=8, num_channels=out_ch)
-            self.norm2 = nn.GroupNorm(num_channels=8, num_channels=out_ch)
+            self.norm1 = nn.GroupNorm(num_groups=8, num_channels=out_ch)
+            self.norm2 = nn.GroupNorm(num_groups=8, num_channels=out_ch)
         else:
             self.norm1 = nn.Sequential()
             self.norm2 = nn.Sequential()
@@ -54,11 +54,11 @@ class Encoder(nn.Module):
         self.conv2 = nn.Conv2d(dim*2, out_ch, kernel_size=3, stride=1, padding=1)
 
         if norm_fn == 'instance':
-            self.norm1 = nn.InstanceNorm2d(out_ch) 
+            self.norm1 = nn.InstanceNorm2d(dim) 
         elif norm_fn == 'batch':
-            self.norm1 = nn.BatchNorm2d(out_ch)
+            self.norm1 = nn.BatchNorm2d(dim)
         elif norm_fn == 'group':
-            self.norm1 = nn.GroupNorm(num_channels=8, num_channels=out_ch)
+            self.norm1 = nn.GroupNorm(num_groups=8, num_channels=dim)
         else:
             self.norm1 = nn.Sequential()
 
@@ -72,6 +72,7 @@ class Encoder(nn.Module):
 
     def forward(self, x):
         b, n, c1, h1, w1 = x.shape
+
         x = x.view(b*n, c1, h1, w1)
 
         x = self.conv1(x)
@@ -81,6 +82,6 @@ class Encoder(nn.Module):
         x = self.dropout(x)
         x = F.relu(self.conv2(x))
 
-        _, c2, h2, w2 = x.shape
+        # _, c2, h2, w2 = x.shape
 
-        return x.view(b, n, c2, h2, w2)
+        return x #x.view(b, n, c2, h2, w2)

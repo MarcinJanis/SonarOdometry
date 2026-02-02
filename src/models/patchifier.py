@@ -9,30 +9,39 @@ import numpy as np
 import cv2
 
 class Patchifier(nn.Module):
-    def __init__(self, patches_per_frame, patch_size:int=3, grid_size:tuple=(24, 24), debug_mode = False):
+    # def __init__(self, patches_per_frame, patch_size:int=3, grid_size:tuple=(24, 24), debug_mode = False):
+    def __init__(self, cfg, debug_mode = False):
         super().__init__()
+        
+        self.cfg = cfg
 
         self.debug_mode = debug_mode
         self.debug_dict = {}
 
-        assert patches_per_frame <= grid_size[0]*grid_size[1], f'[Error]: Patchifier module.\n number of patches can\'t be greater than number of cells in grid.'
+        # --- Import configuration 
+        self.patches_per_frame = self.cfg.PATCHES_PER_FRAME
+        self.patch_size = self.cfg.PATCH_SIZE
 
-        self.patches_per_frame = patches_per_frame
-        self.patch_size = patch_size
+        self.grid_size_h, self.grid_size_w = self.cfg.PATCHES_GRID_SIZE.x, self.cfg.PATCHES_GRID_SIZE.y
 
-        self.grid_size_h, self.grid_size_w = grid_size
+        
+        self.feature_extractor = Encoder(in_ch = 1, 
+                                         out_ch = self.cfg.FEATURES_OUTPUT_CH,
+                                         dim = self.cfg.FEATURES_MAP_FIRST_DIM, 
+                                         dropout=0.5, 
+                                         norm_fn=self.cfg.ENCODER_NORM_METHOD)
+        
+        self.context_extractor = Encoder(in_ch = 1, 
+                                         out_ch = self.cfg.FEATURES_OUTPUT_CH,
+                                         dim = self.cfg.FEATURES_MAP_FIRST_DIM, 
+                                         dropout=0.5, 
+                                         norm_fn=None)
+        
+        self.downsize_factor = self.cfg.ENCODER_DOWNSIZE
 
-        self.feature_extractor = Encoder(in_ch = 1, out_ch = 128, dim = 32, dropout=0.5, norm_fn='instance')
-        self.context_extractor = Encoder(in_ch = 1, out_ch = 128, dim = 32, dropout=0.5, norm_fn=None)
-        self.downsize_factor = 4
+        assert self.patches_per_frame <= self.grid_size_h*self.grid_size_w , f'[Error]: Patchifier module.\n number of patches can\'t be greater than number of cells in grid.'
 
-    def _norm_frame(self, frame, v_max = 255):
-        # mean = torch.mean(frame)
-        # std = torch.std(frame)
-        # return (frame - mean)/std * v_max
-        # t_min, t_max = frame.min(), frame.max()
-        # return (frame - t_min) / (t_max - t_min + 1e-8)
-        pass
+
     def _harris_response(self, frame, ksize=7, padding=3):
 
         b, n, c, h, w = frame.shape
@@ -53,6 +62,9 @@ class Patchifier(nn.Module):
         determinant = Ixx * Iyy - Ixy**2
         
         response = determinant / (trace + 1e-8)
+
+        if self.debug_mode:
+            self.debug_dict['harris_response'] =  response.detach().cpu().squeeze(0).squeeze(0).numpy().astype(np.uint8)
 
         return response
 
@@ -104,16 +116,17 @@ class Patchifier(nn.Module):
         
         # stack coords, rescale to downsized shape (compliance with output of encoder)
         coords = torch.stack([x_best, y_best], dim=-1).float() / self.downsize_factor
-        coords.view(b, n, self.patches_per_frame, 2)
+        coords.view(bn, self.patches_per_frame, 2)
         return coords
 
     def _get_patches(self, coords, map):
 
+        device = map.device
         # scale coords to features map
         coords = coords / self.downsize_factor 
 
         # offsets to get patches
-        r = torch.arange(-(self.patc_size//2), self.patch_size//2 + 1, device=device)
+        r = torch.arange(-(self.patch_size//2), self.patch_size//2 + 1, device=device)
         dy, dx = torch.meshgrid(r, r, indexing="ij")
         coords_offsets = torch.stack([dx, dy], dim=-1).float() # shape [K, K, 2]
 
@@ -121,7 +134,7 @@ class Patchifier(nn.Module):
         coords = coords.unsqueeze(-2).unsqueeze(-2) + coords_offsets.unsqueeze(0).unsqueeze(0) # [B*N, patches_per_frame, K, K, 2]
         
         # normalize to (-1, 1) range
-        b, n, c, h, w = map.shape
+        bn, c, h, w = map.shape
         
         x_norm = (2 * coords[:, :, :, :, 0] + 1) / w - 1
         y_norm = (2 * coords[:, :, :, :, 1] + 1) / h - 1
@@ -131,14 +144,14 @@ class Patchifier(nn.Module):
 
         # sample patches
         patches = torch.nn.functional.grid_sample(
-            map.view(b*n, c, h, w),
-            grid.view(b*n, self.patches_per_frame*self.patch_size*self.patch_size, 1, 2), # shape: [frames_num, total_pts_num, 1, xy]
+            map.view(bn, c, h, w),
+            grid.view(bn, self.patches_per_frame*self.patch_size*self.patch_size, 1, 2), # shape: [frames_num, total_pts_num, 1, xy]
             mode="bilinear",
             padding_mode="zeros",
             align_corners=False
         )
         
-        patches = patches.view(b, n, self.patches_per_frame, c, self.patch_size, self.patch_size)
+        patches = patches.view(bn, self.patches_per_frame, c, self.patch_size, self.patch_size)
         # return patches.permute(0, 2, 3, 4, 1)
         return patches
 
@@ -178,6 +191,7 @@ class Patchifier(nn.Module):
             # save in debug dict
             self.debug_dict['key_points'] =  frame_np
             
+            
 
     # extract patches from new frame
     def forward(self, frame, mode = 'harris'):
@@ -192,9 +206,10 @@ class Patchifier(nn.Module):
         fmap = self.feature_extractor(frame)
         imap = self.context_extractor(frame)
 
-        b, n, c, h, w = fmap.shape
-        bn = b*n
-
+        # print(f'fmap shape: {fmap.shape}')
+        bn, c, h, w = fmap.shape
+        # bn = b*n
+        
         if mode == 'harris':
             # get strongest structures from frame
             g = self._harris_response(frame, ksize=7, padding=3) # g.shape = [b*n, c, h, w]

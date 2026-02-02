@@ -1,6 +1,4 @@
 
-      
-    
       # self.fmap_c = self.cfg.F_MAP_C
       # self.fmap_h = self.cfg.F_MAP_H
       # self.fmap_w = self.cfg.F_MAP_W
@@ -12,14 +10,17 @@
 
 DEBUG: True
 
-
 # === Encoder configuration === #
 
-FLS_IMG_H: 800 # input image height
-FLS_IMG_W: 700 # input image weidth
+FLS_INPUT_HEIGHT: 800 # input image height
+FLS_INPUT_WIDTH: 768 # input image weidth
 
-F_MAP_C: 128 # or 256; features map output channels
-F_MAP_FIRST_DIM: 32 # or 64; first dimension upsize in encoder's residual block
+FEATURES_OUTPUT_CH: 128 # or 256; features map output channels
+FEATURES_MAP_FIRST_DIM: 32 # or 64; first dimension upsize in encoder's residual block
+
+ENCODER_DOWNSIZE: 4 
+
+ENCODER_NORM_METHOD: 'instance' # 'batch', 'group' None
 
 # Encoder channels size:
 # 1 -> F_MAP_FIRST_DIM, Conv2d
@@ -31,24 +32,27 @@ F_MAP_FIRST_DIM: 32 # or 64; first dimension upsize in encoder's residual block
 
 # Encoder downsizing -> x4 
 
+# === Patchifier configuration === #
 
+PATCHES_PER_FRAME: 40 # Amount of patches extracted from single frame 
+
+PATCH_SIZE: 3 # Patch size, extracted from features map 
+
+PATCHES_GRID_SIZE: # Size of grid that divides sonar img in equals part to extract patches evenly
+  x: 30
+  y: 30 
+
+PATCHIFIER_METHOD: 'harris' # harris method with debug and visualisation functionallities
 
 # === Graph configuration === #
 
 BUFF_SIZE: 36 # Ring buffer size, amount of last frames that are kept
 
-PATCHES_PER_FRAME: 40 # Amount of patches extracted from single frame 
 
-PATCH_GRID_SIZE: # Size of grid that divides sonar img in equals part to extract patches evenly
-  x: 30
-  y: 30 
 
-PATCH_SIZE: # Patch size, extracted from features map 
-  x: 3
-  y: 3
-  
-# PATCHIFIER_METHOD: 'harris' # Extract patches center from points with stringest Harris Response -> Key Points
-PATCHIFIER_METHOD: 'harris_debug' # harris method with debug and visualisation functionallities
+MOTION_APPRO_MODEL: None # [DAMPED_LINEAR, LINEAR in developement]
+
+
 
 
 
