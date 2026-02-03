@@ -79,7 +79,7 @@ class Graph(nn.Module):
     self.time[local_idx] = time_stamp 
     return 
       
-  def _scale_fls(self, coords):
+  def _scale_fls2phisical(self, coords):
 
     # range r - measured by sonar
     r_norm = coords[:, 1] / self.fls_h
@@ -88,6 +88,18 @@ class Graph(nn.Module):
     # azimuth angle theta - measured by sonar
     theta_norm = coords[:, 0] / self.fls_w - 0.5
     theta = theta_norm * self.fov_horizontal * torch.pi / 180.0
+    
+    return r, theta 
+
+  def _scale_phisical2fls(self, coords):
+
+    # range r - measured by sonar
+    r_norm = coords[:, 0] - self.r_min / (self.r_max - self.r_min)
+    r = r_norm * self.fls_h
+
+    # azimuth angle theta - measured by sonar
+    theta_norm = coords[:, 1] * 180.0 / torch.pi / self.fov_horizontal 
+    theta = (theta_norm + 0.5) * self.fls_w
     
     return r, theta 
   
@@ -99,7 +111,7 @@ class Graph(nn.Module):
     self.patches[local_idx, :, :, :, :] = patches.squeeze(0) 
 
     # rescale coords to real warold values  
-    r, theta = self._scale_fls(coords.squeeze(0))
+    r, theta = self._scale_fls2phisical(coords.squeeze(0))
 
     # approximate elevation angle - phi - to be optimized 
     phi = torch.zeros((self.patches_per_frame), device = coords.device, dtype = coords.dtype)
