@@ -196,20 +196,40 @@ class Graph(nn.Module):
     return x0
 
 
-  def _create_edges(self):
-    # # --- apostori: current patches -> past frame
-    # local_idx_min = self.frame_n*self.patches_per_frame
-    # local_idx_max = (self.frame_n+1)*self.patches_per_frame
-    # for k in range(self.time_window)
-      
-    #   self.i[]
-    #   self.j[local_idx_min:local_idx_max] = self.frame_n - k
-    
-    
+  def _create_edges(self):    
+    # TODO: add device 
+    # --- current patches -> past frame
+    new_patches = torch.arrange(self.frames_n*self.patches_per_frame, (self.frames_n+1)*self.patches_per_frame))
+    past_frames = torch.arrange(self.frame_n - 1, self.frame_n - 1- self.time_window, step=-1)
 
-
+    i_new_patches = act_patches_idxs.repeat(self.time_window)
+    j_past_frames = torch.repeat_interleave(past_frames, repeats=self.patches_per_frame)
     
-  # def forward(self, fmap, imap, patches, coords, time_stamp):
+    # --- past patches -> current frame
+    i_past_patches = torch.arrange((self.frames_n - self.time_window)*self.patches_per_frame, self.frames_n*self.patches_per_frame) # <- here i finished
+    current_frame_idxs = torch.ones(self.time_window*self.patches_per_frame) * self.frame_n 
+
+    # --- concat 
+    new_i = torch.cat((act_patches_idxs, past_patches_idxs), dim = 0)
+    new_j = torch.cat((past_frames_idxs, current_frame_idxs, dim = 0)
+
+    # # example:
+    # frames_n = 10, time_window = 3, patches_per_frame = 4 
+
+    # # -
+    # act_patches_idxs = (40, 41, 42, 43)
+    # past_frames_idxs = (10, 9, 8)
+    # # -
+    # act_patches_idxs = (40, 41, 42, 43, 40, 41, 42, 43, 40, 41, 42, 43)
+    # past_frames_idxs = (10, 9, 8, 10, 9, 8, 10, 9, 8, 10, 9, 8)
+    # # -
+    # past_patches_idxs = (39, 38, 37, 36, 35, 34, 33, 32, 31, 30, 29, 28)
+    # current_frame_idxs = (10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10)
+
+    # new_i = (40, 41, 42, 43, 40, 41, 42, 43, 40, 41, 42, 43, 39, 38, 37, 36, 35, 34, 33, 32, 31, 30, 29, 28)
+    # new_i = (10, 9, 8, 10, 9, 8, 10, 9, 8, 10, 9, 8,(10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10)
+
+  
   def forward(self, frame, time_stamp):
     
     # --- extract patches --- 
