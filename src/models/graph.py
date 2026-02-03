@@ -199,10 +199,10 @@ class Graph(nn.Module):
   def _create_edges(self):    
     # TODO: add device 
     # --- current patches -> past frame --- 
-    new_patches = torch.arrange(self.frames_n*self.patches_per_frame, (self.frames_n+1)*self.patches_per_frame))
+    new_patches = torch.arrange(self.frame_n*self.patches_per_frame, (self.frame_n+1)*self.patches_per_frame)
     past_frames = torch.arrange(self.frame_n - 1, self.frame_n - 1- self.time_window, step=-1)
 
-    i_new_patches = act_patches_idxs.repeat(self.time_window)
+    i_new_patches = new_patches.repeat(self.time_window)
     j_past_frames = torch.repeat_interleave(past_frames, repeats=self.patches_per_frame)
     
     # --- past patches -> current frame --- 
@@ -211,7 +211,7 @@ class Graph(nn.Module):
 
     # --- concat --- 
     new_i = torch.cat((i_new_patches, i_past_patches), dim = 0)
-    new_j = torch.cat((j_past_frames, j_current_framess, dim = 0)
+    new_j = torch.cat((j_past_frames, j_current_frames), dim = 0)
 
     idx_low = (self.frames_n % self.buff_size) * self._patches_per_frame * self.time_window
     idx_high = ((self.frames_n + 1) % self.buff_size) * self._patches_per_frame * self.time_window
@@ -244,7 +244,7 @@ class Graph(nn.Module):
 
     return 
 
-  
+
 
 # TODO next:
 

@@ -52,7 +52,10 @@ def addBandReflects(img, omega1 = 0.02, omega2 = 0.12, gain = 0.02):
     img_with_bands = bands + img
     return np.clip(img_with_bands, 0, 255)
 
-def polar2cartesian(img, r_min = 2.0, r_max = 30.0, theta_min = -65*np.pi/180, theta_max = 65*np.pi/180, out_shape = None, bg = 0):
+
+
+
+def polar2cartesian(img, r_min = 0.5, r_max = 100.0, theta_min = -65*np.pi/180, theta_max = 65*np.pi/180, out_shape = None, bg = 0):
     # r - ranges
     # t - theta - beam angle
     nr, nt = img.shape 
