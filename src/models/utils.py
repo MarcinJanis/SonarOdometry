@@ -34,7 +34,7 @@ def transorm_points_coords(pts, mode:projection_type):
         x = r_xy * torch.cos(theta)
         y = r_xy * torch.sin(theta)
         z = r * torch.sin(phi) 
-        return  torch.stack((x, y, z))
+        return  torch.stack((x, y, z), dim=1)
     
     elif mode == projection_type.CARTESIAN2POLAR:
         x, y, z = pts[:,0], pts[:,1], pts[:,2] 
@@ -47,7 +47,7 @@ def transorm_points_coords(pts, mode:projection_type):
         theta = torch.atan2(y, x)
         phi = torch.atan2(z, torch.sqrt(x**2 + y**2))
 
-        return torch.stack((r, theta, phi))
+        return torch.stack((r, theta, phi), dim=1)
         
 def transform_matrix(state):
     x, y, z, qx, qy, qz, qw = state # quaterions 
@@ -100,7 +100,7 @@ def project_points(origin_pt, origin_pose, target_pose):
     # --- Project origin point from spehrical to cartesian coords sys. (r, theta, phi) -> (x, y, z, 1).T ---
     origin_pt_xyz = transorm_points_coords(origin_pt, projection_type.POLAR2CARTESIAN)
     ones = torch.ones((n_pts, 1), device = origin_pt.device, dtype = origin_pt.dtype)
-    origin_pt_xyz = torch.stack((origin_pt_xyz, ones))
+    origin_pt_xyz = torch.cat((origin_pt_xyz, ones), dim=1)
     
     origin_pt_xyz = origin_pt_xyz.T 
 
@@ -111,7 +111,7 @@ def project_points(origin_pt, origin_pose, target_pose):
     T_relative = T_target_inv @ T_origin
 
     # --- Calculate translated point coords: Origin pose (x1, y1, z1) -> Target pose (x2, y2, z2) ---
-    target_pt_xyz = T_relative * origin_pt_xyz
+    target_pt_xyz = T_relative @ origin_pt_xyz
     target_pt_xyz = target_pt_xyz.T
 
     # --- Project target point to spherical coords system  ---
