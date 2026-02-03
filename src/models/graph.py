@@ -3,7 +3,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from .patchifier import Patchifier
-from .utils import hamilton_product, q_conjugate
+from .utils import hamilton_product, q_conjugate, project_points
+
+
 class Graph(nn.Module):
   def __init__(self, model_cfg, sonar_cfg):
     # window_size = actial window size + 1, to store new frame in buffor, before old frame will be delete
