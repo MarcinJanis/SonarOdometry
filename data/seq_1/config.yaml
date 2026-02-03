@@ -12,8 +12,8 @@ fls:
     beams: 768 # horizontal resolution
     bins: 800 # distance (vertical) resolution
   fov:
-    horizontal: 130 # [deg]
-    vertical: 20 # [deg]
+    horizontal: 130 # [rad]
+    vertical: 20 # [rad]
   range:
     min: 0.5 # [m]
     max: 100 # [m]
