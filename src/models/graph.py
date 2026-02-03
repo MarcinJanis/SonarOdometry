@@ -28,6 +28,8 @@ class Graph(nn.Module):
   
     self.patches_per_frame = self.model_cfg.PATCHES_PER_FRAME
     self.patch_size = self.model_cfg.PATCH_SIZE 
+
+    self.time_window = self.model_cdg.TIME_WINDOW
     
     self.fmap_c = self.model_cfg.FEATURES_OUTPUT_CH
   
@@ -57,7 +59,7 @@ class Graph(nn.Module):
     self.register_buffer('patches', torch.zeros((self.buff_size, self.patches_per_frame,  self.fmap_c, self.patch_size, self.patch_size), dtype = torch.float)) # patches features
 
     # --- patch center coords buffer ---
-    self.register_buffer('patchcoords', torch.zeros((self.buff_size, self.patches_per_frame, 3), dtype = torch.float)) # points (r, theta, phi) refered to patches
+    self.register_buffer('patch_state', torch.zeros((self.buff_size, self.patches_per_frame, 3), dtype = torch.float)) # points (r, theta, phi) refered to patches + weight
 
     # --- source frame buffer ---
     self.register_buffer('source_frame', torch.zeros((self.buff_size, self.patches_per_frame), dtype = torch.int)) # id of source frame for each patch
@@ -117,9 +119,10 @@ class Graph(nn.Module):
 
     # approximate elevation angle - phi - to be optimized 
     phi = torch.zeros((self.patches_per_frame), device = coords.device, dtype = coords.dtype)
-
+    
+    
     # add to graph
-    self.patchcoords[local_idx, :, :] = torch.stack([r, theta, phi], dim=1)
+    self.patch_state[local_idx, :, :] = torch.stack([r, theta, phi], dim=1)
 
     # add source frame id to graph
     self.source_frame[local_idx, :] = self.frame_n 
@@ -191,7 +194,21 @@ class Graph(nn.Module):
     # save to buffer
     self.poses[k_idx, :] = x0
     return x0
-  
+
+
+  def _create_edges(self):
+    # # --- apostori: current patches -> past frame
+    # local_idx_min = self.frame_n*self.patches_per_frame
+    # local_idx_max = (self.frame_n+1)*self.patches_per_frame
+    # for k in range(self.time_window)
+      
+    #   self.i[]
+    #   self.j[local_idx_min:local_idx_max] = self.frame_n - k
+    
+    
+
+
+    
   # def forward(self, fmap, imap, patches, coords, time_stamp):
   def forward(self, frame, time_stamp):
     
