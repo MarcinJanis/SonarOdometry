@@ -30,11 +30,11 @@ def transorm_points_coords(pts, mode:projection_type):
 
     if mode == projection_type.POLAR2CARTESIAN:
         r, theta, phi = pts[:,0], pts[:,1], pts[:,2]
-        r_xy = r * np.cos(phi)
-        x = r_xy * np.cos(theta)
-        y = r_xy * np.sin(theta)
-        z = r * np.sin(phi) 
-        return  np.column_stack((x, y, z))
+        r_xy = r * torch.cos(phi)
+        x = r_xy * torch.cos(theta)
+        y = r_xy * torch.sin(theta)
+        z = r * torch.sin(phi) 
+        return  torch.stack((x, y, z))
     
     elif mode == projection_type.CARTESIAN2POLAR:
         x, y, z = pts[:,0], pts[:,1], pts[:,2] 
@@ -43,11 +43,11 @@ def transorm_points_coords(pts, mode:projection_type):
         # r = z / np.sin(phi)
         # theta = np.arctan2(y, z)
 
-        r = np.sqrt(x**2 +  y**2 + z**2)
-        theta = np.arctan2(y, x)
-        phi = np.arctan2(z, np.sqrt(x**2 + y**2))
+        r = torch.sqrt(x**2 +  y**2 + z**2)
+        theta = torch.atan2(y, x)
+        phi = torch.atan2(z, torch.sqrt(x**2 + y**2))
 
-        return np.column_stack((r, theta, phi))
+        return torch.stack((r, theta, phi))
         
 def transform_matrix(state):
     x, y, z, qx, qy, qz, qw = state # quaterions 
