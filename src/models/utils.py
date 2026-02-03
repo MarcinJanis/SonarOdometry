@@ -96,22 +96,26 @@ def project_points(origin_pt, origin_pose, target_pose):
     Calculate projection of point from origin patch to target patch. 
     Note: origin_pt shall be already scaled to real-world values, not in pixels. 
     '''
-    # --- Project origin point from spehrical to cartesian coords sys. (r, theta, phi) -> (x, y, z) ---
+    n_pts, _ = origin_pt.shape 
+    # --- Project origin point from spehrical to cartesian coords sys. (r, theta, phi) -> (x, y, z, 1).T ---
     origin_pt_xyz = transorm_points_coords(origin_pt, projection_type.POLAR2CARTESIAN)
+    ones = torch.ones((n_pts, 1), device = origin_pt.device, dtype = origin_pt.dtype)
+    origin_pt_xyz = torch.stack((origin_pt_xyz, ones))
+    
     origin_pt_xyz = origin_pt_xyz.T 
 
     # --- Compose relative translation matrix from origin pose to target pose --- 
     T_origin = transform_matrix(origin_pose)
     T_target = transform_matrix(target_pose)
     T_target_inv = inverse_transform_matrix(T_target)
-    T_relative = T_target_inv @ T_target
+    T_relative = T_target_inv @ T_origin
 
     # --- Calculate translated point coords: Origin pose (x1, y1, z1) -> Target pose (x2, y2, z2) ---
     target_pt_xyz = T_relative * origin_pt_xyz
     target_pt_xyz = target_pt_xyz.T
 
     # --- Project target point to spherical coords system  ---
-    target_pt = transorm_points_coords(target_pt_xyz, projection_type.CARTESIAN2POLAR)
+    target_pt = transorm_points_coords(target_pt_xyz[:, :3], projection_type.CARTESIAN2POLAR)
     
     return target_pt
 
