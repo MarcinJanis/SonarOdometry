@@ -65,13 +65,13 @@ class Graph(nn.Module):
     self.register_buffer('source_frame', torch.zeros((self.buff_size, self.patches_per_frame), dtype = torch.int)) # id of source frame for each patch
                          
 
-    # window_size, fmap_dim, fmap_h, fmap_w, patch_size, patches_per_frame
-
-    self.register_buffer('edge_i', torch.zeros(0, dtype=torch.int32)) # keeps idx of patch
-    self.register_buffer('edge_j', torch.zeros(0, dtype=torch.int32)) # keeps idx of frame where patch is track
-    # self.register_buffer('edge_xy', torch.zeros(0, dtype=torch.float)) # keeps local, 2d coordinates of patch i in frame j 
-
-
+    # --- graphs edges --- 
+    max_edges = self.buff_size * self.patches_per_fram * self.time_window # each patch (buff_size * patches_per_frame) is connected to each frame in time window
+    self.register_buffer('i', torch.zeros(max_edges, dtype=torch.int32)) # keeps idxs of patch
+    self.register_buffer('j', torch.zeros(max_edges, dtype=torch.int32)) # keeps idxs of frame
+    self.register_buffer('weights', torch.zeros(max_edges, dtype=torch.float)) # weights of each patch, how good estimation is, based on this patch 
+    self.register_buffer('valid', torch.zeros(max_edges, dtype=torch.bool)) # valid if its in range of frame, non valid if out of range 
+  
   def add_frame(self, fmap, imap, time_stamp): 
     # local index for ring buffer 
     local_idx = self.frame_n % self.buff_size
@@ -193,42 +193,35 @@ class Graph(nn.Module):
 
     # save to buffer
     self.poses[k_idx, :] = x0
-    return x0
+    return 
 
 
   def _create_edges(self):    
     # TODO: add device 
-    # --- current patches -> past frame
+    # --- current patches -> past frame --- 
     new_patches = torch.arrange(self.frames_n*self.patches_per_frame, (self.frames_n+1)*self.patches_per_frame))
     past_frames = torch.arrange(self.frame_n - 1, self.frame_n - 1- self.time_window, step=-1)
 
     i_new_patches = act_patches_idxs.repeat(self.time_window)
     j_past_frames = torch.repeat_interleave(past_frames, repeats=self.patches_per_frame)
     
-    # --- past patches -> current frame
+    # --- past patches -> current frame --- 
     i_past_patches = torch.arrange((self.frames_n - self.time_window)*self.patches_per_frame, self.frames_n*self.patches_per_frame) # <- here i finished
-    current_frame_idxs = torch.ones(self.time_window*self.patches_per_frame) * self.frame_n 
+    j_current_frames = torch.ones(self.time_window*self.patches_per_frame) * self.frame_n 
 
-    # --- concat 
-    new_i = torch.cat((act_patches_idxs, past_patches_idxs), dim = 0)
-    new_j = torch.cat((past_frames_idxs, current_frame_idxs, dim = 0)
+    # --- concat --- 
+    new_i = torch.cat((i_new_patches, i_past_patches), dim = 0)
+    new_j = torch.cat((j_past_frames, j_current_framess, dim = 0)
 
-    # # example:
-    # frames_n = 10, time_window = 3, patches_per_frame = 4 
+    idx_low = (self.frames_n % self.buff_size) * self._patches_per_frame * self.time_window
+    idx_high = ((self.frames_n + 1) % self.buff_size) * self._patches_per_frame * self.time_window
+    
+    self.i[idx_low:idx_high] = new_i
+    self.j[idx_low:idx_high] = new_j
+    self.weights[idx_low:idx_high] = 0.0
+    self.valid[idx_low:idx_high] = 1.0
 
-    # # -
-    # act_patches_idxs = (40, 41, 42, 43)
-    # past_frames_idxs = (10, 9, 8)
-    # # -
-    # act_patches_idxs = (40, 41, 42, 43, 40, 41, 42, 43, 40, 41, 42, 43)
-    # past_frames_idxs = (10, 9, 8, 10, 9, 8, 10, 9, 8, 10, 9, 8)
-    # # -
-    # past_patches_idxs = (39, 38, 37, 36, 35, 34, 33, 32, 31, 30, 29, 28)
-    # current_frame_idxs = (10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10)
-
-    # new_i = (40, 41, 42, 43, 40, 41, 42, 43, 40, 41, 42, 43, 39, 38, 37, 36, 35, 34, 33, 32, 31, 30, 29, 28)
-    # new_i = (10, 9, 8, 10, 9, 8, 10, 9, 8, 10, 9, 8,(10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10)
-
+    return 
   
   def forward(self, frame, time_stamp):
     
@@ -242,8 +235,10 @@ class Graph(nn.Module):
     self.add_patches(new_patches, coords)
 
     # --- approximation of new initial pose ---
-    _ = self._approx_movement()
+    self._approx_movement()
 
+    # --- create edges for new data ---- 
+    self._create_edges()
     # --- increment global frame idx ---
     self.frame_n += 1
 
