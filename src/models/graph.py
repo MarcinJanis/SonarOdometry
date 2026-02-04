@@ -8,7 +8,6 @@ from .utils import hamilton_product, q_conjugate, project_points
 
 class Graph(nn.Module):
   def __init__(self, model_cfg, sonar_cfg):
-    # window_size = actial window size + 1, to store new frame in buffor, before old frame will be delete
     super().__init__()
     self.model_cfg = model_cfg
     self.sonar_cfg = sonar_cfg 
@@ -17,11 +16,11 @@ class Graph(nn.Module):
     self.r_min = self.sonar_cfg.range.min
     self.r_max = self.sonar_cfg.range.max
 
-    self.fls_h = sonar_cfg.resolution.bins
+    self.fls_h = self.sonar_cfg.resolution.bins
     self.fls_w = self.sonar_cfg.resolution.beams
 
-    self.fov_vertical = sonar_cfg.fov.vertical
-    self.fov_horizontal = sonar_cfg.fov.horizontal
+    self.fov_vertical = self.sonar_cfg.fov.vertical
+    self.fov_horizontal = self.sonar_cfg.fov.horizontal
 
     # --- import sys configuration ---
     self.buff_size = self.model_cfg.BUFF_SIZE
@@ -29,7 +28,7 @@ class Graph(nn.Module):
     self.patches_per_frame = self.model_cfg.PATCHES_PER_FRAME
     self.patch_size = self.model_cfg.PATCH_SIZE 
 
-    self.time_window = self.model_cdg.TIME_WINDOW
+    self.time_window = self.model_cfg.TIME_WINDOW
     
     self.fmap_c = self.model_cfg.FEATURES_OUTPUT_CH
   
@@ -44,7 +43,7 @@ class Graph(nn.Module):
     self.patchifier = Patchifier(self.model_cfg,
                                  debug_mode = False)
     
-    # --- Graph initialization ---
+    # === Graph initialization ===
     self.frame_n = 0 # frame counter for ring buffer 
 
     # --- poses and time stamp buffers ---
@@ -64,7 +63,6 @@ class Graph(nn.Module):
     # --- source frame buffer ---
     self.register_buffer('source_frame', torch.zeros((self.buff_size, self.patches_per_frame), dtype = torch.int)) # id of source frame for each patch
                          
-
     # --- graphs edges --- 
     max_edges = self.buff_size * self.patches_per_fram * self.time_window # each patch (buff_size * patches_per_frame) is connected to each frame in time window
     self.register_buffer('i', torch.zeros(max_edges, dtype=torch.int32)) # keeps idxs of patch
@@ -199,27 +197,27 @@ class Graph(nn.Module):
   def _create_edges(self):    
     # TODO: add device 
     # --- current patches -> past frame --- 
-    new_patches = torch.arrange(self.frame_n*self.patches_per_frame, (self.frame_n+1)*self.patches_per_frame)
-    past_frames = torch.arrange(self.frame_n - 1, self.frame_n - 1- self.time_window, step=-1)
+    new_patches = torch.arange(self.frame_n*self.patches_per_frame, (self.frame_n+1)*self.patches_per_frame)
+    past_frames = torch.arange(self.frame_n - 1, self.frame_n - 1- self.time_window, step=-1)
 
     i_new_patches = new_patches.repeat(self.time_window)
     j_past_frames = torch.repeat_interleave(past_frames, repeats=self.patches_per_frame)
     
     # --- past patches -> current frame --- 
-    i_past_patches = torch.arrange((self.frames_n - self.time_window)*self.patches_per_frame, self.frames_n*self.patches_per_frame) # <- here i finished
+    i_past_patches = torch.arange((self.frame_n - self.time_window)*self.patches_per_frame, self.frame_n*self.patches_per_frame) # <- here i finished
     j_current_frames = torch.ones(self.time_window*self.patches_per_frame) * self.frame_n 
 
     # --- concat --- 
     new_i = torch.cat((i_new_patches, i_past_patches), dim = 0)
     new_j = torch.cat((j_past_frames, j_current_frames), dim = 0)
 
-    idx_low = (self.frames_n % self.buff_size) * self._patches_per_frame * self.time_window
-    idx_high = ((self.frames_n + 1) % self.buff_size) * self._patches_per_frame * self.time_window
+    idx_low = (self.frame_n % self.buff_size) * self._patches_per_frame * self.time_window
+    idx_high = ((self.frame_n + 1) % self.buff_size) * self._patches_per_frame * self.time_window
     
     self.i[idx_low:idx_high] = new_i
     self.j[idx_low:idx_high] = new_j
-    self.weights[idx_low:idx_high] = 0.0
-    self.valid[idx_low:idx_high] = 1.0
+    self.weights[idx_low:idx_high] = torch.zeros((idx_high - idx_low))
+    self.valid[idx_low:idx_high] = torch.ones((idx_high - idx_low))
 
     return 
 
@@ -232,6 +230,22 @@ class Graph(nn.Module):
     time_vct = self.time.detatch().cpu()
     frame_num = self.frame_n
     return pose_vct, time_vct, frame_num 
+
+  @property
+  def shape(self):
+    size_dict = {
+      'time':self.time.shape
+      'poses':self.poses.shape
+      'fmap':self.fmap.shape
+      'imap':self.imap.shape
+      'patches':self.patches.shape
+      'patch_state':self.patch_state.shape
+      'source_frame':self.source_frame.shape
+      'i':self.i.shape
+      'j':self.j.shape
+      'weight':self.weight.shape
+      'valid':self.valid.shape
+    }
   
   def forward(self, frame, time_stamp):
     
