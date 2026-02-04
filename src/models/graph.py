@@ -222,6 +222,26 @@ class Graph(nn.Module):
     self.valid[idx_low:idx_high] = 1.0
 
     return 
+
+', torch.zeros((self.buff_size), dtype=torch.float)) # time stamp
+    self.register_buffer('poses
+  
+  # define interface to obtain data
+  @property
+  def state(self):
+    return self.pose.detatch().cpu(), self.pose.detatch().cpu(), self.frame_n
+
+  
+
+
+  
+  # @property
+  # def state(self):
+  #   state_dict = {
+  #     'frames_num':self.frame_n
+  #     'time':
+  #   }
+    
   
   def forward(self, frame, time_stamp):
     
@@ -242,7 +262,8 @@ class Graph(nn.Module):
     # --- increment global frame idx ---
     self.frame_n += 1
 
-    return 
+    # here extract correlation vectors..
+    return #function will return vectors that will be pass to GRU.
 
 
 
