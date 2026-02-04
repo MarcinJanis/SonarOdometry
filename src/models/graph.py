@@ -223,25 +223,15 @@ class Graph(nn.Module):
 
     return 
 
-', torch.zeros((self.buff_size), dtype=torch.float)) # time stamp
-    self.register_buffer('poses
+
   
-  # define interface to obtain data
+  # === define interface to obtain data === 
   @property
   def state(self):
-    return self.pose.detatch().cpu(), self.pose.detatch().cpu(), self.frame_n
-
-  
-
-
-  
-  # @property
-  # def state(self):
-  #   state_dict = {
-  #     'frames_num':self.frame_n
-  #     'time':
-  #   }
-    
+    pose_vct = self.pose.detatch().cpu()
+    time_vct = self.time.detatch().cpu()
+    frame_num = self.frame_n
+    return pose_vct, time_vct, frame_num 
   
   def forward(self, frame, time_stamp):
     
