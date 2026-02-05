@@ -34,7 +34,8 @@ class Graph(nn.Module):
   
     self.fmap_h = self.sonar_cfg.resolution.bins // self.model_cfg.ENCODER_DOWNSIZE
     self.fmap_w = self.sonar_cfg.resolution.beams // self.model_cfg.ENCODER_DOWNSIZE
-
+    self.fmap_downsize = self.model.cfg.FMAP_DOWNSIZD
+    
     self.motion_model = self.model_cfg.MOTION_APPRO_MODEL
    
     self.grid_size = (self.model_cfg.PATCHES_GRID_SIZE.y, self.model_cfg.PATCHES_GRID_SIZE.x)
@@ -51,7 +52,9 @@ class Graph(nn.Module):
     self.register_buffer('poses', torch.zeros((self.buff_size, 7), dtype=torch.float)) # poses 
 
     # --- frame buffers ---
-    self.register_buffer('fmap', torch.zeros((self.buff_size, self.fmap_c, self.fmap_h, self.fmap_w), dtype = torch.float)) # frames: features map 
+    self.register_buffer('fmap1', torch.zeros((self.buff_size, self.fmap_c, self.fmap_h, self.fmap_w), dtype = torch.float)) # frames: features map
+    self.register_buffer('fmap2', torch.zeros((self.buff_size, self.fmap_c, self.fmap_h // self.fmap_downsize, self.fmap_w // self.fmap_downsize), dtype = torch.float)) # frames: features map 
+    
     self.register_buffer('imap', torch.zeros((self.buff_size, self.fmap_c, self.fmap_h, self.fmap_w), dtype = torch.float)) # frames: context map 
 
     # --- patches buffers ---
@@ -74,7 +77,9 @@ class Graph(nn.Module):
     # local index for ring buffer 
     local_idx = self.frame_n % self.buff_size
     # add features map to buffer 
-    self.fmap[local_idx, :, :, :] = fmap.squeeze(0) # !!!!! sprawdzic czy squeeze ale prawdopodbnie trzeba pozbyc sie rozmiaru batcha
+    self.fmap1[local_idx, :, :, :] = F.avg_pool2d(fmap.squeeze(0), 1, 1)
+    self.fmap2[local_idx, :, :, :] = F.avg_pool2d(fmap.squeeze(0), self.fmap_downsize, self.fmap_downsize)
+    
     # add context map to buffer 
     self.imap[local_idx, :, :, :] = imap.squeeze(0) # !!!!! sprawdzic czy squeeze ale prawdopodbnie trzeba pozbyc sie rozmiaru batcha
     # add time stamp 
@@ -221,12 +226,59 @@ class Graph(nn.Module):
 
     return 
 
-  def _corr(self):
-
+  def _corr(self, r_corr):
     
-    coords_projected = project_points(self.patch_state, r_corr) # [r, theta, phi]
+    device = self.fmap1.device 
+    
+    coords_proj = project_points(self.patch_state) # [r, theta, phi]
+    # coords_proj_ds = coords_proj / self.fmap_downsize
+    
+    # add offsets to projected points
+    r = torch.arange(-r_corr, r_corr + 1, device=device)
+    dy, dx = torch.meshgrid(r, r, indexing="ij")
+    coords_offsets = torch.stack([dx, dy], dim=-1).float() # shape [r_corr, r_corr, 2]
+
+    coords = coords_proj[:, :2].unsqueeze(-2).unsqueeze(-2) + coords_offsets.unsqueeze(0).unsqueeze(0) #discard phi, add offsets
+
+    # coords for fmap1 - normal size: norm (-1, 1)
+    x_norm = (2 * coords[:, :, :, :, 0] + 1) / self.fmap_w - 1
+    y_norm = (2 * coords[:, :, :, :, 1] + 1) / self.fmap_w - 1
+
+    # # coords for fmap1 - normal size: norm (-1, 1)
+    # x1_norm = (2 * coords[:, :, :, :, 0] + 1) / self.fmap_w - 1
+    # y1_norm = (2 * coords[:, :, :, :, 1] + 1) / self.fmap_w - 1
+      # sampling grid with norm coords of patches ceneter 
+
+    # ===============================================================
+        grid = torch.stack([x_norm, y_norm], dim=-1) # grid shape [b*n, patcher_per_frame, K, K 2]
+
+        # sample patches
+        patches = torch.nn.functional.grid_sample(
+            map.view(bn, c, h, w),
+            grid.view(bn, self.patches_per_frame*self.patch_size*self.patch_size, 1, 2), # shape: [frames_num, total_pts_num, 1, xy]
+            mode="bilinear",
+            padding_mode="zeros",
+            align_corners=False
+        )
+        
+        patches = patches.view(bn, self.patches_per_frame, c, self.patch_size, self.patch_size)
+    # ===============================================================
+    # --- from patchifier ---- 
+    # offsets to get patches
+        
+
+        # add offsets dim to coords
+         # [B*N, patches_per_frame, K, K, 2]
+        
+        # normalize to (-1, 1) range
+        
+        
+        
+
+        
+    
     # target_frames = self.j
-     # self.register_buffer('imap', torch.zeros((self.buff_size, self.fmap_c, self.fmap_h, self.fmap_w), dtype = torch.float))
+     # self.register_buffer('fmap', torch.zeros((self.buff_size, self.fmap_c, self.fmap_h, self.fmap_w), dtype = torch.float))
     # corr = self.imap[self.j]
 
     # zrzutować, pobrać dla rzutowań (w promieniu r) mapę cech, policzyć dot prod dla każdje z krawędzi. Zrobić to dla piramidy cech, żeli zreić downsampling i tp samo
@@ -254,7 +306,8 @@ class Graph(nn.Module):
     size_dict = {
       'time':self.time.shape,
       'poses':self.poses.shape,
-      'fmap':self.fmap.shape,
+      'fmap1':self.fmap1.shape,
+      'fmap2':self.fmap2.shape,
       'imap':self.imap.shape,
       'patches':self.patches.shape,
       'patch_state':self.patch_state.shape,
