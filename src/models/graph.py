@@ -230,7 +230,11 @@ class Graph(nn.Module):
     time_vct = self.time.detatch().cpu()
     frame_num = self.frame_n
     return pose_vct, time_vct, frame_num 
-
+    
+  @property
+  def pose(self):
+    return self.pose[(self.frame_n - 1)%self.buff_size].detatch().cpu()
+    
   @property
   def shape(self):
     size_dict = {
