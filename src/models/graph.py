@@ -232,7 +232,6 @@ class Graph(nn.Module):
     # poprawić tą logikę, to tylko szkic narazoe
     # dodać, że że uwzględniamy że niektóre patche są nieważne 
 
-    
     device = self.fmap1.device 
     
     coords_proj = project_points(self.patch_state) # [r, theta, phi]
@@ -241,11 +240,13 @@ class Graph(nn.Module):
     # coords_proj_ds = coords_proj / self.fmap_downsize
     
     # add offsets to projected points
-    r = torch.arange(-r_corr, r_corr, device=device)
-    dy, dx = torch.meshgrid(r, r, indexing="ij")
+    r = torch.arange(-r_corr, r_corr + 1, device=device) # for r_corr = 2, r = [-2, -1, 0, 1, 2]
+    
+    dy, dx = torch.meshgrid(r, r, indexing="ij") # dy = [-2, -1, 0, 1, 2], dx =  [-2, -1, 0, 1, 2]
     coords_offsets = torch.stack([dx, dy], dim=-1).float() # shape [r_corr, r_corr, 2]
+    # coords_offsets = []
 
-    coords = coords_proj[:, :2].unsqueeze(-2).unsqueeze(-2) + coords_offsets.unsqueeze(0).unsqueeze(0) #discard phi, add offsets
+    coords = coords_proj[:, :2].unsqueeze(0).unsqueeze(0) + coords_offsets.unsqueeze(0).unsqueeze(0) #discard phi, add offsets
 
     # coords for fmap1 - normal size: norm (-1, 1)
     x_norm = (2 * coords[:, :, :, :, 0] + 1) / self.fmap_w - 1
@@ -336,6 +337,7 @@ class Graph(nn.Module):
 
     # --- create edges for new data ---- 
     self._create_edges()
+    
     # --- increment global frame idx ---
     self.frame_n += 1
 
