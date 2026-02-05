@@ -221,9 +221,19 @@ class Graph(nn.Module):
 
     return 
 
+  def _corr(self):
+
+    
+    coords_projected = project_points(self.patch_state, r_corr) # [r, theta, phi]
+    # target_frames = self.j
+     # self.register_buffer('imap', torch.zeros((self.buff_size, self.fmap_c, self.fmap_h, self.fmap_w), dtype = torch.float))
+    # corr = self.imap[self.j]
+
+    # zrzutować, pobrać dla rzutowań (w promieniu r) mapę cech, policzyć dot prod dla każdje z krawędzi. Zrobić to dla piramidy cech, żeli zreić downsampling i tp samo
+    
 
   
-  # === define interface to obtain data === 
+  # === define interface to obtain data === #TODO
   @property
   def state(self):
     pose_vct = self.pose.detatch().cpu()
@@ -232,23 +242,27 @@ class Graph(nn.Module):
     return pose_vct, time_vct, frame_num 
     
   @property
-  def pose(self):
+  def last_pose(self):
     return self.pose[(self.frame_n - 1)%self.buff_size].detatch().cpu()
+
+  @property
+  def id(self):
+    return self.frame_n
     
   @property
   def shape(self):
     size_dict = {
-      'time':self.time.shape
-      'poses':self.poses.shape
-      'fmap':self.fmap.shape
-      'imap':self.imap.shape
-      'patches':self.patches.shape
-      'patch_state':self.patch_state.shape
-      'source_frame':self.source_frame.shape
-      'i':self.i.shape
-      'j':self.j.shape
-      'weight':self.weight.shape
-      'valid':self.valid.shape
+      'time':self.time.shape,
+      'poses':self.poses.shape,
+      'fmap':self.fmap.shape,
+      'imap':self.imap.shape,
+      'patches':self.patches.shape,
+      'patch_state':self.patch_state.shape,
+      'source_frame':self.source_frame.shape,
+      'i':self.i.shape,
+      'j':self.j.shape,
+      'weight':self.weight.shape,
+      'valid':self.valid.shape,
     }
   
   def forward(self, frame, time_stamp):
@@ -275,20 +289,15 @@ class Graph(nn.Module):
 
 
 
-# TODO next:
+#### === Testy:
+'''
+W osobnym pliku ipynb
+1. Sprawdzić rozmiary grafu
+2. Sprawdzić dodawanie łatek i frameów, np. wygenerowac mapę cech składającą się tylko z 1 na powierzchni gdzie ma być jakiś patch, 
+   2 gdzie ma być kolejny itd i zonaczyć czy będą dobrze przypisane
+3. Dodać sprawdzanie aproksymacji ruchu
+3. Wypisać krawędzie dla jakiś nie dużych rozmiarów i zobaczyć czy indkesy łączone są odpowiednio "każdy z każdym"
 
-# 1. Krawędzie
-# - przypisać każdy patch do swojej ramki (???)                                 
-# - przypisyać nowe patche do ramki z przeszłości (bierzmy tu jakięś okno czaosowe pod uwagę np. 4 czy 5 w tył)
-# - dla patchy ze strych ramek przypsiać je do nowej ramki 
 
-# 2. Pętla 
-
-# w pętli: 
-# - dla każej z krawędzi
-# - biorę patch i jego coords, transformuję do 3D
-# - przesuwam o zmianę pozycji kamery (pose z tamtej klatki i pose bierzący)
-# - reprojekcja na wspólrzędnę fls
-# - liczę korelację w danym miejscu oraz korelację w okół tego miejsca. 
-# - w efekcie dla każdej krawędzi otrzymję siatkę wartości korelacji np. 3x3
+'''
 
