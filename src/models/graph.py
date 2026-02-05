@@ -227,14 +227,21 @@ class Graph(nn.Module):
     return 
 
   def _corr(self, r_corr):
+
+    # === 
+    # poprawić tą logikę, to tylko szkic narazoe
+    # dodać, że że uwzględniamy że niektóre patche są nieważne 
+
     
     device = self.fmap1.device 
     
     coords_proj = project_points(self.patch_state) # [r, theta, phi]
+
+    pts_num, _ = coords_proj.shape
     # coords_proj_ds = coords_proj / self.fmap_downsize
     
     # add offsets to projected points
-    r = torch.arange(-r_corr, r_corr + 1, device=device)
+    r = torch.arange(-r_corr, r_corr, device=device)
     dy, dx = torch.meshgrid(r, r, indexing="ij")
     coords_offsets = torch.stack([dx, dy], dim=-1).float() # shape [r_corr, r_corr, 2]
 
@@ -244,45 +251,40 @@ class Graph(nn.Module):
     x_norm = (2 * coords[:, :, :, :, 0] + 1) / self.fmap_w - 1
     y_norm = (2 * coords[:, :, :, :, 1] + 1) / self.fmap_w - 1
 
-    # # coords for fmap1 - normal size: norm (-1, 1)
-    # x1_norm = (2 * coords[:, :, :, :, 0] + 1) / self.fmap_w - 1
-    # y1_norm = (2 * coords[:, :, :, :, 1] + 1) / self.fmap_w - 1
-      # sampling grid with norm coords of patches ceneter 
+    # grid with target coords
+    grid = torch.stack([x_norm, y_norm], dim=-1)
 
-    # ===============================================================
-        grid = torch.stack([x_norm, y_norm], dim=-1) # grid shape [b*n, patcher_per_frame, K, K 2]
-
-        # sample patches
-        patches = torch.nn.functional.grid_sample(
-            map.view(bn, c, h, w),
-            grid.view(bn, self.patches_per_frame*self.patch_size*self.patch_size, 1, 2), # shape: [frames_num, total_pts_num, 1, xy]
-            mode="bilinear",
-            padding_mode="zeros",
-            align_corners=False
+    # get correlations -> normal size
+    fmap1_samples = torch.nn.functional.grid_sample(
+              self.fmap1,
+              grid.view(bn, pts_num, 1, 2), # shape: [frames_num, total_pts_num, 1, xy]
+              mode="bilinear",
+              padding_mode="zeros",
+              align_corners=False
         )
-        
-        patches = patches.view(bn, self.patches_per_frame, c, self.patch_size, self.patch_size)
-    # ===============================================================
-    # --- from patchifier ---- 
-    # offsets to get patches
-        
 
-        # add offsets dim to coords
-         # [B*N, patches_per_frame, K, K, 2]
-        
-        # normalize to (-1, 1) range
-        
-        
-        
+    # get correlations -> downsized 
+    fmap2_samples = torch.nn.functional.grid_sample(
+              self.fmap2,
+              grid.view(bn, pts_num, 1, 2), # shape: [frames_num, total_pts_num, 1, xy]
+              mode="bilinear",
+              padding_mode="zeros",
+              align_corners=False
+        )
 
-        
+    fmap1_samples = patches.view(bn, pts_num, c, r_corr*2 + 1, r_corr*2 + 1)
+    fmap2_samples = patches.view(bn, pts_num, c, r_corr*2 + 1, r_corr*2 + 1)
+  
+    20, 3
+    20 % 3 = 2 
+    20 // 3 = 6 
     
-    # target_frames = self.j
-     # self.register_buffer('fmap', torch.zeros((self.buff_size, self.fmap_c, self.fmap_h, self.fmap_w), dtype = torch.float))
-    # corr = self.imap[self.j]
+    frame_idx = self.i // self.buff_size 
+    patch_idx = self.i % self.buff_size 
+    patches_samples = self.patches[patch_idx, patch_idx, :, :, :]
 
-    # zrzutować, pobrać dla rzutowań (w promieniu r) mapę cech, policzyć dot prod dla każdje z krawędzi. Zrobić to dla piramidy cech, żeli zreić downsampling i tp samo
-    
+        
+    return 
 
   
   # === define interface to obtain data === #TODO
@@ -337,7 +339,8 @@ class Graph(nn.Module):
     # --- increment global frame idx ---
     self.frame_n += 1
 
-    # here extract correlation vectors..
+    # --- calculate correlation ---- 
+    corr_tensor = self._corr(r_corr)
     return #function will return vectors that will be pass to GRU.
 
 
