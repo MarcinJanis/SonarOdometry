@@ -1,11 +1,5 @@
-
-      # self.fmap_c = self.cfg.F_MAP_C
-      # self.fmap_h = self.cfg.F_MAP_H
-      # self.fmap_w = self.cfg.F_MAP_W
-
-
 # ========================================= #
-# Model configuration file
+#       Model configuration file            #
 # ========================================= #
 
 DEBUG: True
@@ -34,7 +28,7 @@ ENCODER_NORM_METHOD: 'instance' # 'batch', 'group' None
 
 # === Patchifier configuration === #
 
-PATCHES_PER_FRAME: 40 # Amount of patches extracted from single frame 
+PATCHES_PER_FRAME: 5 # Amount of patches extracted from single frame 
 
 PATCH_SIZE: 3 # Patch size, extracted from features map 
 
@@ -46,11 +40,13 @@ PATCHIFIER_METHOD: 'harris' # harris method with debug and visualisation functio
 
 # === Graph configuration === #
 
-BUFF_SIZE: 36 # Ring buffer size, amount of last frames that are kept
+BUFF_SIZE: 10 # Ring buffer size, amount of last frames that are kept
 
+TIME_WINDOW: 3 # Amount of previous frames that are taken into new edges creation
 
+CORR_NEIGHBOUR: 2 
 
-MOTION_APPRO_MODEL: None # [DAMPED_LINEAR, LINEAR in developement]
+MOTION_APPRO_MODEL: 'LINEAR' # [DAMPED_LINEAR, LINEAR in developement]
 
 
 

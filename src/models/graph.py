@@ -31,10 +31,10 @@ class Graph(nn.Module):
     self.time_window = self.model_cfg.TIME_WINDOW
     
     self.fmap_c = self.model_cfg.FEATURES_OUTPUT_CH
-  
+    self.corr_neighbour = self.model_cfg.CORR_NEIGHBOUR
     self.fmap_h = self.sonar_cfg.resolution.bins // self.model_cfg.ENCODER_DOWNSIZE
     self.fmap_w = self.sonar_cfg.resolution.beams // self.model_cfg.ENCODER_DOWNSIZE
-    self.fmap_downsize = self.model.cfg.FMAP_DOWNSIZD
+    self.encoder_downsize = self.model_cfg.ENCODER_DOWNSIZE
     
     self.motion_model = self.model_cfg.MOTION_APPRO_MODEL
    
@@ -53,7 +53,7 @@ class Graph(nn.Module):
 
     # --- frame buffers ---
     self.register_buffer('fmap1', torch.zeros((self.buff_size, self.fmap_c, self.fmap_h, self.fmap_w), dtype = torch.float)) # frames: features map
-    self.register_buffer('fmap2', torch.zeros((self.buff_size, self.fmap_c, self.fmap_h // self.fmap_downsize, self.fmap_w // self.fmap_downsize), dtype = torch.float)) # frames: features map 
+    self.register_buffer('fmap2', torch.zeros((self.buff_size, self.fmap_c, self.fmap_h // self.encoder_downsize, self.fmap_w // self.encoder_downsize), dtype = torch.float)) # frames: features map 
     
     self.register_buffer('imap', torch.zeros((self.buff_size, self.fmap_c, self.fmap_h, self.fmap_w), dtype = torch.float)) # frames: context map 
 
@@ -67,18 +67,18 @@ class Graph(nn.Module):
     self.register_buffer('source_frame', torch.zeros((self.buff_size, self.patches_per_frame), dtype = torch.int)) # id of source frame for each patch
                          
     # --- graphs edges --- 
-    max_edges = self.buff_size * self.patches_per_fram * self.time_window # each patch (buff_size * patches_per_frame) is connected to each frame in time window
-    self.register_buffer('i', torch.zeros(max_edges, dtype=torch.int32)) # keeps idxs of patch
-    self.register_buffer('j', torch.zeros(max_edges, dtype=torch.int32)) # keeps idxs of frame
-    self.register_buffer('weights', torch.zeros(max_edges, dtype=torch.float)) # weights of each patch, how good estimation is, based on this patch 
-    self.register_buffer('valid', torch.zeros(max_edges, dtype=torch.bool)) # valid if its in range of frame, non valid if out of range 
+    self.max_edges = self.buff_size * self.patches_per_frame * self.time_window * 2 # each patch (buff_size * patches_per_frame * 2) is connected to each frame in time window
+    self.register_buffer('i', torch.zeros(self.max_edges, dtype=torch.int32)) # keeps idxs of patch
+    self.register_buffer('j', torch.zeros(self.max_edges, dtype=torch.int32)) # keeps idxs of frame
+    self.register_buffer('weights', torch.zeros(self.max_edges, dtype=torch.float)) # weights of each patch, how good estimation is, based on this patch 
+    self.register_buffer('valid', torch.ones(self.max_edges, dtype=torch.bool)) # valid if its in range of frame, non valid if out of range 
   
   def add_frame(self, fmap, imap, time_stamp): 
     # local index for ring buffer 
     local_idx = self.frame_n % self.buff_size
     # add features map to buffer 
     self.fmap1[local_idx, :, :, :] = F.avg_pool2d(fmap.squeeze(0), 1, 1)
-    self.fmap2[local_idx, :, :, :] = F.avg_pool2d(fmap.squeeze(0), self.fmap_downsize, self.fmap_downsize)
+    self.fmap2[local_idx, :, :, :] = F.avg_pool2d(fmap.squeeze(0), self.encoder_downsize, self.encoder_downsize)
     
     # add context map to buffer 
     self.imap[local_idx, :, :, :] = imap.squeeze(0) # !!!!! sprawdzic czy squeeze ale prawdopodbnie trzeba pozbyc sie rozmiaru batcha
@@ -132,7 +132,7 @@ class Graph(nn.Module):
 
     return 
 
-  def _approx_movement(self):
+  def approx_movement(self):
 
     k_idx = self.frame_n % self.buff_size
 
@@ -142,46 +142,49 @@ class Graph(nn.Module):
                                           device=self.poses.device, 
                                           dtype=self.poses.dtype)
     else: 
-      # indexes
+      # --- indexes ---
       k1_idx = (k_idx - 1) % self.buff_size  
       k2_idx = (k_idx - 2) % self.buff_size
 
-      # get time stams
+      # --- get time stams ---
       t0 = self.time[k_idx]
       t1 = self.time[k1_idx]
       t2 = self.time[k2_idx]
-
-      # get previous position
+      
+      assert t0 != t1, f'[Error] Time stamps for frame {self.frame_n} and {self.frame_n - 1} are the same.\nMovement approximation is not possible.'
+      assert t1 != t2, f'[Error] Time stamps for frame {self.frame_n - 1} and {self.frame_n - 2} are the same.\nMovement approximation is not possible.'
+      
+      # --- get previous position ---
       x1 = self.poses[k1_idx, :]
       x2 = self.poses[k2_idx, :]
 
       if self.motion_model == 'LINEAR':
 
-        # linear displacement
+        # --- linear displacement ---
         new_pose = x1[0:3] + (x1[0:3] - x2[0:3])/(t1 - t2)*(t0 - t1) 
 
-        # quaterions
+        # --- extract quaterions ---
         q1 = x1[3:]
         q2 = x2[3:]
 
-        # find shortest rotation 
+        # --- find shortest rotation ---
         dot = (q1 * q2).sum() 
         if dot < 0: q1 = -q1
 
-        # rotation - quaterions difference
+        # --- rotation - quaterions difference ---
         q2_conj = q_conjugate(q2)
         diff = hamilton_product(q1, q2_conj)  # diff q2 -> q1: diff = q2 * q1^-1
 
-        # rotation axis 
+        # --- rotation axis ---
         s = torch.sqrt(torch.clamp(1 - diff[-1]*diff[-1], 0.0))
         if s < 0.001: rot_axis = torch.tensor([1, 0, 0], device = diff.device, dtype = diff.dtype)
         else: rot_axis = diff[:-1]/s
 
-        # rotation angle
+        # --- rotation angle ---
         rot_angle = 2 * torch.acos(torch.clamp(diff[-1], -1.0, 1.0))
         rot_angle_appro = rot_angle/(t1 - t2)*(t0 - t1) # approximation apriori, to t0
 
-        # apply rotation
+        # --- apply rotation ---
         q_step_vect = rot_axis * torch.sin(rot_angle_appro/2)
         q_step_scal = torch.cos(rot_angle_appro/2).unsqueeze(0)   
         q_step = torch.cat((q_step_vect, q_step_scal), dim=0)
@@ -194,15 +197,15 @@ class Graph(nn.Module):
       else:
         x0 = x1
 
-    # save to buffer
+    # --- save to buffer ---
     self.poses[k_idx, :] = x0
     return 
 
 
-  def _create_edges(self):    
-    # TODO: add device 
+  def create_edges(self):    
+    
     # --- current patches -> past frame --- 
-    new_patches = torch.arange(self.frame_n*self.patches_per_frame, (self.frame_n+1)*self.patches_per_frame)
+    new_patches = torch.arange(self.frame_n*self.patches_per_frame, (self.frame_n+1)*self.patches_per_frame) 
     past_frames = torch.arange(self.frame_n - 1, self.frame_n - 1- self.time_window, step=-1)
 
     i_new_patches = new_patches.repeat(self.time_window)
@@ -210,45 +213,72 @@ class Graph(nn.Module):
     
     # --- past patches -> current frame --- 
     i_past_patches = torch.arange((self.frame_n - self.time_window)*self.patches_per_frame, self.frame_n*self.patches_per_frame) # <- here i finished
-    j_current_frames = torch.ones(self.time_window*self.patches_per_frame) * self.frame_n 
+    j_new_frames = torch.ones(self.time_window*self.patches_per_frame) * self.frame_n 
 
     # --- concat --- 
     new_i = torch.cat((i_new_patches, i_past_patches), dim = 0)
-    new_j = torch.cat((j_past_frames, j_current_frames), dim = 0)
+    new_j = torch.cat((j_past_frames, j_new_frames), dim = 0)
 
-    idx_low = (self.frame_n % self.buff_size) * self._patches_per_frame * self.time_window
-    idx_high = ((self.frame_n + 1) % self.buff_size) * self._patches_per_frame * self.time_window
-    
+    idx_low = (self.frame_n % self.buff_size) * self.patches_per_frame * self.time_window * 2
+    idx_high = ((self.frame_n + 1) % self.buff_size) * self.patches_per_frame * self.time_window * 2
+
     self.i[idx_low:idx_high] = new_i
     self.j[idx_low:idx_high] = new_j
+
     self.weights[idx_low:idx_high] = torch.zeros((idx_high - idx_low))
     self.valid[idx_low:idx_high] = torch.ones((idx_high - idx_low))
 
     return 
+  
+  def corr(self):
 
-  def _corr(self, r_corr):
-
-    # === 
-    # poprawić tą logikę, to tylko szkic narazoe
-    # dodać, że że uwzględniamy że niektóre patche są nieważne 
-
+    # ---
     device = self.fmap1.device 
     
-    coords_proj = project_points(self.patch_state) # [r, theta, phi]
+    # --- choose only valid edges ---
+    # valid edge: projected points are in range of fmap and depts in not negative 
+    i_val = self.i[self.valid].long()
+    j_val = self.j[self.valid].long()
 
-    pts_num, _ = coords_proj.shape
-    # coords_proj_ds = coords_proj / self.fmap_downsize
+    # --- get source poses and target poses
+    source_frames_idx = i_val // self.patches_per_frame
+    local_patch_idx = i_val % self.patches_per_frame
+
+    buff_source_frame_idx = source_frames_idx % self.buff_size
+    buff_target_frame_idx = j_val % self.buff_size
+
+    source_poses = self.poses[buff_source_frame_idx, :]
+    target_poses = self.poses[buff_target_frame_idx, :]
+
+    source_coords = self.patch_state[buff_source_frame_idx, local_patch_idx, :]
+    
+    # --- reprojection ---
+    target_pts = project_points(source_coords, source_poses, target_poses)
+    
+    pts_num, _ = target_pts.shape 
+
+    # --- edges validation --- DOPRACOWAĆ
+    theta_max = self.fov_horizontal / 2
+    phi_max = self.fov_vertical / 2
+
+    out_of_range = (target_pts[:,0] < self.r_min) | (target_pts[:,0] > self.r_max)
+    out_of_range = out_of_range | torch.abs(target_pts[:,1]) > theta_max
+    out_of_range = out_of_range | torch.abs(target_pts[:,2]) > phi_max
+
+    active_edges_idx = torch.nonzero(self.valid, as_tuple=True)[0]
+    invalid_edges_idx = active_edges_idx[out_of_range]
+    self.valid[invalid_edges_idx] = 0
+
+    # --- get correlation nighbour from fmap ---
     
     # add offsets to projected points
-    r = torch.arange(-r_corr, r_corr + 1, device=device) # for r_corr = 2, r = [-2, -1, 0, 1, 2]
-    
+    r = torch.arange(-self.corr_neighbour, self.corr_neighbour + 1, device=device) # for r_corr = 2, r = [-2, -1, 0, 1, 2]
     dy, dx = torch.meshgrid(r, r, indexing="ij") # dy = [-2, -1, 0, 1, 2], dx =  [-2, -1, 0, 1, 2]
-    coords_offsets = torch.stack([dx, dy], dim=-1).float() # shape [r_corr, r_corr, 2]
-    # coords_offsets = []
+    offsets = torch.stack([dx, dy], dim=-1).float() # shape [r_corr, r_corr, 2]
 
-    coords = coords_proj[:, :2].unsqueeze(0).unsqueeze(0) + coords_offsets.unsqueeze(0).unsqueeze(0) #discard phi, add offsets
-
-    # coords for fmap1 - normal size: norm (-1, 1)
+    coords = target_pts[:, :2].unsqueeze(0).unsqueeze(0) + offsets.unsqueeze(0).unsqueeze(0) #discard phi, add offsets
+    
+    # norm (-1, 1)
     x_norm = (2 * coords[:, :, :, :, 0] + 1) / self.fmap_w - 1
     y_norm = (2 * coords[:, :, :, :, 1] + 1) / self.fmap_w - 1
 
@@ -258,31 +288,28 @@ class Graph(nn.Module):
     # get correlations -> normal size
     fmap1_samples = torch.nn.functional.grid_sample(
               self.fmap1,
-              grid.view(bn, pts_num, 1, 2), # shape: [frames_num, total_pts_num, 1, xy]
+              grid.view(pts_num, 1, 2), # shape: [frames_num, total_pts_num, 1, xy]
               mode="bilinear",
               padding_mode="zeros",
               align_corners=False
         )
 
-    # get correlations -> downsized 
+    # # get correlations -> downsized 
     fmap2_samples = torch.nn.functional.grid_sample(
               self.fmap2,
-              grid.view(bn, pts_num, 1, 2), # shape: [frames_num, total_pts_num, 1, xy]
+              grid.view(pts_num, 1, 2), # shape: [frames_num, total_pts_num, 1, xy]
               mode="bilinear",
               padding_mode="zeros",
               align_corners=False
         )
 
-    fmap1_samples = patches.view(bn, pts_num, c, r_corr*2 + 1, r_corr*2 + 1)
-    fmap2_samples = patches.view(bn, pts_num, c, r_corr*2 + 1, r_corr*2 + 1)
+    # fmap1_samples = patches.view(bn, pts_num, c, r_corr*2 + 1, r_corr*2 + 1)
+    # fmap2_samples = patches.view(bn, pts_num, c, r_corr*2 + 1, r_corr*2 + 1)
   
-    20, 3
-    20 % 3 = 2 
-    20 // 3 = 6 
-    
-    frame_idx = self.i // self.buff_size 
-    patch_idx = self.i % self.buff_size 
-    patches_samples = self.patches[patch_idx, patch_idx, :, :, :]
+
+    # frame_idx = self.i // self.buff_size 
+    # patch_idx = self.i % self.buff_size 
+    # patches_samples = self.patches[patch_idx, patch_idx, :, :, :]
 
         
     return 
@@ -333,17 +360,19 @@ class Graph(nn.Module):
     self.add_patches(new_patches, coords)
 
     # --- approximation of new initial pose ---
-    self._approx_movement()
+    self.approx_movement()
 
     # --- create edges for new data ---- 
-    self._create_edges()
+    self.create_edges()
     
     # --- increment global frame idx ---
     self.frame_n += 1
 
     # --- calculate correlation ---- 
-    corr_tensor = self._corr(r_corr)
-    return #function will return vectors that will be pass to GRU.
+    self.corr()
+
+    return
+
 
 
 
@@ -359,3 +388,15 @@ W osobnym pliku ipynb
 
 '''
 
+
+
+
+'''
+
+global_frame_idx -> buff_frame_idx gfi % buff_size
+
+
+global_patch_idx -> global_frame_idx: gpi // patches_per_frame
+global_patch_idx -> local_frame_idx: gpi % patches_per_frame
+
+'''
