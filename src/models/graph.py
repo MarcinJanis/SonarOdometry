@@ -96,7 +96,7 @@ class Graph(nn.Module):
     theta_norm = coords[:, 0] / self.fls_w - 0.5
     theta = theta_norm * self.fov_horizontal * torch.pi / 180.0
     
-    return r, theta 
+    return torch.stack([r, theta], dim = 1)
 
   def _scale_phisical2fls(self, coords):
 
@@ -108,7 +108,7 @@ class Graph(nn.Module):
     theta_norm = coords[:, 1] * 180.0 / torch.pi / self.fov_horizontal 
     theta = (theta_norm + 0.5) * self.fls_w
     
-    return r, theta 
+    return torch.stack([r, theta], dim = 1)
   
   def add_patches(self, patches, coords):
     # local index for ring buffer
@@ -117,8 +117,9 @@ class Graph(nn.Module):
     # add patches features to graph 
     self.patches[local_idx, :, :, :, :] = patches.squeeze(0) 
 
-    # rescale coords to real warold values  
-    r, theta = self._scale_fls2phisical(coords.squeeze(0))
+    # rescale coords to real world values  
+    phisical_coords = self._scale_fls2phisical(coords.squeeze(0))
+    r, theta = phisical_coords[:, 0], phisical_coords[:, 1]
 
     # approximate elevation angle - phi - to be optimized 
     phi = torch.zeros((self.patches_per_frame), device = coords.device, dtype = coords.dtype)
@@ -254,54 +255,75 @@ class Graph(nn.Module):
     
     # --- reprojection ---
     target_pts = project_points(source_coords, source_poses, target_poses)
-    
+
     pts_num, _ = target_pts.shape 
 
-    # --- edges validation --- DOPRACOWAĆ
+    # --- edges validation --- 
     theta_max = self.fov_horizontal / 2
     phi_max = self.fov_vertical / 2
 
     out_of_range = (target_pts[:,0] < self.r_min) | (target_pts[:,0] > self.r_max)
-    out_of_range = out_of_range | torch.abs(target_pts[:,1]) > theta_max
-    out_of_range = out_of_range | torch.abs(target_pts[:,2]) > phi_max
+    out_of_range = out_of_range | (torch.abs(target_pts[:,1]) > theta_max)
+    out_of_range = out_of_range | (torch.abs(target_pts[:,2]) > phi_max)
 
     active_edges_idx = torch.nonzero(self.valid, as_tuple=True)[0]
     invalid_edges_idx = active_edges_idx[out_of_range]
     self.valid[invalid_edges_idx] = 0
 
-    # --- get correlation nighbour from fmap ---
+    # --- get correlation neighbour from fmap --- 
+    target_pts = self._scale_phisical2fls(target_pts)
+
+    # ===== POSORTOWAĆ PUNKTY ZGODNIE Z TERGET FRAME ( Z MOŻLIWOŚCIĄ ODWRÓCENIA SORTOWANIA NP. ZAPAMIETAĆ INDEKSY)
     
-    # add offsets to projected points
+    # sort_target_frame_idx = torch.argsort(buff_target_frame_idx, stable=True)
+    # sorted_target_pts = target_pts[sort_target_frame_idx]
+
+
+    # # add offsets to projected points
     r = torch.arange(-self.corr_neighbour, self.corr_neighbour + 1, device=device) # for r_corr = 2, r = [-2, -1, 0, 1, 2]
     dy, dx = torch.meshgrid(r, r, indexing="ij") # dy = [-2, -1, 0, 1, 2], dx =  [-2, -1, 0, 1, 2]
     offsets = torch.stack([dx, dy], dim=-1).float() # shape [r_corr, r_corr, 2]
+    grid = target_pts.view(pts_num, 1, 1, 2) + offsets.unsqueeze(0)
 
-    coords = target_pts[:, :2].unsqueeze(0).unsqueeze(0) + offsets.unsqueeze(0).unsqueeze(0) #discard phi, add offsets
-    
-    # norm (-1, 1)
-    x_norm = (2 * coords[:, :, :, :, 0] + 1) / self.fmap_w - 1
-    y_norm = (2 * coords[:, :, :, :, 1] + 1) / self.fmap_w - 1
+    grid_norm = torch.zeros_like(grid)
+    grid_norm[..., 0] = 2.0 * grid[..., 0] / (self.fls_w - 1) - 1.0 # norm x
+    grid_norm[..., 1] = 2.0 * grid[..., 1] / (self.fls_h - 1) - 1.0 # norm y 
 
-    # grid with target coords
-    grid = torch.stack([x_norm, y_norm], dim=-1)
 
-    # get correlations -> normal size
-    fmap1_samples = torch.nn.functional.grid_sample(
-              self.fmap1,
-              grid.view(pts_num, 1, 2), # shape: [frames_num, total_pts_num, 1, xy]
-              mode="bilinear",
-              padding_mode="zeros",
-              align_corners=False
-        )
+    # ====== W PĘTLI FOR POBIERAĆ POKOELJI Z RÓŻNYCH TARGET FRAME
+    target_patches = F.grid_sample(self.fmap1, grid_norm, mode='bilinear', padding_mode='zeros', align_corners=True)
+    # target_coords = target_pts[:, :2].unsqueeze(0).unsqueeze(0) + offsets.unsqueeze(0).unsqueeze(0) #discard phi, add offsets
 
-    # # get correlations -> downsized 
-    fmap2_samples = torch.nn.functional.grid_sample(
-              self.fmap2,
-              grid.view(pts_num, 1, 2), # shape: [frames_num, total_pts_num, 1, xy]
-              mode="bilinear",
-              padding_mode="zeros",
-              align_corners=False
-        )
+
+    # ====== ODWRÓCIĆ SORTOWANIE? 
+    print(f'[corr: target_pts.shape: {target_pts.shape}')
+    print(f'[corr: target_coords.shape: {offsets.shape}')
+
+
+    # # norm (-1, 1)
+    # x_norm = (2 * target_coords[:, :, :, :, 0] + 1) / self.fmap_w - 1
+    # y_norm = (2 * target_coords[:, :, :, :, 1] + 1) / self.fmap_w - 1
+
+    # # grid with target coords
+    # grid = torch.stack([x_norm, y_norm], dim=-1)
+
+    # # get correlations -> normal size
+    # fmap1_samples = torch.nn.functional.grid_sample(
+    #           self.fmap1,
+    #           grid.view(pts_num, 1, 2), # shape: [frames_num, total_pts_num, 1, xy]
+    #           mode="bilinear",
+    #           padding_mode="zeros",
+    #           align_corners=False
+    #     )
+
+    # # # get correlations -> downsized 
+    # fmap2_samples = torch.nn.functional.grid_sample(
+    #           self.fmap2,
+    #           grid.view(pts_num, 1, 2), # shape: [frames_num, total_pts_num, 1, xy]
+    #           mode="bilinear",
+    #           padding_mode="zeros",
+    #           align_corners=False
+    #     )
 
     # fmap1_samples = patches.view(bn, pts_num, c, r_corr*2 + 1, r_corr*2 + 1)
     # fmap2_samples = patches.view(bn, pts_num, c, r_corr*2 + 1, r_corr*2 + 1)
