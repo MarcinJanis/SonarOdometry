@@ -279,7 +279,8 @@ class Graph(nn.Module):
     # --- get correlation neighbour from fmap --- 
     target_pts = self._scale_phisical2fls(target_pts)
     # add offsets
-    r = torch.arange(-self.corr_neighbour, self.corr_neighbour + 1, device=device) # for r_corr = 2, r = [-2, -1, 0, 1, 2]
+    range =  self.corr_neighbour + self.patch_size - 1
+    r = torch.arange(-range, range, device=device) 
     dy, dx = torch.meshgrid(r, r, indexing="ij") # dy = [-2, -1, 0, 1, 2], dx =  [-2, -1, 0, 1, 2]
     
     offsets = torch.stack([dx, dy], dim=-1).float() # shape [r_corr, r_corr, 2]
@@ -301,13 +302,19 @@ class Graph(nn.Module):
     target_patches_fmap1 = F.grid_sample(self.fmap1[buff_target_frame_idx], grid_norm1, mode='bilinear', padding_mode='zeros', align_corners=True) # shape [pts_num, C, r_corr, r_corr]
     target_patches_fmap2 = F.grid_sample(self.fmap2[buff_target_frame_idx], grid_norm2, mode='bilinear', padding_mode='zeros', align_corners=True)
 
-    # target_patches = torch.stack((target_patches_fmap1.unsqueeze(-1), target_patches_fmap2.usnqueeze(-2)), dim = -1)
+    # shape: (n, c, p+r-1, p+r-1) -> (n, c*p*p, r*r) , l - number of kernel poses 
+    target_patches_fmap1 = F.unfold(target_patches_fmap1, kernel_size=(self.patch_size, self.patch_size), stride=1)
+    target_patches_fmap2 = F.unfold(target_patches_fmap1, kernel_size=(self.patch_size, self.patch_size), stride=1)
 
+    target_patches_fmap1 = target_patches_fmap1.view(pts_num, self.fmap_c, self.patch_size*self.patch_size, self.corr_neighbour*self.corr_neighbour) # shape: (pta_num, c, patch_size^2, corr_neighbour^2)
+    target_patches_fmap2 = target_patches_fmap2.view(pts_num, self.fmap_c, self.patch_size*self.patch_size, self.corr_neighbour*self.corr_neighbour)
     # --- calculate correlation ---
-    
+    act_patches = self.patches[buff_target_frame_idx, local_patch_idx, :, :, :]
+    corr_map1 = torch.einsum('bcp, bcpr -> bcr', act_patches, target_patches_fmap1)
+    corr_map2 = torch.einsum('bcp, bcpr -> bcr', act_patches, target_patches_fmap2)
     
         
-    return target_pts, buff_source_frame_idx, buff_target_frame_idx, local_patch_idx
+    # return target_pts, buff_source_frame_idx, buff_target_frame_idx, local_patch_idx
     
 
   
