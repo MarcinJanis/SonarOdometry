@@ -256,8 +256,6 @@ class Graph(nn.Module):
     # --- reprojection ---
     target_pts = project_points(source_coords, source_poses, target_poses)
 
-    pts_num, _ = target_pts.shape 
-
     # --- edges validation --- 
     theta_max = self.fov_horizontal / 2
     phi_max = self.fov_vertical / 2
@@ -270,68 +268,39 @@ class Graph(nn.Module):
     invalid_edges_idx = active_edges_idx[out_of_range]
     self.valid[invalid_edges_idx] = 0
 
+    # delete non-valid patches - check!?
+    target_pts = target_pts[~out_of_range]
+    buff_source_frame_idx = buff_source_frame_idx[~out_of_range]
+    buff_target_frame_idx = buff_target_frame_idx[~out_of_range]
+    local_patch_idx = local_patch_idx[~out_of_range]
+
+    pts_num, _ = target_pts.shape 
+    
     # --- get correlation neighbour from fmap --- 
     target_pts = self._scale_phisical2fls(target_pts)
-
-    # ===== POSORTOWAĆ PUNKTY ZGODNIE Z TERGET FRAME ( Z MOŻLIWOŚCIĄ ODWRÓCENIA SORTOWANIA NP. ZAPAMIETAĆ INDEKSY)
-    
-    # sort_target_frame_idx = torch.argsort(buff_target_frame_idx, stable=True)
-    # sorted_target_pts = target_pts[sort_target_frame_idx]
-
-
-    # # add offsets to projected points
+    # add offsets
     r = torch.arange(-self.corr_neighbour, self.corr_neighbour + 1, device=device) # for r_corr = 2, r = [-2, -1, 0, 1, 2]
     dy, dx = torch.meshgrid(r, r, indexing="ij") # dy = [-2, -1, 0, 1, 2], dx =  [-2, -1, 0, 1, 2]
+    
     offsets = torch.stack([dx, dy], dim=-1).float() # shape [r_corr, r_corr, 2]
-    grid = target_pts.view(pts_num, 1, 1, 2) + offsets.unsqueeze(0)
 
+    offset_norm = torch.zeros_like(offsets).unsqueeze(0) # [1, r_corr, r_cor, 2]
+    offset_norm[..., 0] = 2.0 * offsets[..., 0] / (self.fls_w - 1)
+    offset_norm[..., 1] = 2.0 * offsets[..., 1] / (self.fls_h - 1)
+
+    
+    grid = target_pts.view(pts_num, 1, 1, 2) + offsets.unsqueeze(0)
     grid_norm = torch.zeros_like(grid)
     grid_norm[..., 0] = 2.0 * grid[..., 0] / (self.fls_w - 1) - 1.0 # norm x
     grid_norm[..., 1] = 2.0 * grid[..., 1] / (self.fls_h - 1) - 1.0 # norm y 
 
+    grid_norm1 = grid_norm + offset_norm
+    grid_norm2 = grid_norm + offset_norm * self.encoder_downsize
+    
+    # prepare fmap 
+    target_patches_fmap1 = F.grid_sample(self.fmap1[buff_target_frame_idx], grid_norm1, mode='bilinear', padding_mode='zeros', align_corners=True)
+    target_patches_fmap2 = F.grid_sample(self.fmap2[buff_target_frame_idx], grid_norm2, mode='bilinear', padding_mode='zeros', align_corners=True)
 
-    # ====== W PĘTLI FOR POBIERAĆ POKOELJI Z RÓŻNYCH TARGET FRAME
-    target_patches = F.grid_sample(self.fmap1, grid_norm, mode='bilinear', padding_mode='zeros', align_corners=True)
-    # target_coords = target_pts[:, :2].unsqueeze(0).unsqueeze(0) + offsets.unsqueeze(0).unsqueeze(0) #discard phi, add offsets
-
-
-    # ====== ODWRÓCIĆ SORTOWANIE? 
-    print(f'[corr: target_pts.shape: {target_pts.shape}')
-    print(f'[corr: target_coords.shape: {offsets.shape}')
-
-
-    # # norm (-1, 1)
-    # x_norm = (2 * target_coords[:, :, :, :, 0] + 1) / self.fmap_w - 1
-    # y_norm = (2 * target_coords[:, :, :, :, 1] + 1) / self.fmap_w - 1
-
-    # # grid with target coords
-    # grid = torch.stack([x_norm, y_norm], dim=-1)
-
-    # # get correlations -> normal size
-    # fmap1_samples = torch.nn.functional.grid_sample(
-    #           self.fmap1,
-    #           grid.view(pts_num, 1, 2), # shape: [frames_num, total_pts_num, 1, xy]
-    #           mode="bilinear",
-    #           padding_mode="zeros",
-    #           align_corners=False
-    #     )
-
-    # # # get correlations -> downsized 
-    # fmap2_samples = torch.nn.functional.grid_sample(
-    #           self.fmap2,
-    #           grid.view(pts_num, 1, 2), # shape: [frames_num, total_pts_num, 1, xy]
-    #           mode="bilinear",
-    #           padding_mode="zeros",
-    #           align_corners=False
-    #     )
-
-    # fmap1_samples = patches.view(bn, pts_num, c, r_corr*2 + 1, r_corr*2 + 1)
-    # fmap2_samples = patches.view(bn, pts_num, c, r_corr*2 + 1, r_corr*2 + 1)
-  
-
-    # frame_idx = self.i // self.buff_size 
-    # patch_idx = self.i % self.buff_size 
-    # patches_samples = self.patches[patch_idx, patch_idx, :, :, :]
 
         
     return 
