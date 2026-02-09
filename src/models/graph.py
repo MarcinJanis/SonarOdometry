@@ -297,13 +297,18 @@ class Graph(nn.Module):
     grid_norm1 = grid_norm + offset_norm
     grid_norm2 = grid_norm + offset_norm * self.encoder_downsize
     
-    # prepare fmap 
-    target_patches_fmap1 = F.grid_sample(self.fmap1[buff_target_frame_idx], grid_norm1, mode='bilinear', padding_mode='zeros', align_corners=True)
+    # get features patches from maps
+    target_patches_fmap1 = F.grid_sample(self.fmap1[buff_target_frame_idx], grid_norm1, mode='bilinear', padding_mode='zeros', align_corners=True) # shape [pts_num, C, r_corr, r_corr]
     target_patches_fmap2 = F.grid_sample(self.fmap2[buff_target_frame_idx], grid_norm2, mode='bilinear', padding_mode='zeros', align_corners=True)
 
+    # target_patches = torch.stack((target_patches_fmap1.unsqueeze(-1), target_patches_fmap2.usnqueeze(-2)), dim = -1)
 
+    # --- calculate correlation ---
+    
+    
         
-    return 
+    return target_pts, buff_source_frame_idx, buff_target_frame_idx, local_patch_idx
+    
 
   
   # === define interface to obtain data === #TODO
