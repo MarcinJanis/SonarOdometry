@@ -44,9 +44,9 @@ BUFF_SIZE: 10 # Ring buffer size, amount of last frames that are kept
 
 TIME_WINDOW: 3 # Amount of previous frames that are taken into new edges creation
 
-CORR_NEIGHBOUR: 2 
+CORR_NEIGHBOUR: 5
 
-MOTION_APPRO_MODEL: 'LINEAR' # [DAMPED_LINEAR, LINEAR in developement]
+MOTION_APPRO_MODEL: 'linear' # [DAMPED_LINEAR, LINEAR in developement]
 
 
 

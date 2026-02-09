@@ -151,7 +151,7 @@ class Patchifier(nn.Module):
             align_corners=False
         )
         
-        patches = patches.view(bn, self.patches_per_frame, c, self.patch_size, self.patch_size)
+        patches = patches.view(bn, self.patches_per_frame, c, self.patch_size*self.patch_size)
         # return patches.permute(0, 2, 3, 4, 1)
         return patches
 
