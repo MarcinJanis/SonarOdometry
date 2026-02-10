@@ -308,19 +308,17 @@ class Graph(nn.Module):
     act_patches_f = self.patches_f[buff_source_frame_idx, local_patch_idx, :, :]
     act_patches_c = self.patches_c[buff_source_frame_idx, local_patch_idx, :, :]
 
-    # --- concatenate features for correlation 
-    corr_map = torch.stack((act_patches, target_patches_fmap1, target_patches_fmap2), dim=1)
-
-    
-    # corr_map1 = torch.einsum('ncpr, ncp -> nr', target_patches_fmap1, act_patches) # n - pts_num, c - self.fmap_c, p - self.patch_size**2, r - self.corr_neighbour**2
-    # corr_map2 = torch.einsum('ncpr, ncp -> nr', target_patches_fmap2, act_patches) # n - pts_num, c - self.fmap_c, p - self.patch_size**2, r - self.corr_neighbour**2
+    # --- concatenate features for correlation
+    corr_map1 = torch.einsum('ncpr, ncp -> npr', target_patches_fmap1, act_patches_f)
+    corr_map2 = torch.einsum('ncpr, ncp -> npr', target_patches_fmap2, act_patches_f)
   
     # corr_map = torch.stack([corr_map1.unsqueeze(-1), corr_map2.unsqueeze(-1)], dim=-1)
-    # corr_map = torch.cat((corr_map1, corr_map2), dim - 1) # shape (n edges, 2*r)
+    corr_map = torch.cat((corr_map1.reshape(pts_num, -1), corr_map2.reshape(pts_num, -1)), dim= - 1) 
     
-
     return corr_map, act_patches_c
     
+
+# A potem spłaszcz:
 
   
   # === define interface to obtain data === #TODO
@@ -372,7 +370,9 @@ class Graph(nn.Module):
     }
   
     return size_dict
-  def forward(self, frame, time_stamp):
+    
+    
+  def append(self, frame, time_stamp):
     
     # --- extract patches --- 
     coords, patches_f, patches_c, fmap= self.patchifier(frame, mode =  self.patchifier_method)
@@ -391,38 +391,10 @@ class Graph(nn.Module):
     
     # --- increment global frame idx ---
     self.frame_n += 1
-
-    # --- Update operator ---
-    # for _ in range(n):
-    # --- calculate correlation ---- 
-    corr = self.corr()
-
     return
+    
+  def update_step(self):
+    corr, cp = self.corr()
+    return corr, cp
 
 
-
-
-#### === Testy:
-'''
-W osobnym pliku ipynb
-1. Sprawdzić rozmiary grafu
-2. Sprawdzić dodawanie łatek i frameów, np. wygenerowac mapę cech składającą się tylko z 1 na powierzchni gdzie ma być jakiś patch, 
-   2 gdzie ma być kolejny itd i zonaczyć czy będą dobrze przypisane
-3. Dodać sprawdzanie aproksymacji ruchu
-3. Wypisać krawędzie dla jakiś nie dużych rozmiarów i zobaczyć czy indkesy łączone są odpowiednio "każdy z każdym"
-
-
-'''
-
-
-
-
-'''
-
-global_frame_idx -> buff_frame_idx gfi % buff_size
-
-
-global_patch_idx -> global_frame_idx: gpi // patches_per_frame
-global_patch_idx -> local_frame_idx: gpi % patches_per_frame
-
-'''
