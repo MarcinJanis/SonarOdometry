@@ -303,15 +303,21 @@ class Graph(nn.Module):
     target_patches_fmap1 = target_patches_fmap1.view(pts_num, self.fmap_c, self.patch_size*self.patch_size, self.corr_neighbour*self.corr_neighbour) # shape: (pts_num, c, patch_size^2, corr_neighbour^2)
     target_patches_fmap2 = target_patches_fmap2.view(pts_num, self.fmap_c, self.patch_size*self.patch_size, self.corr_neighbour*self.corr_neighbour)
 
-    # --- calculate correlation ---
+    # --- get patches ---
     act_patches = self.patches[buff_source_frame_idx, local_patch_idx, :, :]
-    
-    corr_map1 = torch.einsum('ncpr, ncp -> nr', target_patches_fmap1, act_patches) # n - pts_num, c - self.fmap_c, p - self.patch_size**2, r - self.corr_neighbour**2
-    corr_map2 = torch.einsum('ncpr, ncp -> nr', target_patches_fmap2, act_patches) # n - pts_num, c - self.fmap_c, p - self.patch_size**2, r - self.corr_neighbour**2
-  
-    corr_map = torch.stack([corr_map1.unsqueeze(-1), corr_map2.unsqueeze(-1)], dim=-1)
 
-    return corr_map, 
+    # --- concatenate features for correlation 
+    corr_map = torch.stack((act_patches, target_patches_fmap1, target_patches_fmap2), dim=1)
+
+    
+    # corr_map1 = torch.einsum('ncpr, ncp -> nr', target_patches_fmap1, act_patches) # n - pts_num, c - self.fmap_c, p - self.patch_size**2, r - self.corr_neighbour**2
+    # corr_map2 = torch.einsum('ncpr, ncp -> nr', target_patches_fmap2, act_patches) # n - pts_num, c - self.fmap_c, p - self.patch_size**2, r - self.corr_neighbour**2
+  
+    # corr_map = torch.stack([corr_map1.unsqueeze(-1), corr_map2.unsqueeze(-1)], dim=-1)
+    # corr_map = torch.cat((corr_map1, corr_map2), dim - 1) # shape (n edges, 2*r)
+    
+
+    return corr_map
     
 
   
@@ -384,8 +390,10 @@ class Graph(nn.Module):
     # --- increment global frame idx ---
     self.frame_n += 1
 
+    # --- Update operator ---
+    # for _ in range(n):
     # --- calculate correlation ---- 
-    self.corr()
+    corr = self.corr()
 
     return
 
