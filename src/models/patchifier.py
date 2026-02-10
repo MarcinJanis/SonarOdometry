@@ -119,7 +119,7 @@ class Patchifier(nn.Module):
         coords.view(bn, self.patches_per_frame, 2)
         return coords
 
-    def _get_patches(self, coords, map):
+    def _get_patches(self, coords, fmap, cmap):
 
         device = map.device
         # scale coords to features map
@@ -143,17 +143,26 @@ class Patchifier(nn.Module):
         grid = torch.stack([x_norm, y_norm], dim=-1) # grid shape [b*n, patcher_per_frame, K, K 2]
 
         # sample patches
-        patches = torch.nn.functional.grid_sample(
-            map.view(bn, c, h, w),
+        patches_f = torch.nn.functional.grid_sample(
+            fmap.view(bn, c, h, w),
+            grid.view(bn, self.patches_per_frame*self.patch_size*self.patch_size, 1, 2), # shape: [frames_num, total_pts_num, 1, xy]
+            mode="bilinear",
+            padding_mode="zeros",
+            align_corners=False
+        )
+
+        patches_c = torch.nn.functional.grid_sample(
+            cmap.view(bn, c, h, w),
             grid.view(bn, self.patches_per_frame*self.patch_size*self.patch_size, 1, 2), # shape: [frames_num, total_pts_num, 1, xy]
             mode="bilinear",
             padding_mode="zeros",
             align_corners=False
         )
         
-        patches = patches.view(bn, self.patches_per_frame, c, self.patch_size*self.patch_size)
+        patches_f = patches_f.view(bn, self.patches_per_frame, c, self.patch_size*self.patch_size)
+        patches_c = patches_c.view(bn, self.patches_per_frame, c, self.patch_size*self.patch_size)
         # return patches.permute(0, 2, 3, 4, 1)
-        return patches
+        return patches_f, patches_c
 
     def _patchifier_draw_keypoints(self, frame, coords):
             
