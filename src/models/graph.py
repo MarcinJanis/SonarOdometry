@@ -56,10 +56,11 @@ class Graph(nn.Module):
     self.register_buffer('fmap1', torch.zeros((self.buff_size, self.fmap_c, self.fmap_h, self.fmap_w), dtype = torch.float)) # frames: features map
     self.register_buffer('fmap2', torch.zeros((self.buff_size, self.fmap_c, self.fmap_h // self.encoder_downsize, self.fmap_w // self.encoder_downsize), dtype = torch.float)) # frames: features map 
     
-    self.register_buffer('imap', torch.zeros((self.buff_size, self.fmap_c, self.fmap_h, self.fmap_w), dtype = torch.float)) # frames: context map 
+    # self.register_buffer('imap', torch.zeros((self.buff_size, self.fmap_c, self.fmap_h, self.fmap_w), dtype = torch.float)) # frames: context map 
 
     # --- patches buffers ---
-    self.register_buffer('patches', torch.zeros((self.buff_size, self.patches_per_frame,  self.fmap_c, self.patch_size*self.patch_size), dtype = torch.float)) # patches features
+    self.register_buffer('patches_f', torch.zeros((self.buff_size, self.patches_per_frame,  self.fmap_c, self.patch_size*self.patch_size), dtype = torch.float)) # patches features
+    self.register_buffer('patches_c', torch.zeros((self.buff_size, self.patches_per_frame,  self.fmap_c, self.patch_size*self.patch_size), dtype = torch.float)) # patches features
 
     # --- patch center coords buffer ---
     self.register_buffer('patch_state', torch.zeros((self.buff_size, self.patches_per_frame, 3), dtype = torch.float)) # points (r, theta, phi) refered to patches + weight
@@ -74,7 +75,7 @@ class Graph(nn.Module):
     self.register_buffer('weights', torch.zeros(self.max_edges, dtype=torch.float)) # weights of each patch, how good estimation is, based on this patch 
     # self.register_buffer('valid', torch.ones(self.max_edges, dtype=torch.bool)) # valid if its in range of frame, non valid if out of range 
   
-  def add_frame(self, fmap, imap, time_stamp): 
+  def add_frame(self, fmap, time_stamp): 
     # local index for ring buffer 
     local_idx = self.frame_n % self.buff_size
     # add features map to buffer 
@@ -82,7 +83,7 @@ class Graph(nn.Module):
     self.fmap2[local_idx, :, :, :] = F.avg_pool2d(fmap.squeeze(0), self.encoder_downsize, self.encoder_downsize)
     
     # add context map to buffer 
-    self.imap[local_idx, :, :, :] = imap.squeeze(0) # !!!!! sprawdzic czy squeeze ale prawdopodbnie trzeba pozbyc sie rozmiaru batcha
+    # self.imap[local_idx, :, :, :] = imap.squeeze(0) # !!!!! sprawdzic czy squeeze ale prawdopodbnie trzeba pozbyc sie rozmiaru batcha
     # add time stamp 
     self.time[local_idx] = time_stamp 
     return 
@@ -111,21 +112,21 @@ class Graph(nn.Module):
     
     return torch.stack([r, theta], dim = 1)
   
-  def add_patches(self, patches, coords):
+  def add_patches(self, patches_f, patches_c, coords):
     
     # local index for ring buffer
     local_idx = self.frame_n % self.buff_size
 
     # add patches features to graph 
-    self.patches[local_idx, :, :, :] = patches.squeeze(0) 
-
+    self.patches_f[local_idx, :, :, :] = patches_f.squeeze(0) 
+    self.patches_c[local_idx, :, :, :] = patches_c.squeeze(0) 
+    
     # rescale coords to real world values  
     phisical_coords = self._scale_fls2phisical(coords.squeeze(0))
     r, theta = phisical_coords[:, 0], phisical_coords[:, 1]
 
     # approximate elevation angle - phi - to be optimized 
     phi = torch.zeros((self.patches_per_frame), device = self.poses.device, dtype = torch.float)
-    
     
     # add to graph
     self.patch_state[local_idx, :, :] = torch.stack([r, theta, phi], dim=1)
@@ -304,7 +305,8 @@ class Graph(nn.Module):
     target_patches_fmap2 = target_patches_fmap2.view(pts_num, self.fmap_c, self.patch_size*self.patch_size, self.corr_neighbour*self.corr_neighbour)
 
     # --- get patches ---
-    act_patches = self.patches[buff_source_frame_idx, local_patch_idx, :, :]
+    act_patches_f = self.patches_f[buff_source_frame_idx, local_patch_idx, :, :]
+    act_patches_c = self.patches_c[buff_source_frame_idx, local_patch_idx, :, :]
 
     # --- concatenate features for correlation 
     corr_map = torch.stack((act_patches, target_patches_fmap1, target_patches_fmap2), dim=1)
@@ -317,7 +319,7 @@ class Graph(nn.Module):
     # corr_map = torch.cat((corr_map1, corr_map2), dim - 1) # shape (n edges, 2*r)
     
 
-    return corr_map
+    return corr_map, act_patches_c
     
 
   
@@ -373,13 +375,13 @@ class Graph(nn.Module):
   def forward(self, frame, time_stamp):
     
     # --- extract patches --- 
-    coords, new_patches, fmap, imap = self.patchifier(frame, mode =  self.patchifier_method)
+    coords, patches_f, patches_c, fmap= self.patchifier(frame, mode =  self.patchifier_method)
 
     # --- add frame to graph ---
-    self.add_frame(fmap, imap, time_stamp)
+    self.add_frame(fmap, time_stamp)
 
     # --- add patches to graph ---
-    self.add_patches(new_patches, coords)
+    self.add_patches(patches_f, patches_c, coords)
 
     # --- approximation of new initial pose ---
     self.approx_movement()
