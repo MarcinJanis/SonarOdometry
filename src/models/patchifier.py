@@ -32,8 +32,8 @@ class Patchifier(nn.Module):
                                          norm_fn=self.cfg.ENCODER_NORM_METHOD)
         
         self.context_extractor = Encoder(in_ch = 1, 
-                                         out_ch = self.cfg.FEATURES_OUTPUT_CH,
-                                         dim = self.cfg.FEATURES_MAP_FIRST_DIM, 
+                                         out_ch = self.cfg.CONTEXT_OUTPUT_CH,
+                                         dim = self.cfg.CONTEXT_MAP_FIRST_DIM, 
                                          dropout=0.5, 
                                          norm_fn=None)
         

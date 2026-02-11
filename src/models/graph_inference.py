@@ -407,7 +407,12 @@ class Graph(nn.Module):
     return
     
   def update_step(self, device):
-    corr, ctx, val_idx = self.corr(device)
-    return corr, ctx, val_idx
+    corr, ctx, valid_mask= self.corr(device)
+
+    kk = self.i[valid_mask]
+    ii = kk // self.patches_per_frame
+    jj = self.j[valid_mask]
+   
+    return corr, ctx, ii, jj, kk
 
 

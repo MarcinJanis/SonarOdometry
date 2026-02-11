@@ -14,29 +14,22 @@ class Update(nn.Module):
         
         # correlation preprocess net
         corr_input_dim = self.fmap_c*self.corr_neighbour*self.corr_neighbour*self.patch_size*self.patch_size
-        corr_output_dim = model_cfg.FEATURES_OUTPUT_CH
+        hidden_state_dim = model_cfg.CONTEXT_OUTPUT_CH
 
         self.corr_net = nn.Sequential(
-            nn.Linear(corr_input_dim, corr_output_dim),
+            nn.Linear(corr_input_dim, hidden_state_dim),
             nn.ReLU(inplace=True),
-            nn.Linear(corr_output_dim, corr_output_dim),
-            nn.LayerNorm(corr_output_dim, eps=1e-3),
+            nn.Linear(hidden_state_dim, hidden_state_dim),
+            nn.LayerNorm(hidden_state_dim, eps=1e-3),
             nn.ReLU(inplace=True),
-            nn.Linear(corr_output_dim, corr_output_dim)
+            nn.Linear(hidden_state_dim, hidden_state_dim)
         )
 
-        self.norm = nn.LayerNorm(corr_output_dim, eps=1e-3)
+        self.norm = nn.LayerNorm(hidden_state_dim, eps=1e-3)
 
     
-    def forward(self, h, corr, ctx, flow, ii, jj, kk):
-
-
-        corr = self.corr_net(corr)
-        h = h + ctx + corr
-
-        h = self.norm(h)
-
-
+    def forward(self, h, flow, corr, ctx, ii, jj, kk):
+        
         '''
         Update operator
         
@@ -44,10 +37,19 @@ class Update(nn.Module):
         :param corr: correlation tensor
         :param ctx: context patches tensor
         :param flow: current correction of posses and weights 
-        :param ii: 
-        :param jj: 
-        :param kk: 
+        :param ii: buffer indexes of source frame for valid patches
+        :param jj: buffer indexes of target frame for valid patches
+        :param kk: gloabl ids of valid patches 
         '''
+
+        corr = self.corr_net(corr)
+        h = h + ctx + corr
+
+        h = self.norm(h)
+
+
+
+
         pass
 
 

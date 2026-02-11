@@ -10,21 +10,14 @@ FLS_INPUT_HEIGHT: 800 # input image height
 FLS_INPUT_WIDTH: 768 # input image weidth
 
 FEATURES_OUTPUT_CH: 128 # or 256; features map output channels
+CONTEXT_OUTPUT_CH: 384
+
 FEATURES_MAP_FIRST_DIM: 32 # or 64; first dimension upsize in encoder's residual block
+CONTEXT_MAP_FIRST_DIM: 32
 
 ENCODER_DOWNSIZE: 4 
 
 ENCODER_NORM_METHOD: 'instance' # 'batch', 'group' None
-
-# Encoder channels size:
-# 1 -> F_MAP_FIRST_DIM, Conv2d
-# F_MAP_FIRST_DIM -> F_MAP_FIRST_DIM, Residual Block 1.1
-# F_MAP_FIRST_DIM -> F_MAP_FIRST_DIM, Residual Block 1.2
-# F_MAP_FIRST_DIM -> F_MAP_FIRST_DIM * 2, Residual Block 2.1
-# F_MAP_FIRST_DIM * 2 -> F_MAP_FIRST_DIM * 2, Residual Block 2.2
-# F_MAP_FIRST_DIM * 2 -> F_MAP_C, Conv2d
-
-# Encoder downsizing -> x4 
 
 # === Patchifier configuration === #
 
