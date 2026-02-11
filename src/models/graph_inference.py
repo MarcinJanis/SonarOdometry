@@ -127,7 +127,7 @@ class Graph(nn.Module):
 
     # add patches features to graph 
     self.patches_f[local_idx, :, :, :] = patches_f.squeeze(0) 
-    self.patches_c[local_idx, :, :, :] = patches_c.squeeze(0) 
+    self.patches_c[local_idx, :, :] = patches_c.squeeze(0) 
     
     # rescale coords to real world values  
     phisical_coords = self._scale_fls2phisical(coords.squeeze(0))
@@ -154,9 +154,7 @@ class Graph(nn.Module):
 
     
     if self.frame_n < 2: # if initialization
-      x0 = torch.tensor([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0], 
-                                          device=device, 
-                                          dtype=torch.float)
+      x0 = torch.tensor([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0], device=device, dtype=torch.float)
     else: 
       # --- indexes ---
       k1_idx = (k_idx - 1) % self.buff_size  
@@ -322,7 +320,8 @@ class Graph(nn.Module):
 
     # --- get patches ---
     act_patches_f = self.patches_f[buff_source_frame_idx, local_patch_idx, :, :]
-    act_patches_c = self.patches_c[buff_source_frame_idx, local_patch_idx, :, :]
+    # act_patches_c = self.patches_c[buff_source_frame_idx, local_patch_idx, :, :]
+    act_patches_c = self.patches_c[buff_source_frame_idx, local_patch_idx, :]
 
     # --- calc correlation and connect to single tensor ---
     corr_map1 = torch.einsum('ncpr, ncp -> npr', target_patches_fmap1, act_patches_f)

@@ -8,13 +8,14 @@ class Update(nn.Module):
         super().__init__()
 
         # --- get model configuration ---
-        self.fmap_c = self.model_cfg.FEATURES_OUTPUT_CH
-        self.corr_neighbour = self.model_cfg.CORR_NEIGHBOUR
-        self.patch_size = self.model_cfg.PATCH_SIZE 
+        self.fmap_c = model_cfg.FEATURES_OUTPUT_CH
+        self.corr_neighbour = model_cfg.CORR_NEIGHBOUR
+        self.patch_size = model_cfg.PATCH_SIZE 
         
         # correlation preprocess net
         corr_input_dim = self.fmap_c*self.corr_neighbour*self.corr_neighbour*self.patch_size*self.patch_size
-        corr_output_dim = self.model_cfg. #TODO
+        corr_output_dim = model_cfg.FEATURES_OUTPUT_CH
+
         self.corr_net = nn.Sequential(
             nn.Linear(corr_input_dim, corr_output_dim),
             nn.ReLU(inplace=True),
@@ -27,7 +28,26 @@ class Update(nn.Module):
         self.norm = nn.LayerNorm(corr_output_dim, eps=1e-3)
 
     
-    def forward():
+    def forward(self, h, corr, ctx, flow, ii, jj, kk):
+
+
+        corr = self.corr_net(corr)
+        h = h + ctx + corr
+
+        h = self.norm(h)
+
+
+        '''
+        Update operator
+        
+        :param h: hidden state 
+        :param corr: correlation tensor
+        :param ctx: context patches tensor
+        :param flow: current correction of posses and weights 
+        :param ii: 
+        :param jj: 
+        :param kk: 
+        '''
         pass
 
 

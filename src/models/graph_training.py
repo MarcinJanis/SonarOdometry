@@ -19,7 +19,7 @@ class Graph(nn.Module):
   def __init__(self, model_cfg, sonar_cfg):
     super().__init__()
 
-    self.N = 7 # NUmber of frames in whole batch 
+    self.N = 7 
 
     # --- import sonar configuration ---
     self.r_min = sonar_cfg.range.min # min range
@@ -54,7 +54,9 @@ class Graph(nn.Module):
 
     self.fmap1 = None
     self.fmap2 = None
-    self.patch_state = None
+
+    self.coords_r_theta = None # coords of patch, only r and theta, contants
+    # coords_phi = None # coords of patch, only phi, which is estimating; self.patch_state = torch.cat([self.coords_r_theta, coords_phi], dim = 1)
 
     self.i = None
     self.j = None
@@ -109,11 +111,13 @@ class Graph(nn.Module):
     self.patches_f = patches_f.view(-1, self.fmap_c, self.patch_size, self.patch_size)
     self.patches_c = patches_c.view(-1, self.fmap_c, self.patch_size, self.patch_size)
 
-    patch_state_phi = torch.zeros((self.N * self.patches_per_frame, 1), device=device, dtype=torch.float) # init elevation angle with zeros
-    patch_state_phi.requires_grad_(True)
-    self.patch_state = torch.cat([self.coords, patch_state_phi], dim=-1) # shape: (total_frames, 3); coordinates: [r, theta, phi] 
+    coords = coords.view(-1, 2)
+    self.coords_r_theta = self._scale_fls2phisical(coords)
 
+    coords_phi = torch.zeros((self.N * self.patches_per_frame, 1), device=device, dtype=torch.float) # init elevation angle with zeros
+    coords_phi.requires_grad_(True)
 
+    return coords_phi
 
   def approx_movement(self, device):
     '''
@@ -126,7 +130,7 @@ class Graph(nn.Module):
     poses[:, -1] = 1.0 # Quaternion w
     poses.requires_grad_(True)
     
-    self.poses = poses
+    return poses
 
 
   def create_edges(self, device):    
@@ -154,9 +158,7 @@ class Graph(nn.Module):
     return
 
 
-  def corr(self, poses, device):
-
-    device = poses.device
+  def corr(self, poses, coords_phi, device):
 
     # --- get source poses and target poses --- 
     source_frames_idx = self.i // self.patches_per_frame
@@ -166,7 +168,8 @@ class Graph(nn.Module):
     target_poses = poses[target_frames_idx]
 
     # --- reprojection ---
-    source_coords  = self.patch_state[self.i]
+    patch_state = torch.cat([self.coords_r_theta, coords_phi], dim = 1)
+    source_coords  = patch_state[self.i]
     target_pts = project_points(source_coords, source_poses, target_poses)
 
     # --- edge validation --- 
@@ -232,6 +235,8 @@ class Graph(nn.Module):
     Approximate new pose and create edges. 
     
     '''
+    self.N = frames.shape[0]
+
     # --- extract patches --- 
     coords, patches_f, patches_c, fmap = self.patchifier(frames, mode =  self.patchifier_method, device = device)
 
@@ -239,17 +244,19 @@ class Graph(nn.Module):
     self.add_frame(fmap, time_stamp, device)
 
     # --- add patches to graph ---
-    self.add_patches(patches_f, patches_c, coords, device)
+    coords_phi = self.add_patches(patches_f, patches_c, coords, device)
 
     # --- approximation of new initial pose ---
-    self.approx_movement(device)
+    poses = self.approx_movement(device)
 
     # --- create edges for new data ---- 
     self.create_edges(device)
 
-    return
+    return poses, coords_phi
 
 
-  def update_step(self, device):
-    corr, ctx, val_idx = self.corr(device)
+  def update_step(self, poses, coords_phi,  device):
+
+    corr, ctx, val_idx = self.corr(poses, coords_phi,  device)
+
     return corr, ctx, val_idx
