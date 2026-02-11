@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+import math
+
 from .patchifier import Patchifier
 from .utils import hamilton_product, q_conjugate, project_points
 
@@ -17,8 +19,8 @@ class Graph(nn.Module):
     self.fls_h = sonar_cfg.resolution.bins # vertical resolution of input fls image
     self.fls_w = sonar_cfg.resolution.beams # horizontal resolution of input fls image
 
-    self.fov_vertical = sonar_cfg.fov.vertical # vertical fov [deg]
-    self.fov_horizontal = sonar_cfg.fov.horizontal # horizontal fov [deg]
+    self.fov_vertical = sonar_cfg.fov.vertical  * math.pi / 180 # vertical fov [deg]
+    self.fov_horizontal = sonar_cfg.fov.horizontal  * math.pi / 180 # horizontal fov [deg]
 
     # --- import sys configuration ---
     self.buff_size = model_cfg.BUFF_SIZE # ring buffer size
@@ -69,7 +71,7 @@ class Graph(nn.Module):
     self.register_buffer('j', torch.zeros(self.max_edges, dtype=torch.long)) # keeps idxs of frame
     self.register_buffer('weights', torch.zeros(self.max_edges, dtype=torch.float)) # weights of each patch, how good estimation is, based on this patch 
   
-  def add_frame(self, fmap, time_stamp): 
+  def add_frame(self, fmap, time_stamp, device): 
     # local index for ring buffer 
     local_idx = self.frame_n % self.buff_size
 
@@ -112,7 +114,7 @@ class Graph(nn.Module):
     
     return torch.stack([r, theta], dim = 1)
   
-  def add_patches(self, patches_f, patches_c, coords):
+  def add_patches(self, patches_f, patches_c, coords, device):
     '''
     Add patches to graph
     
@@ -132,7 +134,7 @@ class Graph(nn.Module):
     r, theta = phisical_coords[:, 0], phisical_coords[:, 1]
 
     # approximate elevation angle - phi - to be optimized 
-    phi = torch.zeros((self.patches_per_frame), device = self.poses.device, dtype = torch.float)
+    phi = torch.zeros((self.patches_per_frame), device = device, dtype = torch.float)
     
     # add to graph
     self.patch_state[local_idx, :, :] = torch.stack([r, theta, phi], dim=1)
@@ -142,13 +144,12 @@ class Graph(nn.Module):
 
     return 
 
-  def approx_movement(self):
+  def approx_movement(self, device):
     '''
     Approximate next position based of two previous positions and their time stamps
 
     '''
     
-    device = self.poses.device
     k_idx = self.frame_n % self.buff_size
 
     
@@ -192,7 +193,7 @@ class Graph(nn.Module):
 
         # --- rotation axis ---
         s = torch.sqrt(torch.clamp(1 - diff[-1]*diff[-1], 0.0))
-        if s < 0.001: rot_axis = torch.tensor([1, 0, 0], device = diff.device, dtype = diff.dtype)
+        if s < 0.001: rot_axis = torch.tensor([1, 0, 0], device = device, dtype = diff.dtype)
         else: rot_axis = diff[:-1]/s
 
         # --- rotation angle ---
@@ -217,11 +218,10 @@ class Graph(nn.Module):
     return 
 
 
-  def create_edges(self):    
+  def create_edges(self, device):    
     '''
     Create set of edges in graph based on new frame and new patches 
     '''
-    device = self.poses.device
 
     # --- current patches -> past frame --- 
     new_patches = torch.arange(self.frame_n*self.patches_per_frame, (self.frame_n+1)*self.patches_per_frame, device = device, dtype = torch.long) 
@@ -251,14 +251,13 @@ class Graph(nn.Module):
 
     return 
   
-  def corr(self):
+  def corr(self, device):
     '''
     Calculate correlation of patches with their actual fitting
     '''
     # --- get device --- 
-    device = self.fmap1.device 
     
-    # --- get source poses and target poses
+    # --- get source poses and target poses --- 
     source_frames_idx = self.i // self.patches_per_frame
     local_patch_idx = self.i % self.patches_per_frame
 
@@ -284,12 +283,13 @@ class Graph(nn.Module):
     out_of_range = out_of_range | (torch.abs(target_pts[:,2]) > phi_max)
 
     # discard non valid edges
-    target_pts = target_pts[~out_of_range]
-    buff_source_frame_idx = buff_source_frame_idx[~out_of_range]
-    buff_target_frame_idx = buff_target_frame_idx[~out_of_range]
-    local_patch_idx = local_patch_idx[~out_of_range]
+    valid_mask = ~out_of_range
+    target_pts = target_pts[valid_mask]
+    buff_source_frame_idx = buff_source_frame_idx[valid_mask]
+    buff_target_frame_idx = buff_target_frame_idx[valid_mask]
+    local_patch_idx = local_patch_idx[valid_mask]
 
-    pts_num, _ = target_pts.shape 
+    pts_num = target_pts.shape[0]
     
     # --- get correlation neighbour from fmap --- 
     target_pts = self._scale_phisical2fls(target_pts)
@@ -309,7 +309,7 @@ class Graph(nn.Module):
     grid1 = (grid1 / norm_factor) - 1.0
     grid2 = (grid2 / norm_factor) - 1.0
     
-    # get features patches from maps
+    # get features patches from fmaps
     target_patches_fmap1 = F.grid_sample(self.fmap1[buff_target_frame_idx], grid1, mode='bilinear', padding_mode='zeros', align_corners=True) # shape [pts_num, C, r_corr, r_corr]
     target_patches_fmap2 = F.grid_sample(self.fmap2[buff_target_frame_idx], grid2, mode='bilinear', padding_mode='zeros', align_corners=True)
 
@@ -324,35 +324,15 @@ class Graph(nn.Module):
     act_patches_f = self.patches_f[buff_source_frame_idx, local_patch_idx, :, :]
     act_patches_c = self.patches_c[buff_source_frame_idx, local_patch_idx, :, :]
 
-    # --- concatenate features for correlation
+    # --- calc correlation and connect to single tensor ---
     corr_map1 = torch.einsum('ncpr, ncp -> npr', target_patches_fmap1, act_patches_f)
     corr_map2 = torch.einsum('ncpr, ncp -> npr', target_patches_fmap2, act_patches_f)
   
-    # corr_map = torch.stack([corr_map1.unsqueeze(-1), corr_map2.unsqueeze(-1)], dim=-1)
     corr_map = torch.cat((corr_map1.reshape(pts_num, -1), corr_map2.reshape(pts_num, -1)), dim= - 1) 
     
-    return corr_map, act_patches_c
+    return corr_map, act_patches_c, valid_mask
     
-  def detach_buffers(self):
-    '''
-    Detach all buffers from actual gradient graph 
-    '''
-    self.time = self.time.detach()
-    self.poses = self.poses.detach()
-
-    self.fmap1 = self.fmap1.detach()
-    self.fmap2 = self.fmap2.detach()
-
-    self.patches_f = self.patches_f.detach()
-    self.patches_c = self.patches_c.detach()
-    self.patch_state = self.patch_state.detach()
-    self.source_frame = self.source_frame.detach()
-
-    self.j = self.j.detach()
-    self.i = self.i.detach()
-    self.weights = self.weights.detach()
-    return 
-  
+ 
   # === define interface to obtain data === #TODO
 
   @property
@@ -402,33 +382,33 @@ class Graph(nn.Module):
     return size_dict
     
     
-  def append(self, frame, time_stamp):
+  def append(self, frame, time_stamp, device):
     '''
     Add new frame and patches to graph. 
     Approximate new pose and create edges. 
     
     '''
     # --- extract patches --- 
-    coords, patches_f, patches_c, fmap= self.patchifier(frame, mode =  self.patchifier_method)
+    coords, patches_f, patches_c, fmap= self.patchifier(frame, mode =  self.patchifier_method, device = device)
 
     # --- add frame to graph ---
-    self.add_frame(fmap, time_stamp)
+    self.add_frame(fmap, time_stamp, device)
 
     # --- add patches to graph ---
-    self.add_patches(patches_f, patches_c, coords)
+    self.add_patches(patches_f, patches_c, coords, device)
 
     # --- approximation of new initial pose ---
-    self.approx_movement()
+    self.approx_movement(device)
 
     # --- create edges for new data ---- 
-    self.create_edges()
+    self.create_edges(device)
     
     # --- increment global frame idx ---
     self.frame_n += 1
     return
     
-  def update_step(self):
-    corr, cp = self.corr()
-    return corr, cp
+  def update_step(self, device):
+    corr, ctx, val_idx = self.corr(device)
+    return corr, ctx, val_idx
 
 
