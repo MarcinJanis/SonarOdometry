@@ -9,40 +9,37 @@ from .utils import hamilton_product, q_conjugate, project_points
 class Graph(nn.Module):
   def __init__(self, model_cfg, sonar_cfg):
     super().__init__()
-    self.model_cfg = model_cfg
-    self.sonar_cfg = sonar_cfg 
 
     # --- import sonar configuration ---
-    self.r_min = self.sonar_cfg.range.min
-    self.r_max = self.sonar_cfg.range.max
+    self.r_min = sonar_cfg.range.min # min range
+    self.r_max = sonar_cfg.range.max # max range
 
-    self.fls_h = self.sonar_cfg.resolution.bins
-    self.fls_w = self.sonar_cfg.resolution.beams
+    self.fls_h = sonar_cfg.resolution.bins # vertical resolution of input fls image
+    self.fls_w = sonar_cfg.resolution.beams # horizontal resolution of input fls image
 
-    self.fov_vertical = self.sonar_cfg.fov.vertical
-    self.fov_horizontal = self.sonar_cfg.fov.horizontal
+    self.fov_vertical = sonar_cfg.fov.vertical # vertical fov [deg]
+    self.fov_horizontal = sonar_cfg.fov.horizontal # horizontal fov [deg]
 
     # --- import sys configuration ---
-    self.buff_size = self.model_cfg.BUFF_SIZE
+    self.buff_size = model_cfg.BUFF_SIZE # ring buffer size
   
-    self.patches_per_frame = self.model_cfg.PATCHES_PER_FRAME
-    self.patch_size = self.model_cfg.PATCH_SIZE 
+    self.patches_per_frame = model_cfg.PATCHES_PER_FRAME # amount of patches generated per each frames
+    self.patch_size = model_cfg.PATCH_SIZE # size of each patch, patch shape: (c, p, p)
 
-    self.time_window = self.model_cfg.TIME_WINDOW
+    self.time_window = model_cfg.TIME_WINDOW # time window in frames history in which patches are tracked
     
-    self.fmap_c = self.model_cfg.FEATURES_OUTPUT_CH
-    self.corr_neighbour = self.model_cfg.CORR_NEIGHBOUR
-    self.fmap_h = self.sonar_cfg.resolution.bins // self.model_cfg.ENCODER_DOWNSIZE
-    self.fmap_w = self.sonar_cfg.resolution.beams // self.model_cfg.ENCODER_DOWNSIZE
-    self.encoder_downsize = self.model_cfg.ENCODER_DOWNSIZE
+    self.fmap_c = model_cfg.FEATURES_OUTPUT_CH # channels num of encoder output 
+    self.corr_neighbour = model_cfg.CORR_NEIGHBOUR # size of nieghbour of projected patch that is used in correlation calculations
+    self.fmap_h = sonar_cfg.resolution.bins // model_cfg.ENCODER_DOWNSIZE # feature map size h
+    self.fmap_w = sonar_cfg.resolution.beams // model_cfg.ENCODER_DOWNSIZE # feature map size w
+    self.encoder_downsize = model_cfg.ENCODER_DOWNSIZE # encoder downsize factor 
     
-    self.motion_model = self.model_cfg.MOTION_APPRO_MODEL
-    self.patchifier_method = self.model_cfg.PATCHIFIER_METHOD
-   
-    self.grid_size = (self.model_cfg.PATCHES_GRID_SIZE.y, self.model_cfg.PATCHES_GRID_SIZE.x)
+    self.motion_model = model_cfg.MOTION_APPRO_MODEL # method used in initial estimating of new pose
+    self.patchifier_method = model_cfg.PATCHIFIER_METHOD # method used in key points detection
+    self.grid_size = (model_cfg.PATCHES_GRID_SIZE.y, model_cfg.PATCHES_GRID_SIZE.x) # grid size used to detect key points from whole image equally
 
     # --- Patchifier ---
-    self.patchifier = Patchifier(self.model_cfg,
+    self.patchifier = Patchifier(model_cfg,
                                  debug_mode = False)
     
     # === Graph initialization ===
@@ -55,41 +52,40 @@ class Graph(nn.Module):
     # --- frame buffers ---
     self.register_buffer('fmap1', torch.zeros((self.buff_size, self.fmap_c, self.fmap_h, self.fmap_w), dtype = torch.float)) # frames: features map
     self.register_buffer('fmap2', torch.zeros((self.buff_size, self.fmap_c, self.fmap_h // self.encoder_downsize, self.fmap_w // self.encoder_downsize), dtype = torch.float)) # frames: features map 
-    
-    # self.register_buffer('imap', torch.zeros((self.buff_size, self.fmap_c, self.fmap_h, self.fmap_w), dtype = torch.float)) # frames: context map 
 
     # --- patches buffers ---
-    self.register_buffer('patches_f', torch.zeros((self.buff_size, self.patches_per_frame,  self.fmap_c, self.patch_size*self.patch_size), dtype = torch.float)) # patches features
-    self.register_buffer('patches_c', torch.zeros((self.buff_size, self.patches_per_frame,  self.fmap_c, self.patch_size*self.patch_size), dtype = torch.float)) # patches features
+    self.register_buffer('patches_f', torch.zeros((self.buff_size, self.patches_per_frame,  self.fmap_c, self.patch_size*self.patch_size), dtype = torch.float)) # patches: features
+    self.register_buffer('patches_c', torch.zeros((self.buff_size, self.patches_per_frame,  self.fmap_c, self.patch_size*self.patch_size), dtype = torch.float)) # patches: context
 
     # --- patch center coords buffer ---
-    self.register_buffer('patch_state', torch.zeros((self.buff_size, self.patches_per_frame, 3), dtype = torch.float)) # points (r, theta, phi) refered to patches + weight
-
+    self.register_buffer('patch_state', torch.zeros((self.buff_size, self.patches_per_frame, 3), dtype = torch.float)) # points (r, theta, phi) refered to patches in real world units
     # --- source frame buffer ---
     self.register_buffer('source_frame', torch.zeros((self.buff_size, self.patches_per_frame), dtype = torch.int)) # id of source frame for each patch
                          
     # --- graphs edges --- 
-    self.max_edges = self.buff_size * self.patches_per_frame * self.time_window * 2 # each patch (buff_size * patches_per_frame * 2) is connected to each frame in time window
+    self.max_edges = self.buff_size * self.patches_per_frame * self.time_window * 2 # max amount of edges in graph 
+
     self.register_buffer('i', torch.zeros(self.max_edges, dtype=torch.long)) # keeps idxs of patch
     self.register_buffer('j', torch.zeros(self.max_edges, dtype=torch.long)) # keeps idxs of frame
     self.register_buffer('weights', torch.zeros(self.max_edges, dtype=torch.float)) # weights of each patch, how good estimation is, based on this patch 
-    # self.register_buffer('valid', torch.ones(self.max_edges, dtype=torch.bool)) # valid if its in range of frame, non valid if out of range 
   
   def add_frame(self, fmap, time_stamp): 
     # local index for ring buffer 
     local_idx = self.frame_n % self.buff_size
+
     # add features map to buffer 
     self.fmap1[local_idx, :, :, :] = F.avg_pool2d(fmap.squeeze(0), 1, 1)
     self.fmap2[local_idx, :, :, :] = F.avg_pool2d(fmap.squeeze(0), self.encoder_downsize, self.encoder_downsize)
     
-    # add context map to buffer 
-    # self.imap[local_idx, :, :, :] = imap.squeeze(0) # !!!!! sprawdzic czy squeeze ale prawdopodbnie trzeba pozbyc sie rozmiaru batcha
-    # add time stamp 
     self.time[local_idx] = time_stamp 
     return 
       
   def _scale_fls2phisical(self, coords):
-
+    '''
+    Scale coords units from pixels in fls image to phisical units [m], [rad]
+    
+    :param coords: coords tensor, shape: (n, 2); n - points number, 2 - r and theta [pix]
+    '''
     # range r - measured by sonar
     r_norm = coords[:, 1] / self.fls_h
     r = r_norm * (self.r_max - self.r_min) + self.r_min
@@ -101,9 +97,13 @@ class Graph(nn.Module):
     return torch.stack([r, theta], dim = 1)
 
   def _scale_phisical2fls(self, coords):
-
+    '''
+    Scale coords units phisical units [m], [rad] to from pixels in fls image 
+    
+    :param coords: coords tensor, shape: (n, 2); n - points number, 2 - r [m] and theta [deg]
+    '''
     # range r - measured by sonar
-    r_norm = coords[:, 0] - self.r_min / (self.r_max - self.r_min)
+    r_norm = (coords[:, 0] - self.r_min) / (self.r_max - self.r_min)
     r = r_norm * self.fls_h
 
     # azimuth angle theta - measured by sonar
@@ -113,7 +113,13 @@ class Graph(nn.Module):
     return torch.stack([r, theta], dim = 1)
   
   def add_patches(self, patches_f, patches_c, coords):
+    '''
+    Add patches to graph
     
+    :param patches_f:  tensor of patches, contains features from feature map, shape: (n, c, p, p); c - channels, p - patch size
+    :param patches_c: tensor of patches, contains features from context map, shape: (n, c, p, p); c - channels, p - patch size
+    :param coords: coordinates of center of patches (pix units), shape: (n, 2)
+    '''
     # local index for ring buffer
     local_idx = self.frame_n % self.buff_size
 
@@ -137,6 +143,10 @@ class Graph(nn.Module):
     return 
 
   def approx_movement(self):
+    '''
+    Approximate next position based of two previous positions and their time stamps
+
+    '''
     
     device = self.poses.device
     k_idx = self.frame_n % self.buff_size
@@ -208,11 +218,15 @@ class Graph(nn.Module):
 
 
   def create_edges(self):    
+    '''
+    Create set of edges in graph based on new frame and new patches 
+    '''
     device = self.poses.device
 
     # --- current patches -> past frame --- 
     new_patches = torch.arange(self.frame_n*self.patches_per_frame, (self.frame_n+1)*self.patches_per_frame, device = device, dtype = torch.long) 
     past_frames = torch.arange(self.frame_n - 1, self.frame_n - 1- self.time_window, step=-1, device = device, dtype = torch.long)
+    past_frames = torch.clamp(past_frames, min=0)
 
     i_new_patches = new_patches.repeat(self.time_window)
     j_past_frames = torch.repeat_interleave(past_frames, repeats=self.patches_per_frame)
@@ -238,7 +252,9 @@ class Graph(nn.Module):
     return 
   
   def corr(self):
-
+    '''
+    Calculate correlation of patches with their actual fitting
+    '''
     # --- get device --- 
     device = self.fmap1.device 
     
@@ -317,9 +333,25 @@ class Graph(nn.Module):
     
     return corr_map, act_patches_c
     
+  def detach_buffers(self):
+    '''
+    Detach all buffers from actual gradient graph 
+    '''
+    self.time = self.time.detach()
+    self.poses = self.poses.detach()
 
-# A potem spłaszcz:
+    self.fmap1 = self.fmap1.detach()
+    self.fmap2 = self.fmap2.detach()
 
+    self.patches_f = self.patches_f.detach()
+    self.patches_c = self.patches_c.detach()
+    self.patch_state = self.patch_state.detach()
+    self.source_frame = self.source_frame.detach()
+
+    self.j = self.j.detach()
+    self.i = self.i.detach()
+    self.weights = self.weights.detach()
+    return 
   
   # === define interface to obtain data === #TODO
 
@@ -346,7 +378,7 @@ class Graph(nn.Module):
     
   @property
   def last_pose(self):
-    return self.pose[(self.frame_n - 1)%self.buff_size].detach().cpu()
+    return self.poses[(self.frame_n - 1)%self.buff_size].detach().cpu()
 
   @property
   def id(self):
@@ -359,21 +391,23 @@ class Graph(nn.Module):
       'poses':self.poses.shape,
       'fmap1':self.fmap1.shape,
       'fmap2':self.fmap2.shape,
-      'imap':self.imap.shape,
       'patches':self.patches.shape,
       'patch_state':self.patch_state.shape,
       'source_frame':self.source_frame.shape,
       'i':self.i.shape,
       'j':self.j.shape,
-      'weight':self.weight.shape,
-      # 'valid':self.valid.shape,
+      'weight':self.weight.shape
     }
   
     return size_dict
     
     
   def append(self, frame, time_stamp):
+    '''
+    Add new frame and patches to graph. 
+    Approximate new pose and create edges. 
     
+    '''
     # --- extract patches --- 
     coords, patches_f, patches_c, fmap= self.patchifier(frame, mode =  self.patchifier_method)
 
