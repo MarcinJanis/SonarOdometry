@@ -27,6 +27,15 @@ class Update(nn.Module):
 
         self.norm = nn.LayerNorm(hidden_state_dim, eps=1e-3)
 
+        self.c1 = nn.Sequential(
+            nn.Linear(hidden_state_dim, hidden_state_dim),
+            nn.ReLU(inplace=True),
+            nn.Linear(hidden_state_dim, hidden_state_dim))
+
+        self.c2 = nn.Sequential(
+            nn.Linear(hidden_state_dim, hidden_state_dim),
+            nn.ReLU(inplace=True),
+            nn.Linear(hidden_state_dim, hidden_state_dim))
     
     def forward(self, h, flow, corr, ctx, ii, jj, kk):
         
@@ -42,13 +51,20 @@ class Update(nn.Module):
         :param kk: gloabl ids of valid patches 
         '''
 
-        corr = self.corr_net(corr)
+        corr = self.corr_net(corr) # make sure that hidden state and rest have shape (1, n, 1), where 1 is batch size, n - edges number and 1 id if its necessey, maybe not 
         h = h + ctx + corr
 
         h = self.norm(h)
 
+        # for each edge find edge idx, where same patch is matched with previous or next target frame (in time) 
+        prev_idx, next_idx = neighbours(patch_idx, target_frame, device, range = 1)
 
+        prev_mask = (prev_idx >= 1).float.reshape(1, -1, 1)
+        next_mask = (next_idx >= 1).float.reshape(1, -1, 1)
 
+        h = h + self.c1(prev_mask * h[:, prev_idx]) # add to hidden state information about temporal patches neighbours 
+        h = h + self.c2(next_mask * h[:, next_idx]) # add to hidden state information about temporal patches neighbours 
+        
 
         pass
 
