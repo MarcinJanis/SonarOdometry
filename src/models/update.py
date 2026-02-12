@@ -52,4 +52,30 @@ class Update(nn.Module):
 
         pass
 
+def neighbours(patch_idx, target_frame, range = 1):
+    
+
+    base = torch.stack([patch_idx, target_frame], dim=1) # shape (n, 2)
+    prev = torch.stack([patch_idx, target_frame - range], dim=1)
+    next = torch.stack([patch_idx, target_frame + range], dim=1)
+
+    base = base.unsqueeze(0).permute(0, 2, 1) # shape  (1, 2, n)
+    prev = prev.unsqueeze(-1) # shape (n, 2, 1)
+    next = next.unsqueeze(-1) # shape (n, 2, 1)
+
+    # search in past frames
+    mask = (prev == base) # shape (n, 2, n)
+    match = mask.all(dim=1)
+    # if mask[i, :, k].all() == True, that means position i in prev (prev[i, :]) exist in base on position k (base[k, :]
+    tgt_idx, base_idx_prev = match.nonzero(as_tuple=True) # each shape (t,) where t is number of matches and base[base_idx] matches with prev[tgt_idx]
+
+    # search in future frames
+    mask = (next == base) # shape (n, 2, n)
+    match = mask.all(dim=1)
+    # if mask[i, :, k].all() == True, that means position i in prev (prev[i, :]) exist in base on position k (base[k, :]
+    tgt_idx, base_idx_next = match.nonzero(as_tuple=True) # each shape (t,) where t is number of matches and base[base_idx] matches with prev[tgt_idx]
+    
+    return base_idx_prev, base_idx_next
+    
+    
 
