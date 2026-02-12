@@ -4,33 +4,6 @@ import torch.nn.functional as F
 import torch_scatter
 
 
-class SoftAgg(nn.Module):
-    def __init__(self, dim=512, expand=True):
-        super(SoftAgg, self).__init__()
-        self.dim = dim
-        self.expand = expand
-        self.linear1 = nn.Linear(self.dim, self.dim)
-        self.linear2 = nn.Linear(self.dim, self.dim)
-        self.linaer3 = nn.Linear(self.dim, self.dim)
-
-    def forward(self, x, id):
-
-        # assign each element of id tensor to group, a unique group assigment is achived
-        # unique, idx = torch.unique(input, return_inverse=True) # returns: unique - unique values that occurs in input tensor, idx - for each element idx of value from unique is assigned 
-        _, group_idx = torch.unique(id, return_inverse=True)
-
-        # scatter_softmax perform softmax independly per each unique group. 
-        # Group assigments are passed as second argument. 
-        weights = torch_scatter.scatter_softmax(self.linear1(x), group_idx, dim=1)
-        
-        y = torch_scatter.scatter_sum(self.linear2(x) * weights, group_idx, dim=1)
-
-        if self.expand:
-            return self.self.linear3(y)[:,jx]
-            
-        return self.linear3(y)
-
-
 class Update(nn.Module):
     def __init__(self, model_cfg):
         super().__init__()
@@ -44,14 +17,14 @@ class Update(nn.Module):
         corr_input_dim = self.fmap_c*self.corr_neighbour*self.corr_neighbour*self.patch_size*self.patch_size
         hidden_state_dim = model_cfg.CONTEXT_OUTPUT_CH
 
-        self.corr_net = nn.Sequential(
+        self.corr_net = nn.Sequential((
             nn.Linear(corr_input_dim, hidden_state_dim),
             nn.ReLU(inplace=True),
             nn.Linear(hidden_state_dim, hidden_state_dim),
             nn.LayerNorm(hidden_state_dim, eps=1e-3),
             nn.ReLU(inplace=True),
             nn.Linear(hidden_state_dim, hidden_state_dim)
-        )
+        ))
 
         self.norm = nn.LayerNorm(hidden_state_dim, eps=1e-3)
 
@@ -63,14 +36,18 @@ class Update(nn.Module):
         self.c2 = nn.Sequential(
             nn.Linear(hidden_state_dim, hidden_state_dim),
             nn.ReLU(inplace=True),
-            nn.Linear(hidden_state_dim, hidden_state_dim))
+            nn.Linear(hidden_state_dim, hidden_state_dim)
 
         self.patches_agg = SoftAgg(dim=hidden_state_dim, expand=True)
         self.edges_agg = SoftAgg(dim=hidden_state_dim, expand=True)
 
-
         # recurrent net here:
-    
+        self.gru = nn.Sequential(
+            nn.LayerNorm(hidden_state_dim, eps=1e-3),
+            GatedResidual(hidden_state_dim), 
+            nn.LayerNorm(hidden_state_dim, eps=1e-3),
+            GatedResidual(hidden_state_dim)
+        )
 
 
     
@@ -111,7 +88,47 @@ class Update(nn.Module):
 
 
 
+class GatedResidual(nn.Module):
+    def __init__(self, dim):
+        super().__init__()
 
+        self.gate = nn.Sequential(
+            nn.Linear(dim, dim),
+            nn.Sigmoid())
+
+        self.res = nn.Sequential(
+            nn.Linear(dim, dim),
+            nn.ReLU(inplace=True),
+            nn.Linear(dim, dim))
+
+    def forward(self, x):
+        return x + self.gate(x) * self.res(x)
+
+class SoftAgg(nn.Module):
+    def __init__(self, dim=512, expand=True):
+        super(SoftAgg, self).__init__()
+        self.dim = dim
+        self.expand = expand
+        self.linear1 = nn.Linear(self.dim, self.dim)
+        self.linear2 = nn.Linear(self.dim, self.dim)
+        self.linaer3 = nn.Linear(self.dim, self.dim)
+
+    def forward(self, x, id):
+
+        # assign each element of id tensor to group, a unique group assigment is achived
+        # unique, idx = torch.unique(input, return_inverse=True) # returns: unique - unique values that occurs in input tensor, idx - for each element idx of value from unique is assigned 
+        _, group_idx = torch.unique(id, return_inverse=True)
+
+        # scatter_softmax perform softmax independly per each unique group. 
+        # Group assigments are passed as second argument. 
+        weights = torch_scatter.scatter_softmax(self.linear1(x), group_idx, dim=1)
+        
+        y = torch_scatter.scatter_sum(self.linear2(x) * weights, group_idx, dim=1)
+
+        if self.expand:
+            return self.self.linear3(y)[:,jx]
+            
+        return self.linear3(y)
 
 def neighbours(patch_idx, target_frame, device, range = 1):
     
