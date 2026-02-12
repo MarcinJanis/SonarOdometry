@@ -1,6 +1,34 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torch_scatter
+
+
+class SoftAgg(nn.Module):
+    def __init__(self, dim=512, expand=True):
+        super(SoftAgg, self).__init__()
+        self.dim = dim
+        self.expand = expand
+        self.linear1 = nn.Linear(self.dim, self.dim)
+        self.linear2 = nn.Linear(self.dim, self.dim)
+        self.linaer3 = nn.Linear(self.dim, self.dim)
+
+    def forward(self, x, id):
+
+        # assign each element of id tensor to group, a unique group assigment is achived
+        # unique, idx = torch.unique(input, return_inverse=True) # returns: unique - unique values that occurs in input tensor, idx - for each element idx of value from unique is assigned 
+        _, group_idx = torch.unique(id, return_inverse=True)
+
+        # scatter_softmax perform softmax independly per each unique group. 
+        # Group assigments are passed as second argument. 
+        weights = torch_scatter.scatter_softmax(self.linear1(x), group_idx, dim=1)
+        
+        y = torch_scatter.scatter_sum(self.linear2(x) * weights, group_idx, dim=1)
+
+        if self.expand:
+            return self.self.linear3(y)[:,jx]
+            
+        return self.linear3(y)
 
 
 class Update(nn.Module):
@@ -36,8 +64,17 @@ class Update(nn.Module):
             nn.Linear(hidden_state_dim, hidden_state_dim),
             nn.ReLU(inplace=True),
             nn.Linear(hidden_state_dim, hidden_state_dim))
+
+        self.patches_agg = SoftAgg(dim=hidden_state_dim, expand=True)
+        self.edges_agg = SoftAgg(dim=hidden_state_dim, expand=True)
+
+
+        # recurrent net here:
     
-    def forward(self, h, flow, corr, ctx, ii, jj, kk):
+
+
+    
+    def forward(self, h, flow, corr, ctx, source_frame_ids, target_frames_ids, patches_ids):
         
         '''
         Update operator
@@ -64,13 +101,20 @@ class Update(nn.Module):
 
         h = h + self.c1(prev_mask * h[:, prev_idx]) # add to hidden state information about temporal patches neighbours 
         h = h + self.c2(next_mask * h[:, next_idx]) # add to hidden state information about temporal patches neighbours 
-        
 
-        pass
+        h = h + self.patches_agg(h, patches_ids)
+        h = h + self.edges_agg(h, source_frame_ids*12345 + =target_frames_ids)
+
+
+        
+        return h, 
+
+
+
+
 
 def neighbours(patch_idx, target_frame, device, range = 1):
     
-
     base = torch.stack([patch_idx, target_frame], dim=1) # shape (n, 2)
     prev = torch.stack([patch_idx, target_frame - range], dim=1)
     next = torch.stack([patch_idx, target_frame + range], dim=1)
