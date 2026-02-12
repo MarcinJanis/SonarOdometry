@@ -48,6 +48,18 @@ class Update(nn.Module):
             nn.LayerNorm(hidden_state_dim, eps=1e-3),
             GatedResidual(hidden_state_dim)
         )
+        
+
+        self.d = nn.Sequential(
+            nn.ReLU(inplace=False),
+            nn.Linear(DIM, 2),
+            GradientClip())
+
+        self.w = nn.Sequential(
+            nn.ReLU(inplace=False),
+            nn.Linear(DIM, 2),
+            GradientClip(),
+            nn.Sigmoid())
 
 
     
@@ -82,9 +94,12 @@ class Update(nn.Module):
         h = h + self.patches_agg(h, patches_ids)
         h = h + self.edges_agg(h, source_frame_ids*12345 + =target_frames_ids)
 
+        h = self.gru(h)
 
+        p = self.d(h) # projection correction (dx, dy)
+        w = self.w(h) # correction weights, confidence 
         
-        return h, 
+        return h, p, w
 
 
 
