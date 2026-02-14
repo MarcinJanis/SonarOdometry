@@ -2,7 +2,7 @@
 #       Model configuration file            #
 # ========================================= #
 
-DEBUG: True
+DEBUG: False
 
 # === Encoder configuration === #
 

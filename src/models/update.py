@@ -41,11 +41,12 @@ class Update(nn.Module):
         :param jj: buffer indexes of target frame for valid patches
         :param kk: gloabl ids of valid patches 
         '''
+        
+        # --- update hidden state with new data --- 
+        corr = self.corr_net(corr) # process correlation tensor
+        h = h + ctx + corr # add to hidden state
+        h = self.norm(h) # normalize
 
-        corr = self.corr_net(corr)
-        h = h + ctx + corr
-
-        h = self.norm(h)
 
 
 
@@ -53,3 +54,24 @@ class Update(nn.Module):
         pass
 
 
+
+def neighbours(patch_idx, act_target_frame, range = 1):
+    # dopracować!!!!
+    base = torch.stack([patch_idx, act_target_frame], dim = 1) # shape (n, 2); [:,0] - patch idx, [:,1] - target frame
+
+    # define searching targets
+    prev = torch.stack([patch_idx, act_target_frame - range], dim = 1)
+    next = torch.stack([patch_idx, act_target_frame - range], dim = 1)
+
+    # search
+    past_results =  torch.nonzero((base == prev))
+    future_results =  torch.nonzero((base == next))
+
+    past_results =  past_results.all(dim=1)
+    future_results =  future_results.all(dim=1)
+
+    past_idx = torch.nonzero(past_results, as_tuple=True)[0]
+    future_idx = torch.nonzero(past_results, as_tuple=True)[0]
+
+    return past_idx, future_idx
+   

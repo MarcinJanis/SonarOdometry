@@ -1,1 +1,5 @@
 
+
+
+BATCH_SIZE: 2
+FRAMES_IN_SERIES: 5

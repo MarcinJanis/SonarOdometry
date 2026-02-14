@@ -171,7 +171,7 @@ def project_points(origin_pt, origin_pose, target_pose):
 
 
 # =======================
-# === Quaterions math ===
+# ===    Quaterions   ===
 # =======================
 
 def q_conjugate(q):

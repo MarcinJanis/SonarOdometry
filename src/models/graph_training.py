@@ -16,10 +16,12 @@ from .utils import hamilton_product, q_conjugate, project_points
 # ================================================================================================== #
 
 class Graph(nn.Module):
-  def __init__(self, model_cfg, sonar_cfg):
+  def __init__(self, model_cfg, sonar_cfg, training_cfg):
     super().__init__()
 
-    self.N = 7 
+    # --- import training configuration
+    self.batch_size = training_cfg.BATCH_SIZE
+    self.frames_in_series = training_cfg.FRAMES_IN_SERIES
 
     # --- import sonar configuration ---
     self.r_min = sonar_cfg.range.min # min range
@@ -38,6 +40,8 @@ class Graph(nn.Module):
     self.time_window = model_cfg.TIME_WINDOW # time window in frames history in which patches are tracked
     
     self.fmap_c = model_cfg.FEATURES_OUTPUT_CH # channels num of encoder output 
+    self.cmap_c = model_cfg.CONTEXT_OUTPUT_CH 
+
     self.corr_neighbour = model_cfg.CORR_NEIGHBOUR # size of nieghbour of projected patch that is used in correlation calculations
     self.fmap_h = sonar_cfg.resolution.bins // model_cfg.ENCODER_DOWNSIZE # feature map size h
     self.fmap_w = sonar_cfg.resolution.beams // model_cfg.ENCODER_DOWNSIZE # feature map size w
@@ -67,9 +71,12 @@ class Graph(nn.Module):
     
       
   def add_frame(self, fmap, time_stamp, device):
-
-    self.fmap1 = F.avg_pool2d(fmap, 1, 1)
-    self.fmap2 = F.avg_pool2d(fmap, self.encoder_downsize, self.encoder_downsize)
+    b, n, c, h, w = fmap.shape
+  
+    self.fmap1 = fmap # F.avg_pool2d(fmap, 1, 1)
+    
+    self.fmap2 = F.avg_pool2d(fmap.view(b*n, c, h, w), self.encoder_downsize, self.encoder_downsize)
+    self.fmap2 = self.fmap2.view(b, n, c, h // self.encoder_downsize, w // self.encoder_downsize)
 
     self.time_stamp = time_stamp
     return 
@@ -108,18 +115,25 @@ class Graph(nn.Module):
     return torch.stack([r, theta], dim = 1)
   
   def add_patches(self, patches_f, patches_c, coords, device):
-    self.patches_f = patches_f.view(-1, self.fmap_c, self.patch_size, self.patch_size)
-    self.patches_c = patches_c.view(-1, self.fmap_c, self.patch_size, self.patch_size)
+    # print(f'f: {patches_f.shape}')
+    # print(f'c: {patches_c.shape}')
+    # print(f'coords: {coords.shape}')
 
-    coords = coords.view(-1, 2)
-    self.coords_r_theta = self._scale_fls2phisical(coords)
+    b, n, p, d = coords.shape
 
-    coords_phi = torch.zeros((self.N * self.patches_per_frame, 1), device=device, dtype=torch.float) # init elevation angle with zeros
+    self.patches_f = patches_f # shape [b, n, patches_per_frame, c, psize, psize]     .view(b*n, self.fmap_c, self.patch_size, self.patch_size) 
+    self.patches_c = patches_c # shape [b, n, patches_per_frame, c, psize*psize]     .view(b*n, self.cmap_c, self.patch_size, self.patch_size)
+
+    coords = coords.view(b*n*p, d)
+    coords = self._scale_fls2phisical(coords)
+    self.coords_r_theta = coords.view(b, n, p, d)
+
+    coords_phi = torch.zeros((b, n, p, 1), device=device, dtype=torch.float) # init elevation angle with zeros
     coords_phi.requires_grad_(True)
 
     return coords_phi
 
-  def approx_movement(self, device):
+  def approx_movement(self, device): #TODO: 
     '''
     In traning version of graph this function initialize poses for whole sequence
     mode: 
@@ -139,11 +153,13 @@ class Graph(nn.Module):
     This set is for whole patch of N frames. 
 
     '''
-    i, j = [], []
+
+    i, j = [], [] # i - idx of patch, j - idx of frame. Connections: i -> j 
     
-    for t in range(self.N):
+    for t in range(self.frames_in_series):
         for k in range(1, self.time_window + 1):
             if t - k >= 0:
+                
                 # edges: new patches -> old frames
                 i.append(torch.arange(t * self.patches_per_frame, (t + 1) * self.patches_per_frame, device=device)) 
                 j.append(torch.full((self.patches_per_frame,), t - k, device=device))
@@ -153,8 +169,36 @@ class Graph(nn.Module):
                 j.append(torch.full((self.patches_per_frame,), t, device=device))
                 
     # Concatenate edges 
-    self.i = torch.cat(i, dim=0) if i else torch.tensor([], dtype=torch.long, device=device)
-    self.j = torch.cat(j, dim=0) if j else torch.tensor([], dtype=torch.long, device=device)
+    i_base = torch.cat(i, dim=0) if i else torch.tensor([], dtype=torch.long, device=device) # shape [2 * frame_in_series * patches_per_frame * time_window]
+    j_base = torch.cat(j, dim=0) if j else torch.tensor([], dtype=torch.long, device=device) # shape [2 * frame_in_series * patches_per_frame * time_window]
+
+
+    batch_indices = torch.arange(self.batch_size, device = device)# shape [batch_size, 1], [0, 1, 2, 3, 4]
+
+    i_offsets = batch_indices * self.frames_in_series * self.patches_per_frame
+    j_offsets = batch_indices * self.frames_in_series
+
+    i_global = i_base.unsqueeze(0) + i_offsets.unsqueeze(-1)  # add with broadcasting 
+    j_global = j_base.unsqueeze(0) + j_offsets.unsqueeze(-1)
+
+    self.i = i_global.view(-1) # flat into one dimensional vector
+    self.j = j_global.view(-1)
+ 
+
+    # here i have finished ! =============================================================================================
+
+
+    # print(f'i shape: {i_base.shape}. Expected ([{2*self.frames_in_series**self.time_window}])')
+    # [0, 1, 2, 3, ..., n - 1]
+
+
+
+    # # Add batch size
+    # self.i = self.i.unsqueeze(0)
+    # self.i = torch.cat([self.i for _ in range(self.batch_size)])
+
+    # self.j = self.j.unsqueeze(0)
+    # self.j = torch.cat([self.j for _ in range(self.batch_size)])
     return
 
 
@@ -207,7 +251,7 @@ class Graph(nn.Module):
     grid2 = (grid2 / norm_factor) - 1.0
 
     # get features patches from fmaps
-    target_patches_fmap1 = F.grid_sample(self.fmap1[valid_j], grid1, mode='bilinear', padding_mode='zeros', align_corners=True)
+    target_patches_fmap1 = F.grid_sample(self.fmap1[valid_j], grid1, mode='bilinear', padding_mode='zeros', align_corners=True) #TODO:
     target_patches_fmap2 = F.grid_sample(self.fmap2[valid_j], grid2, mode='bilinear', padding_mode='zeros', align_corners=True)
 
     target_patches_fmap1 = F.unfold(target_patches_fmap1, kernel_size=(self.patch_size, self.patch_size), stride=1)
@@ -238,7 +282,7 @@ class Graph(nn.Module):
     self.N = frames.shape[0]
 
     # --- extract patches --- 
-    coords, patches_f, patches_c, fmap = self.patchifier(frames, mode =  self.patchifier_method, device = device)
+    coords, patches_f, patches_c, fmap = self.patchifier(frames, mode =  self.patchifier_method)
 
     # --- add frame to graph ---
     self.add_frame(fmap, time_stamp, device)

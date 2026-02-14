@@ -82,6 +82,5 @@ class Encoder(nn.Module):
         x = self.dropout(x)
         x = F.relu(self.conv2(x))
 
-        # _, c2, h2, w2 = x.shape
-
-        return x #x.view(b, n, c2, h2, w2)
+        _, c2, h2, w2 = x.shape
+        return x.view(b, n, c2, h2, w2)

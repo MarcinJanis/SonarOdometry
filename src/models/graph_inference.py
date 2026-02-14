@@ -31,6 +31,8 @@ class Graph(nn.Module):
     self.time_window = model_cfg.TIME_WINDOW # time window in frames history in which patches are tracked
     
     self.fmap_c = model_cfg.FEATURES_OUTPUT_CH # channels num of encoder output 
+    self.cmap_c = model_cfg.CONTEXT_OUTPUT_CH
+
     self.corr_neighbour = model_cfg.CORR_NEIGHBOUR # size of nieghbour of projected patch that is used in correlation calculations
     self.fmap_h = sonar_cfg.resolution.bins // model_cfg.ENCODER_DOWNSIZE # feature map size h
     self.fmap_w = sonar_cfg.resolution.beams // model_cfg.ENCODER_DOWNSIZE # feature map size w
@@ -57,7 +59,7 @@ class Graph(nn.Module):
 
     # --- patches buffers ---
     self.register_buffer('patches_f', torch.zeros((self.buff_size, self.patches_per_frame,  self.fmap_c, self.patch_size*self.patch_size), dtype = torch.float)) # patches: features
-    self.register_buffer('patches_c', torch.zeros((self.buff_size, self.patches_per_frame,  self.fmap_c, self.patch_size*self.patch_size), dtype = torch.float)) # patches: context
+    self.register_buffer('patches_c', torch.zeros((self.buff_size, self.patches_per_frame,  self.cmap_c), dtype = torch.float)) # patches: context
 
     # --- patch center coords buffer ---
     self.register_buffer('patch_state', torch.zeros((self.buff_size, self.patches_per_frame, 3), dtype = torch.float)) # points (r, theta, phi) refered to patches in real world units
@@ -75,10 +77,9 @@ class Graph(nn.Module):
     # local index for ring buffer 
     local_idx = self.frame_n % self.buff_size
 
-    # add features map to buffer 
-    self.fmap1[local_idx, :, :, :] = F.avg_pool2d(fmap.squeeze(0), 1, 1)
+    # Assign to buffers. Create pyramid of features map
+    self.fmap1[local_idx, :, :, :] = F.avg_pool2d(fmap.squeeze(0), 1, 1) 
     self.fmap2[local_idx, :, :, :] = F.avg_pool2d(fmap.squeeze(0), self.encoder_downsize, self.encoder_downsize)
-    
     self.time[local_idx] = time_stamp 
     return 
       
@@ -88,6 +89,7 @@ class Graph(nn.Module):
     
     :param coords: coords tensor, shape: (n, 2); n - points number, 2 - r and theta [pix]
     '''
+  
     # range r - measured by sonar
     r_norm = coords[:, 1] / self.fls_h
     r = r_norm * (self.r_max - self.r_min) + self.r_min
@@ -128,20 +130,20 @@ class Graph(nn.Module):
     # add patches features to graph 
     self.patches_f[local_idx, :, :, :] = patches_f.squeeze(0) 
     self.patches_c[local_idx, :, :] = patches_c.squeeze(0) 
-    
+
     # rescale coords to real world values  
-    phisical_coords = self._scale_fls2phisical(coords.squeeze(0))
+    phisical_coords = self._scale_fls2phisical(coords.squeeze(0).squeeze(0))
+    
     r, theta = phisical_coords[:, 0], phisical_coords[:, 1]
 
     # approximate elevation angle - phi - to be optimized 
     phi = torch.zeros((self.patches_per_frame), device = device, dtype = torch.float)
     
     # add to graph
-    self.patch_state[local_idx, :, :] = torch.stack([r, theta, phi], dim=1)
-
+    self.patch_state[local_idx, :, :] = torch.stack([r.squeeze(0), theta.squeeze(0), phi], dim=1)
+    
     # add source frame id to graph
     self.source_frame[local_idx, :] = self.frame_n 
-
     return 
 
   def approx_movement(self, device):
@@ -152,8 +154,8 @@ class Graph(nn.Module):
     
     k_idx = self.frame_n % self.buff_size
 
-    
-    if self.frame_n < 2: # if initialization
+    print(f'act n: {self.frame_n}')
+    if self.frame_n < 2: # initialization
       x0 = torch.tensor([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0], device=device, dtype=torch.float)
     else: 
       # --- indexes ---
@@ -165,8 +167,8 @@ class Graph(nn.Module):
       t1 = self.time[k1_idx]
       t2 = self.time[k2_idx]
       
-      assert t0 != t1, f'[Error] Time stamps for frame {self.frame_n} and {self.frame_n - 1} are the same.\nMovement approximation is not possible.'
-      assert t1 != t2, f'[Error] Time stamps for frame {self.frame_n - 1} and {self.frame_n - 2} are the same.\nMovement approximation is not possible.'
+      assert t0 != t1, f'[Error] Time stamps for frame {self.frame_n} and {self.frame_n - 1} are the same.\nMovement approximation is not possible.\n time vector: {self.time}'
+      assert t1 != t2, f'[Error] Time stamps for frame {self.frame_n - 1} and {self.frame_n - 2} are the same.\nMovement approximation is not possible.\n time vector: {self.time}'
       
       # --- get previous position ---
       x1 = self.poses[k1_idx, :]
@@ -388,7 +390,7 @@ class Graph(nn.Module):
     
     '''
     # --- extract patches --- 
-    coords, patches_f, patches_c, fmap= self.patchifier(frame, mode =  self.patchifier_method, device = device)
+    coords, patches_f, patches_c, fmap= self.patchifier(frame, mode =  self.patchifier_method)
 
     # --- add frame to graph ---
     self.add_frame(fmap, time_stamp, device)
@@ -409,10 +411,10 @@ class Graph(nn.Module):
   def update_step(self, device):
     corr, ctx, valid_mask= self.corr(device)
 
-    kk = self.i[valid_mask]
-    ii = kk // self.patches_per_frame
-    jj = self.j[valid_mask]
+    patch_idx = self.i[valid_mask]
+    source_frame_idx = patch_idx // self.patches_per_frame
+    target_frame_idx = self.j[valid_mask]
    
-    return corr, ctx, ii, jj, kk
+    return corr, ctx, source_frame_idx, target_frame_idx, patch_idx
 
 
