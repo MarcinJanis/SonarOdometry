@@ -115,9 +115,6 @@ class Graph(nn.Module):
     return torch.stack([r, theta], dim = 1)
   
   def add_patches(self, patches_f, patches_c, coords, device):
-    # print(f'f: {patches_f.shape}')
-    # print(f'c: {patches_c.shape}')
-    # print(f'coords: {coords.shape}')
 
     b, n, p, d = coords.shape
 
@@ -209,25 +206,15 @@ class Graph(nn.Module):
 
     target_pts = project_points(source_coords, source_poses, target_poses)
 
-    print(f'target_pt: {target_pts.shape}')
-
     # --- edge validation --- 
     # find non valid edges
     theta_max = self.fov_horizontal / 2
     phi_max = self.fov_vertical / 2
 
     out_of_range = (target_pts[:,0] < (self.r_min - eps)) | (target_pts[:,0] > (self.r_max + eps))
-    print(f'non valid: {torch.sum(out_of_range.long())}')
     out_of_range = out_of_range | (torch.abs(target_pts[:,1]) > theta_max + eps)
-    print(f'non valid: {torch.sum(out_of_range.long())}')
     out_of_range = out_of_range | (torch.abs(target_pts[:,2]) > phi_max + eps)
-    print(f'non valid: {torch.sum(out_of_range.long())}')
 
-    print(f'Boundaries: r: {self.r_min}-{self.r_max}, theta: {theta_max}, phi: {phi_max}')
-      
-    for i in range(out_of_range.shape[0]):
-        if out_of_range[i]:
-          print(f'For edge: {i}: r: {target_pts[i, 0]}, theta: {target_pts[i, 1]}, phi: {target_pts[i, 2]}')
     # discard non valid edges
     valid_mask = ~out_of_range
     target_pts = target_pts[valid_mask]

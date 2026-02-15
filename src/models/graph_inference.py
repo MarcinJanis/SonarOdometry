@@ -69,9 +69,9 @@ class Graph(nn.Module):
     # --- graphs edges --- 
     self.max_edges = self.buff_size * self.patches_per_frame * self.time_window * 2 # max amount of edges in graph 
 
-    self.register_buffer('i', torch.zeros(self.max_edges, dtype=torch.long)) # keeps idxs of patch
-    self.register_buffer('j', torch.zeros(self.max_edges, dtype=torch.long)) # keeps idxs of frame
-    self.register_buffer('weights', torch.zeros(self.max_edges, dtype=torch.float)) # weights of each patch, how good estimation is, based on this patch 
+    self.register_buffer('i', torch.full((self.max_edges,), -1, dtype=torch.long)) # keeps idxs of patch
+    self.register_buffer('j', torch.full((self.max_edges,), -1, dtype=torch.long)) # keeps idxs of frame
+    # self.register_buffer('weights', torch.zeros(self.max_edges, dtype=torch.float)) # weights of each patch, how good estimation is, based on this patch 
   
   def add_frame(self, fmap, time_stamp, device): 
     # local index for ring buffer 
@@ -154,7 +154,7 @@ class Graph(nn.Module):
     
     k_idx = self.frame_n % self.buff_size
 
-    print(f'act n: {self.frame_n}')
+    # print(f'act n: {self.frame_n}')
     if self.frame_n < 2: # initialization
       x0 = torch.tensor([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0], device=device, dtype=torch.float)
     else: 
@@ -226,7 +226,7 @@ class Graph(nn.Module):
     # --- current patches -> past frame --- 
     new_patches = torch.arange(self.frame_n*self.patches_per_frame, (self.frame_n+1)*self.patches_per_frame, device = device, dtype = torch.long) 
     past_frames = torch.arange(self.frame_n - 1, self.frame_n - 1- self.time_window, step=-1, device = device, dtype = torch.long)
-    past_frames = torch.clamp(past_frames, min=0)
+    # past_frames = torch.clamp(past_frames, min=0)
 
     i_new_patches = new_patches.repeat(self.time_window)
     j_past_frames = torch.repeat_interleave(past_frames, repeats=self.patches_per_frame)
@@ -246,7 +246,7 @@ class Graph(nn.Module):
     self.i[idx_low:idx_high] = new_i
     self.j[idx_low:idx_high] = new_j
 
-    self.weights[idx_low:idx_high] = torch.zeros((idx_high - idx_low), device = device, dtype = torch.long)
+    # self.weights[idx_low:idx_high] = torch.zeros((idx_high - idx_low), device = device, dtype = torch.long)
     # self.valid[idx_low:idx_high] = torch.ones((idx_high - idx_low))
 
     return 
@@ -255,14 +255,21 @@ class Graph(nn.Module):
     '''
     Calculate correlation of patches with their actual fitting
     '''
-    # --- get device --- 
     
     # --- get source poses and target poses --- 
-    source_frames_idx = self.i // self.patches_per_frame
-    local_patch_idx = self.i % self.patches_per_frame
+    # each new frame creates 2*time_window*patches_per_frame new edges, max edges is 2*time_window*patches_per_frame new edges*buff_size
+    if self.frame_n < self.buff_size:
+      i = self.i[:(self.frame_n*+1)*2*self.time_window*self.patches_per_frame]
+      j = self.j[:(self.frame_n*+1)*2*self.time_window*self.patches_per_frame]
+    else:
+      i = self.i
+      j = self.j
+
+    source_frames_idx = i // self.patches_per_frame
+    local_patch_idx = i % self.patches_per_frame
 
     buff_source_frame_idx = source_frames_idx % self.buff_size
-    buff_target_frame_idx = self.j % self.buff_size
+    buff_target_frame_idx = j % self.buff_size
 
     source_poses = self.poses[buff_source_frame_idx, :]
     target_poses = self.poses[buff_target_frame_idx, :]
@@ -271,7 +278,7 @@ class Graph(nn.Module):
     
     # --- reprojection ---
     target_pts = project_points(source_coords, source_poses, target_poses)
-
+  
     # --- edges validation --- 
 
     # find non valid edges
@@ -282,17 +289,21 @@ class Graph(nn.Module):
     out_of_range = out_of_range | (torch.abs(target_pts[:,1]) > theta_max)
     out_of_range = out_of_range | (torch.abs(target_pts[:,2]) > phi_max)
 
+    out_of_range = out_of_range | (i < 0)
+    out_of_range = out_of_range | (j < 0)
+
     # discard non valid edges
     valid_mask = ~out_of_range
     target_pts = target_pts[valid_mask]
     buff_source_frame_idx = buff_source_frame_idx[valid_mask]
     buff_target_frame_idx = buff_target_frame_idx[valid_mask]
     local_patch_idx = local_patch_idx[valid_mask]
-
+    
     pts_num = target_pts.shape[0]
     
+    # print(f'total edges: {source_coords.shape[0]}, valid edges: {torch.sum(valid_mask.long())}')
     # --- get correlation neighbour from fmap --- 
-    target_pts = self._scale_phisical2fls(target_pts)
+    target_pts_fls = self._scale_phisical2fls(target_pts)
 
     # get grid to sample pixels from feature map 
     search_size = self.corr_neighbour + self.patch_size - 1
@@ -300,14 +311,17 @@ class Graph(nn.Module):
     dy, dx = torch.meshgrid(r_range, r_range, indexing="ij")
     offsets = torch.stack([dx, dy], dim=-1) # [r_range, r_range, 2]
 
-    center_coords = target_pts[:, [1, 0]].view(pts_num, 1, 1, 2) 
-    
-    grid1 = center_coords + offsets.unsqueeze(0)
-    grid2 = center_coords + offsets.unsqueeze(0) * self.encoder_downsize
+    center_coords_lv1 = target_pts_fls[:, [1, 0]].view(pts_num, 1, 1, 2) 
 
-    norm_factor = torch.tensor([(self.fls_w - 1) / 2.0, (self.fls_h - 1) / 2.0], device=device)
-    grid1 = (grid1 / norm_factor) - 1.0
-    grid2 = (grid2 / norm_factor) - 1.0
+    grid1 = center_coords_lv1 + offsets.unsqueeze(0)
+    norm_factor1 = torch.tensor([(self.fls_w - 1) / 2.0, (self.fls_h - 1) / 2.0], device=device)
+    grid1 = (grid1 / norm_factor1) - 1.0
+
+    center_coords_lv2 = center_coords_lv1 / self.encoder_downsize
+
+    grid2 = center_coords_lv2 + offsets.unsqueeze(0)
+    norm_factor2 = torch.tensor([(self.fls_w // self.encoder_downsize - 1) / 2.0, (self.fls_h // self.encoder_downsize - 1) / 2.0], device=device)
+    grid2 = (grid2 / norm_factor2) - 1.0
     
     # get features patches from fmaps
     target_patches_fmap1 = F.grid_sample(self.fmap1[buff_target_frame_idx], grid1, mode='bilinear', padding_mode='zeros', align_corners=True) # shape [pts_num, C, r_corr, r_corr]
@@ -320,20 +334,23 @@ class Graph(nn.Module):
     target_patches_fmap1 = target_patches_fmap1.view(pts_num, self.fmap_c, self.patch_size*self.patch_size, self.corr_neighbour*self.corr_neighbour) # shape: (pts_num, c, patch_size^2, corr_neighbour^2)
     target_patches_fmap2 = target_patches_fmap2.view(pts_num, self.fmap_c, self.patch_size*self.patch_size, self.corr_neighbour*self.corr_neighbour)
 
+    
     # --- get patches ---
     act_patches_f = self.patches_f[buff_source_frame_idx, local_patch_idx, :, :]
     # act_patches_c = self.patches_c[buff_source_frame_idx, local_patch_idx, :, :]
     act_patches_c = self.patches_c[buff_source_frame_idx, local_patch_idx, :]
-
+    
     # --- calc correlation and connect to single tensor ---
-    corr_map1 = torch.einsum('ncpr, ncp -> npr', target_patches_fmap1, act_patches_f)
-    corr_map2 = torch.einsum('ncpr, ncp -> npr', target_patches_fmap2, act_patches_f)
-  
-    corr_map = torch.cat((corr_map1.reshape(pts_num, -1), corr_map2.reshape(pts_num, -1)), dim= - 1) 
+    corr_map1 = torch.einsum('ncpr, ncp -> nr', target_patches_fmap1, act_patches_f)
+    corr_map2 = torch.einsum('ncpr, ncp -> nr', target_patches_fmap2, act_patches_f)
+
+    if pts_num > 0:
+      corr_map = torch.cat((corr_map1.reshape(pts_num, -1), corr_map2.reshape(pts_num, -1)), dim= - 1) 
+    else:
+      corr_map = torch.tensor([], device = device, dtype = float)
+
+    return corr_map, act_patches_c, i[valid_mask], j[valid_mask]
     
-    return corr_map, act_patches_c, valid_mask
-    
- 
   # === define interface to obtain data === #TODO
 
   @property
@@ -409,12 +426,12 @@ class Graph(nn.Module):
     return
     
   def update_step(self, device):
-    corr, ctx, valid_mask= self.corr(device)
+    corr, ctx, valid_i, valid_j= self.corr(device)
 
-    patch_idx = self.i[valid_mask]
+    patch_idx = valid_i
     source_frame_idx = patch_idx // self.patches_per_frame
-    target_frame_idx = self.j[valid_mask]
-   
+    target_frame_idx = valid_j
+    
     return corr, ctx, source_frame_idx, target_frame_idx, patch_idx
 
 
