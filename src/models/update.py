@@ -63,7 +63,7 @@ class Update(nn.Module):
 
 
     
-    def forward(self, h, flow, corr, ctx, source_frame_ids, target_frames_ids, patches_ids):
+    def forward(self, h, flow, corr, ctx, source_frame_idx, target_frames_idx, patches_idx, device):
         
         '''
         Update operator
@@ -83,7 +83,7 @@ class Update(nn.Module):
         h = self.norm(h) # normalize
 
         # for each edge find edge idx, where same patch is matched with previous or next target frame (in time) 
-        prev_idx, next_idx = neighbours(patch_idx, target_frame, device, range = 1)
+        prev_idx, next_idx = neighbours(patches_idx, target_frames_idx, device = device, range = 1)
 
         prev_mask = (prev_idx >= 1).float.reshape(1, -1, 1)
         next_mask = (next_idx >= 1).float.reshape(1, -1, 1)
@@ -91,8 +91,8 @@ class Update(nn.Module):
         h = h + self.c1(prev_mask * h[:, prev_idx]) # add to hidden state information about temporal patches neighbours 
         h = h + self.c2(next_mask * h[:, next_idx]) # add to hidden state information about temporal patches neighbours 
 
-        h = h + self.patches_agg(h, patches_ids)
-        h = h + self.edges_agg(h, source_frame_ids*12345 + =target_frames_ids)
+        h = h + self.patches_agg(h, patches_idx)
+        h = h + self.edges_agg(h, source_frame_idx*12345 + target_frames_idx)
 
         h = self.gru(h)
 
