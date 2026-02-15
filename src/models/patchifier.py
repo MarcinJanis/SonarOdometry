@@ -167,11 +167,11 @@ class Patchifier(nn.Module):
         )
 
         patches_f = patches_f.view(bn, c1, self.patches_per_frame, self.patch_size * self.patch_size)
-        patches_f = patches_f.permute(0, 2, 1, 3)
+        patches_f = patches_f.permute(0, 2, 1, 3).contiguous()
         # patches_f = patches_f.view(bn, self.patches_per_frame, c, self.patch_size*self.patch_size)
         
         patches_c = patches_c.view(bn, c2, self.patches_per_frame)
-        patches_c = patches_c.permute(0, 2, 1)
+        patches_c = patches_c.permute(0, 2, 1).contiguous()
         # patches_c = patches_c.view(bn, self.patches_per_frame, c)
         
         return patches_f, patches_c

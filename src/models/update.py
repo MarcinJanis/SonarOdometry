@@ -36,7 +36,7 @@ class Update(nn.Module):
         self.c2 = nn.Sequential(
             nn.Linear(hidden_state_dim, hidden_state_dim),
             nn.ReLU(inplace=True),
-            nn.Linear(hidden_state_dim, hidden_state_dim)
+            nn.Linear(hidden_state_dim, hidden_state_dim))
 
         self.patches_agg = SoftAgg(dim=hidden_state_dim, expand=True)
         self.edges_agg = SoftAgg(dim=hidden_state_dim, expand=True)
@@ -111,29 +111,6 @@ class GatedResidual(nn.Module):
             nn.Linear(dim, dim),
             nn.Sigmoid())
 
-<<<<<<< HEAD
-
-def neighbours(patch_idx, act_target_frame, range = 1):
-    # dopracować!!!!
-    base = torch.stack([patch_idx, act_target_frame], dim = 1) # shape (n, 2); [:,0] - patch idx, [:,1] - target frame
-
-    # define searching targets
-    prev = torch.stack([patch_idx, act_target_frame - range], dim = 1)
-    next = torch.stack([patch_idx, act_target_frame - range], dim = 1)
-
-    # search
-    past_results =  torch.nonzero((base == prev))
-    future_results =  torch.nonzero((base == next))
-
-    past_results =  past_results.all(dim=1)
-    future_results =  future_results.all(dim=1)
-
-    past_idx = torch.nonzero(past_results, as_tuple=True)[0]
-    future_idx = torch.nonzero(past_results, as_tuple=True)[0]
-
-    return past_idx, future_idx
-   
-=======
         self.res = nn.Sequential(
             nn.Linear(dim, dim),
             nn.ReLU(inplace=True),
@@ -199,4 +176,3 @@ def neighbours(patch_idx, target_frame, device, range = 1):
     
     return prev_idx, next_idx
     
->>>>>>> e47a71d971de3b455a817099e14e7e8449cf0669

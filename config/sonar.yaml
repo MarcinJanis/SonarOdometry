@@ -4,8 +4,8 @@ resolution:
   beams: 768 # horizontal resolution - number of acustic beams
   bins: 800 # distance (vertical) resolution
 fov:
-  horizontal: 130 # [rad]
-  vertical: 20 # [rad]
+  horizontal: 130 # [deg]
+  vertical: 20 # [deg]
 range:
   min: 0.5 # [m]
   max: 100 # [m]
