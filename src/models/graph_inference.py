@@ -399,7 +399,43 @@ class Graph(nn.Module):
   
     return size_dict
     
+  def visu_data(self, source_frame_idx, target_frame_idx, patch_idx, last_frames = 3):
+
+    # get source coordinates of patches (patch_idx)
+    source_coords = self.patch_state[patch_idx // self.patches_per_frame % self.buff_size, patch_idx  % self.patches_per_frame]
     
+    # project coordinates to target frames 
+    source_poses = self.poses[source_frame_idx % self.buff_size]
+    target_poses = self.poses[target_frame_idx % self.buff_size]
+    target_coords = project_points(source_coords, source_poses, target_poses)
+
+    # get only edges that are in range last_frames
+    mask = (source_frame_idx > self.frame_n - last_frames) & \
+               (target_frame_idx > self.frame_n - last_frames)
+    
+    visu_valid = mask.nonzero(as_tuple=True)[0]
+
+    if len(visu_valid) == 0:
+            return []
+      
+    # validate
+    source_frame_idx = source_frame_idx[visu_valid]
+    target_frame_idx = target_frame_idx[visu_valid]
+    patch_idx = patch_idx[visu_valid]
+    source_coords = source_coords[visu_valid]
+    target_coords = target_coords[visu_valid]
+
+    # get list of frames and coords for each patch
+    unique_patches = torch.unique(patch_idx, sorted=True)
+
+    output = []
+    for target_patch_id in unique_patches:
+      idxs = (patch_idx == target_patch_id).nonzero(as_tuple=True)[0]
+      frames = torch.cat([source_frame_idx[idxs[0:1]], target_frame_idx[idxs]], dim = 0)
+      coords = torch.cat([source_coords[idxs[0:1]], target_coords[idxs]], dim = 0)
+      output.append((target_patch_id, frames, coords))
+    return output
+  
   def append(self, frame, time_stamp, device):
     '''
     Add new frame and patches to graph. 
