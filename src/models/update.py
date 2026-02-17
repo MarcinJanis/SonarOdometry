@@ -165,82 +165,54 @@ class SoftAgg(nn.Module):
             
         return self.linear3(y)
 
+# def neighbours(patch_idx, target_frame, device, range = 1):
+    
+#     base = torch.stack([patch_idx, target_frame], dim=1) # shape (n, 2)
+#     prev = torch.stack([patch_idx, target_frame - range], dim=1)
+#     next = torch.stack([patch_idx, target_frame + range], dim=1)
+
+#     base = base.unsqueeze(0).permute(0, 2, 1) # shape  (1, 2, n)
+#     prev = prev.unsqueeze(-1) # shape (n, 2, 1)
+#     next = next.unsqueeze(-1) # shape (n, 2, 1)
+
+#     # search in past frames
+#     mask = (prev == base) # shape (n, 2, n)
+#     # if mask[i, :, k].all() == True, that means position i in prev (prev[i, :]) exist in base on position k (base[k, :]
+#     match = mask.all(dim=1)
+#     i_prev, k_prev = match.nonzero(as_tuple=True) # each shape (t,) where t is number of matches and prev[i_prev, :] == base[k_prev, :]
+
+#     # search in future frames
+#     mask = (next == base) # shape (n, 2, n)
+#     # if mask[i, :, k].all() == True, that means position i in prev (prev[i, :]) exist in base on position k (base[k, :]
+#     match = mask.all(dim=1)
+#     i_next, k_next = match.nonzero(as_tuple=True) # each shape (t,) where t is number of matches and prev[i_next, :] == base[k_next, :]
+
+#     # create tensor where if there is no match, set -1.0
+#     prev_idx = torch.full(patch_idx.shape, -1, device=device, dtype=torch.long)
+#     next_idx = torch.full(patch_idx.shape, -1, device=device, dtype=torch.long)
+
+#     prev_idx[i_prev] = k_prev
+#     next_idx[i_next] = k_next
+    
+#     return prev_idx, next_idx
+
 def neighbours(patch_idx, target_frame, device, range = 1):
     
-    base = torch.stack([patch_idx, target_frame], dim=1) # shape (n, 2)
-    prev = torch.stack([patch_idx, target_frame - range], dim=1)
-    next = torch.stack([patch_idx, target_frame + range], dim=1)
-
-    base = base.unsqueeze(0).permute(0, 2, 1) # shape  (1, 2, n)
-    prev = prev.unsqueeze(-1) # shape (n, 2, 1)
-    next = next.unsqueeze(-1) # shape (n, 2, 1)
-
-    # search in past frames
-    mask = (prev == base) # shape (n, 2, n)
-    # if mask[i, :, k].all() == True, that means position i in prev (prev[i, :]) exist in base on position k (base[k, :]
-    match = mask.all(dim=1)
-    i_prev, k_prev = match.nonzero(as_tuple=True) # each shape (t,) where t is number of matches and prev[i_prev, :] == base[k_prev, :]
-
-    # search in future frames
-    mask = (next == base) # shape (n, 2, n)
-    # if mask[i, :, k].all() == True, that means position i in prev (prev[i, :]) exist in base on position k (base[k, :]
-    match = mask.all(dim=1)
-    i_next, k_next = match.nonzero(as_tuple=True) # each shape (t,) where t is number of matches and prev[i_next, :] == base[k_next, :]
-
-    # create tensor where if there is no match, set -1.0
-    prev_idx = torch.full(patch_idx.shape, -1, device=device, dtype=torch.long)
-    next_idx = torch.full(patch_idx.shape, -1, device=device, dtype=torch.long)
-
-    prev_idx[i_prev] = k_prev
-    next_idx[i_next] = k_next
-    
-    return prev_idx, next_idx
-
-
-
-
-# patch_idx, target_frame
-# prev: 
-# prev[5] = 15 
-# if on pos 15 there is prev frame of connection from idx 5 
-
-
-
-
-
-
-def neighbours(patch_idx, target_frame, device, range = 1):
-
-    prev_indieces = torch.full(patch_idx.shape, -1, device=device, dtype=torch.long) # create empty indices tensors
-    next_indieces = torch.full(patch_idx.shape, -1, device=device, dtype=torch.long)
-    
-    sort_key = patch_idx * (target_frame.max() + 1) + target_frame
-    sorted_keys, indices = torch.sort(sort_key)
+    sort_key = patch_idx * (target_frame.max() + 1) + target_frame # copress patch idx and frame idx into one value to be sorted
+    sorted_keys, indices = torch.sort(sort_key) # sort 
     rev_indices= torch.argsort(indices) # to restore orginal order 
-    
-    target_frame_sorted = target_frame[indices]
-    patch_idx_sorted = patch_idx[indices]
 
-    base = torch.stack([patch_idx_sorted, target_frame_sorted], dim = 1) # sorted, base connections
+    has_prev = sorted_keys[range:] == (sorted_keys - range)[:-range] # hase previous target frame on pos n - 1
+    has_next = sorted_keys[:-range] == (sorted_keys + range)[range:] # hase previous target frame on pos n + 1
 
-    prev = F.pad(torch.stack([patch_idx_sorted, target_frame_sorted - 1], dim = 1), (0, 1, 0, 0), mode='constant', value=-1)[1:] # target connection: patch -> prev frame, shifted by -1
-    next = F.pad(torch.stack([patch_idx_sorted, target_frame_sorted + 1], dim = 1), (1, 0, 0, 0), mode='constant', value=-1)[:-1] # target connection: patch -> next frame, shifted by 1
+    prev_indices = torch.full(patch_idx.shape, -1, device=device, dtype=torch.long)
+    next_indices = torch.full(patch_idx.shape, -1, device=device, dtype=torch.long)
 
-    # find, where base (sorted connection is target prev/next conntetion
-    prev_mask = (base.all(dim=1) == prev.all(dim=1)).long() # Ture on position n means, that base[n] is previous target frame connexction to the base[n+1]
-    next_mask = (base.all(dim=1) == next.all(dim=1)).long() # Ture on position n means, that base[n] is next target frame connexction to the base[n-1]
+    prev_indices[range:][has_prev] = indices[torch.nonzero(has_prev).long() - 1]
+    next_indices[:-range][has_next] = indices[torch.nonzero(has_next).long() + 1]
 
-    # get those idx
-    prev_i_sort = torch.nonzero(prev_mask) 
-    next_i_sort = torch.nonzero(next_mask)
+    prev_indices = prev_indices[rev_indices]
+    next_indices = next_indices[rev_indices]
 
-    prev_indices[prev_i_sort] = indices[prev_i_sort - 1]
-    next_indices[next_i_sort] = indices[next_i_sort + 1]
+    return prev_indices, next_indices 
 
-    prev_indices = prev_indices[indices]
-    next_indices = next_indices[indices]
-    return prev_indices, next_indices
-
-
-# prev_indices_sorted[1:][prev_match] = indices[:-1][prev_match]
-# next_indices_sorted[:-1][next_match] = indices[1:][next_match
