@@ -195,4 +195,52 @@ def neighbours(patch_idx, target_frame, device, range = 1):
     next_idx[i_next] = k_next
     
     return prev_idx, next_idx
+
+
+
+
+# patch_idx, target_frame
+# prev: 
+# prev[5] = 15 
+# if on pos 15 there is prev frame of connection from idx 5 
+
+
+
+
+
+
+def neighbours(patch_idx, target_frame, device, range = 1):
+
+    prev_indieces = torch.full(patch_idx.shape, -1, device=device, dtype=torch.long) # create empty indices tensors
+    next_indieces = torch.full(patch_idx.shape, -1, device=device, dtype=torch.long)
     
+    sort_key = patch_idx * (target_frame.max() + 1) + target_frame
+    sorted_keys, indices = torch.sort(sort_key)
+    rev_indices= torch.argsort(indices) # to restore orginal order 
+    
+    target_frame_sorted = target_frame[indices]
+    patch_idx_sorted = patch_idx[indices]
+
+    base = torch.stack([patch_idx_sorted, target_frame_sorted], dim = 1) # sorted, base connections
+
+    prev = F.pad(torch.stack([patch_idx_sorted, target_frame_sorted - 1], dim = 1), (0, 1, 0, 0), mode='constant', value=-1)[1:] # target connection: patch -> prev frame, shifted by -1
+    next = F.pad(torch.stack([patch_idx_sorted, target_frame_sorted + 1], dim = 1), (1, 0, 0, 0), mode='constant', value=-1)[:-1] # target connection: patch -> next frame, shifted by 1
+
+    # find, where base (sorted connection is target prev/next conntetion
+    prev_mask = (base.all(dim=1) == prev.all(dim=1)).long() # Ture on position n means, that base[n] is previous target frame connexction to the base[n+1]
+    next_mask = (base.all(dim=1) == next.all(dim=1)).long() # Ture on position n means, that base[n] is next target frame connexction to the base[n-1]
+
+    # get those idx
+    prev_i_sort = torch.nonzero(prev_mask) 
+    next_i_sort = torch.nonzero(next_mask)
+
+    prev_indices[prev_i_sort] = indices[prev_i_sort - 1]
+    next_indices[next_i_sort] = indices[next_i_sort + 1]
+
+    prev_indices = prev_indices[indices]
+    next_indices = next_indices[indices]
+    return prev_indices, next_indices
+
+
+# prev_indices_sorted[1:][prev_match] = indices[:-1][prev_match]
+# next_indices_sorted[:-1][next_match] = indices[1:][next_match
