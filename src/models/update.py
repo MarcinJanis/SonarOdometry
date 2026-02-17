@@ -17,14 +17,14 @@ class Update(nn.Module):
         corr_input_dim = self.fmap_c*self.corr_neighbour*self.corr_neighbour*self.patch_size*self.patch_size
         hidden_state_dim = model_cfg.CONTEXT_OUTPUT_CH
 
-        self.corr_net = nn.Sequential((
+        self.corr_net = nn.Sequential(
             nn.Linear(corr_input_dim, hidden_state_dim),
             nn.ReLU(inplace=True),
             nn.Linear(hidden_state_dim, hidden_state_dim),
             nn.LayerNorm(hidden_state_dim, eps=1e-3),
             nn.ReLU(inplace=True),
             nn.Linear(hidden_state_dim, hidden_state_dim)
-        ))
+        )
 
         self.norm = nn.LayerNorm(hidden_state_dim, eps=1e-3)
 
@@ -52,12 +52,12 @@ class Update(nn.Module):
 
         self.d = nn.Sequential(
             nn.ReLU(inplace=False),
-            nn.Linear(DIM, 2),
+            nn.Linear(hidden_state_dim, 2),
             GradientClip())
 
         self.w = nn.Sequential(
             nn.ReLU(inplace=False),
-            nn.Linear(DIM, 2),
+            nn.Linear(hidden_state_dim, 2),
             GradientClip(),
             nn.Sigmoid())
 
@@ -82,25 +82,45 @@ class Update(nn.Module):
         h = h + ctx + corr # add to hidden state
         h = self.norm(h) # normalize
 
-        # for each edge find edge idx, where same patch is matched with previous or next target frame (in time) 
+        # for each edge find edge idx, where same patch is matched with previous or next target frame in time. 
         prev_idx, next_idx = neighbours(patches_idx, target_frames_idx, device = device, range = 1)
 
-        prev_mask = (prev_idx >= 1).float.reshape(1, -1, 1)
-        next_mask = (next_idx >= 1).float.reshape(1, -1, 1)
+        prev_mask = (prev_idx >= 1).float #.reshape(1, -1, 1)
+        next_mask = (next_idx >= 1).float #.reshape(1, -1, 1)
 
-        h = h + self.c1(prev_mask * h[:, prev_idx]) # add to hidden state information about temporal patches neighbours 
-        h = h + self.c2(next_mask * h[:, next_idx]) # add to hidden state information about temporal patches neighbours 
+        h = h + self.c1(prev_mask * h[prev_idx, :]) # add to hidden state information about temporal patches neighbours 
+        h = h + self.c2(next_mask * h[next_idx, :]) # add to hidden state information about temporal patches neighbours 
 
         h = h + self.patches_agg(h, patches_idx)
         h = h + self.edges_agg(h, source_frame_idx*12345 + target_frames_idx)
 
         h = self.gru(h)
 
-        p = self.d(h) # projection correction (dx, dy)
-        w = self.w(h) # correction weights, confidence 
+        delta = self.d(h) # projection correction (dx, dy)
+        weihts = self.w(h) # correction weights, confidence 
         
-        return h, p, w
+        return h, delta, weights
 
+
+# ----------- 
+
+
+class GradClip(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, x):
+        return x
+
+    @staticmethod
+    def backward(ctx, grad_x):
+        grad_x = torch.where(torch.isnan(grad_x), torch.zeros_like(grad_x), grad_x)
+        return grad_x.clamp(min=-0.01, max=0.01)
+
+class GradientClip(nn.Module):
+    def __init__(self):
+        super(GradientClip, self).__init__()
+
+    def forward(self, x):
+        return GradClip.apply(x)
 
 
 class GatedResidual(nn.Module):
@@ -126,7 +146,7 @@ class SoftAgg(nn.Module):
         self.expand = expand
         self.linear1 = nn.Linear(self.dim, self.dim)
         self.linear2 = nn.Linear(self.dim, self.dim)
-        self.linaer3 = nn.Linear(self.dim, self.dim)
+        self.linear3 = nn.Linear(self.dim, self.dim)
 
     def forward(self, x, id):
 
@@ -141,7 +161,7 @@ class SoftAgg(nn.Module):
         y = torch_scatter.scatter_sum(self.linear2(x) * weights, group_idx, dim=1)
 
         if self.expand:
-            return self.self.linear3(y)[:,jx]
+            return self.self.linear3(y)[:,group_idx]
             
         return self.linear3(y)
 
