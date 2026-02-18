@@ -64,19 +64,7 @@ class Update(nn.Module):
 
     
     def forward(self, h, flow, corr, ctx, source_frame_idx, target_frames_idx, patches_idx, device):
-        
-        '''
-        Update operator
-        
-        :param h: hidden state 
-        :param corr: correlation tensor
-        :param ctx: context patches tensor
-        :param flow: current correction of posses and weights 
-        :param ii: buffer indexes of source frame for valid patches
-        :param jj: buffer indexes of target frame for valid patches
-        :param kk: gloabl ids of valid patches 
-        '''
-        
+            
         # --- update hidden state with new data --- 
         corr = self.corr_net(corr) # process correlation tensor
         h = h + ctx + corr # add to hidden state
@@ -92,7 +80,8 @@ class Update(nn.Module):
         h = h + self.c2(next_mask * h[next_idx, :]) # add to hidden state information about temporal patches neighbours 
 
         h = h + self.patches_agg(h, patches_idx)
-        h = h + self.edges_agg(h, source_frame_idx*12345 + target_frames_idx)
+        # h = h + self.edges_agg(h, source_frame_idx*12345 + target_frames_idx)
+        h = h + self.edges_agg(h, source_frame_idx*(target_frames_idx.max() + 1) + target_frames_idx)
 
         h = self.gru(h)
 
