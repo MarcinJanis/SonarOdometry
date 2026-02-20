@@ -259,8 +259,8 @@ class Graph(nn.Module):
     # --- get source poses and target poses --- 
     # each new frame creates 2*time_window*patches_per_frame new edges, max edges is 2*time_window*patches_per_frame new edges*buff_size
     if self.frame_n < self.buff_size:
-      i = self.i[:(self.frame_n*+1)*2*self.time_window*self.patches_per_frame]
-      j = self.j[:(self.frame_n*+1)*2*self.time_window*self.patches_per_frame]
+      i = self.i[:(self.frame_n+1)*2*self.time_window*self.patches_per_frame]
+      j = self.j[:(self.frame_n+1)*2*self.time_window*self.patches_per_frame]
     else:
       i = self.i
       j = self.j
@@ -410,8 +410,8 @@ class Graph(nn.Module):
     target_coords = project_points(source_coords, source_poses, target_poses)
 
     # get only edges that are in range last_frames
-    mask = (source_frame_idx > self.frame_n - last_frames) & \
-               (target_frame_idx > self.frame_n - last_frames)
+    mask = (source_frame_idx >= self.frame_n - last_frames) & \
+               (target_frame_idx >= self.frame_n - last_frames)
     
     visu_valid = mask.nonzero(as_tuple=True)[0]
 

@@ -86,12 +86,11 @@ class Update(nn.Module):
         h = self.gru(h)
 
         delta = self.d(h) # projection correction (dx, dy)
-        weihts = self.w(h) # correction weights, confidence 
+        weights = self.w(h) # correction weights, confidence 
         
         return h, delta, weights
 
-
-# ----------- 
+# =========
 
 
 class GradClip(torch.autograd.Function):
@@ -154,52 +153,66 @@ class SoftAgg(nn.Module):
             
         return self.linear3(y)
 
-# def neighbours(patch_idx, target_frame, device, range = 1):
+def neighbours_broadcast(patch_idx, target_frame, device, range = 1): # alternative
     
-#     base = torch.stack([patch_idx, target_frame], dim=1) # shape (n, 2)
-#     prev = torch.stack([patch_idx, target_frame - range], dim=1)
-#     next = torch.stack([patch_idx, target_frame + range], dim=1)
+    base = torch.stack([patch_idx, target_frame], dim=1) # shape (n, 2)
+    prev = torch.stack([patch_idx, target_frame - range], dim=1)
+    next = torch.stack([patch_idx, target_frame + range], dim=1)
 
-#     base = base.unsqueeze(0).permute(0, 2, 1) # shape  (1, 2, n)
-#     prev = prev.unsqueeze(-1) # shape (n, 2, 1)
-#     next = next.unsqueeze(-1) # shape (n, 2, 1)
+    base = base.unsqueeze(0).permute(0, 2, 1) # shape  (1, 2, n)
+    prev = prev.unsqueeze(-1) # shape (n, 2, 1)
+    next = next.unsqueeze(-1) # shape (n, 2, 1)
 
-#     # search in past frames
-#     mask = (prev == base) # shape (n, 2, n)
-#     # if mask[i, :, k].all() == True, that means position i in prev (prev[i, :]) exist in base on position k (base[k, :]
-#     match = mask.all(dim=1)
-#     i_prev, k_prev = match.nonzero(as_tuple=True) # each shape (t,) where t is number of matches and prev[i_prev, :] == base[k_prev, :]
+    # search in past frames
+    mask = (prev == base) # shape (n, 2, n)
+    # if mask[i, :, k].all() == True, that means position i in prev (prev[i, :]) exist in base on position k (base[k, :]
+    match = mask.all(dim=1)
+    i_prev, k_prev = match.nonzero(as_tuple=True) # each shape (t,) where t is number of matches and prev[i_prev, :] == base[k_prev, :]
 
-#     # search in future frames
-#     mask = (next == base) # shape (n, 2, n)
-#     # if mask[i, :, k].all() == True, that means position i in prev (prev[i, :]) exist in base on position k (base[k, :]
-#     match = mask.all(dim=1)
-#     i_next, k_next = match.nonzero(as_tuple=True) # each shape (t,) where t is number of matches and prev[i_next, :] == base[k_next, :]
+    # search in future frames
+    mask = (next == base) # shape (n, 2, n)
+    # if mask[i, :, k].all() == True, that means position i in prev (prev[i, :]) exist in base on position k (base[k, :]
+    match = mask.all(dim=1)
+    i_next, k_next = match.nonzero(as_tuple=True) # each shape (t,) where t is number of matches and prev[i_next, :] == base[k_next, :]
 
-#     # create tensor where if there is no match, set -1.0
-#     prev_idx = torch.full(patch_idx.shape, -1, device=device, dtype=torch.long)
-#     next_idx = torch.full(patch_idx.shape, -1, device=device, dtype=torch.long)
+    # create tensor where if there is no match, set -1.0
+    prev_idx = torch.full(patch_idx.shape, -1, device=device, dtype=torch.long)
+    next_idx = torch.full(patch_idx.shape, -1, device=device, dtype=torch.long)
 
-#     prev_idx[i_prev] = k_prev
-#     next_idx[i_next] = k_next
+    prev_idx[i_prev] = k_prev
+    next_idx[i_next] = k_next
     
-#     return prev_idx, next_idx
+    return prev_idx, next_idx
 
 def neighbours(patch_idx, target_frame, device, range = 1):
     
     sort_key = patch_idx * (target_frame.max() + 1) + target_frame # copress patch idx and frame idx into one value to be sorted
     sorted_keys, indices = torch.sort(sort_key) # sort 
+
+    # print(sorted_keys)
     rev_indices= torch.argsort(indices) # to restore orginal order 
 
-    has_prev = sorted_keys[range:] == (sorted_keys - range)[:-range] # hase previous target frame on pos n - 1
-    has_next = sorted_keys[:-range] == (sorted_keys + range)[range:] # hase previous target frame on pos n + 1
+    # print(sorted_keys[range:])
+    # print((sorted_keys - range)[:-range])
 
-    prev_indices = torch.full(patch_idx.shape, -1, device=device, dtype=torch.long)
-    next_indices = torch.full(patch_idx.shape, -1, device=device, dtype=torch.long)
+    has_prev = sorted_keys[range:] == (sorted_keys + range)[:-range] 
+    has_next = sorted_keys[:-range] == (sorted_keys - range)[range:] 
+  
+    # print(f'has_next: {has_next}')
+    # print(f'has_prev: {has_prev}')
 
-    prev_indices[range:][has_prev] = indices[torch.nonzero(has_prev).long() - 1]
-    next_indices[:-range][has_next] = indices[torch.nonzero(has_next).long() + 1]
+    prev_indices = torch.full(sorted_keys.shape, -1, device=device, dtype=torch.long)
+    next_indices = torch.full(sorted_keys.shape, -1, device=device, dtype=torch.long)
 
+    # print(f'prev indices: {prev_indices}')
+    # print(f'next indices: {next_indices}')
+
+    # print()
+    prev_indices[range:][has_prev] = indices[torch.nonzero(has_prev).squeeze(-1).long()]
+    next_indices[:-range][has_next] = indices[torch.nonzero(has_next).squeeze(-1).long() + 1]
+
+    # print(f'prev indices: {prev_indices}')
+    # print(f'next indices: {next_indices}')
     prev_indices = prev_indices[rev_indices]
     next_indices = next_indices[rev_indices]
 

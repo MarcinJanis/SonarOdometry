@@ -186,13 +186,13 @@ class Graph(nn.Module):
   def corr(self, poses, coords_phi, eps, device):
 
     b, n, p, _ = self.coords_r_theta.shape
-
+    print(f'batch size: {b}. frames: {n}')
     # --- get source poses and target poses --- 
     source_frames_idx = self.i // self.patches_per_frame
     target_frames_idx = self.j
-
+    print(f'debug: {poses.shape}')
     poses = poses.view(b*n, 7) # shape: (batch_size, frames_in_series, 7) -> (batch_size * frames_in_series, 7)
-    
+    print(f'debug: {poses.shape}')
     source_poses = poses[source_frames_idx]
     target_poses = poses[target_frames_idx]
 

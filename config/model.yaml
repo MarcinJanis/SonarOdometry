@@ -39,7 +39,7 @@ TIME_WINDOW: 3 # Amount of previous frames that are taken into new edges creatio
 
 CORR_NEIGHBOUR: 5
 
-MOTION_APPRO_MODEL: 'linear' # [DAMPED_LINEAR, LINEAR in developement]
+MOTION_APPRO_MODEL: None #'linear' # [DAMPED_LINEAR, LINEAR in developement]
 
 
 
