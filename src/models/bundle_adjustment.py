@@ -63,7 +63,7 @@ class BundleAdjustment(nn.Module):
         proj_coords = transform_points_coords(proj_coords, projection_type.CARTESIAN2POLAR)
 
         # calc projection error
-        residual = (proj_coords - self.target_coords) * self.weights 
+        residual = proj_coords - self.target_coords
     
         return residual 
 
@@ -75,7 +75,7 @@ class BundleAdjustment(nn.Module):
         
         for i in range(max_iter):
             
-            loss = optimizer.step()
+            loss = optimizer.step(weight=infos)
             
             if abs(prev_loss - loss.item()) < early_stop_tol:
                     break
