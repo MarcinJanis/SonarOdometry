@@ -11,11 +11,14 @@ class BundleAdjustment(nn.Module):
     def __init__(self, poses, patch_coords):
         super().__init__()
 
+        # --- define parameters to optimize ---
         poses_se3 = pp.SE3(poses)
         self.poses = pp.Parameter(poses_se3)
-        
-        self.patch_coords = patch_coords[:, :2]
         self.elevation_angle = pp.Parameter(patch_coords[:, 2:3])
+
+        # --- define constants parameters --- 
+        self.patch_coords = patch_coords[:, :2]
+        
 
 
     def init_ba(self, poses_idx, patch_idx, delta, weights):
@@ -33,14 +36,12 @@ class BundleAdjustment(nn.Module):
         
         with torch.no_grad():
 
-            # --- comppose coords --- 
+            # --- compose coords --- 
             target_coords = torch.cat([patch_coords, elevation_angle], dim = 1)
             
             # --- transform points --- 
-            # T = transform_matrix(poses)
-            # target_coords  = T @ target_coords # złożyć target coords z tych dóch wcześniejsyzch 
-            target_coords = poses @ proj_coords
-            target_coords = transform_points_coords(target_coords, projection_type.CARTESIAN2POLAR)
+            target_coords = poses @ target_coords
+            target_coords = transorm_points_coords(target_coords, projection_type.CARTESIAN2POLAR)
             
             # --- add corrections ---
             target_coords = target_coords + delta 
@@ -60,7 +61,7 @@ class BundleAdjustment(nn.Module):
         # T = transform_matrix(poses)
         # proj_coords  = T @ proj_coords
         proj_coords = poses @ proj_coords
-        proj_coords = transform_points_coords(proj_coords, projection_type.CARTESIAN2POLAR)
+        proj_coords = transorm_points_coords(proj_coords, projection_type.CARTESIAN2POLAR)
 
         # calc projection error
         residual = proj_coords - self.target_coords
@@ -75,7 +76,7 @@ class BundleAdjustment(nn.Module):
         
         for i in range(max_iter):
             
-            loss = optimizer.step(weight=infos)
+            loss = optimizer.step(weight=self.weights)
             
             if abs(prev_loss - loss.item()) < early_stop_tol:
                     break
@@ -86,5 +87,3 @@ class BundleAdjustment(nn.Module):
         optimized_elevation = self.elevation_angle.detach()
         
         return optimized_poses.tensor(), optimized_elevation
-
-
