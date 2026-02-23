@@ -14,7 +14,7 @@ class BoundleAdjustment(nn.Module):
         poses_se3 = pp.SE3(poses)
         self.poses = pp.Parameter(poses_se3)
         
-        self.patch_coords = patch_coords[:, 2]
+        self.patch_coords = patch_coords[:, :2]
         self.elevation_angle = pp.Parameter(patch_coords[:, 2:3])
 
 
@@ -84,10 +84,4 @@ class BoundleAdjustment(nn.Module):
         
         return optimized_poses, optimized_elevation
 
-# Parametry w ba_model zaktualizowały się w miejscu (in-place). 
-# Wystarczy je wyciągnąć i odciąć gradienty (.detach())
-optimized_poses = ba_model.poses.detach()
-optimized_inv_depths = ba_model.inv_depths.detach()
 
-print("Gotowe! Nowe pozy obliczone.")
-'''
