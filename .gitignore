@@ -209,3 +209,6 @@ __marimo__/
 # rosbags
 
 *.bag
+
+
+DONOTUPLOAD.md

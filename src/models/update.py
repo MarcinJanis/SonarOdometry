@@ -14,7 +14,7 @@ class Update(nn.Module):
         self.patch_size = model_cfg.PATCH_SIZE 
         
         # correlation preprocess net
-        corr_input_dim = self.fmap_c*self.corr_neighbour*self.corr_neighbour*self.patch_size*self.patch_size
+        corr_input_dim = self.corr_neighbour*self.corr_neighbour*2 #self.fmap_c*self.corr_neighbour*self.corr_neighbour*self.patch_size*self.patch_size
         hidden_state_dim = model_cfg.CONTEXT_OUTPUT_CH
 
         self.corr_net = nn.Sequential(
@@ -67,28 +67,29 @@ class Update(nn.Module):
             
         # --- update hidden state with new data --- 
         corr = self.corr_net(corr) # process correlation tensor
+
         h = h + ctx + corr # add to hidden state
         h = self.norm(h) # normalize
 
         # for each edge find edge idx, where same patch is matched with previous or next target frame in time. 
         prev_idx, next_idx = neighbours(patches_idx, target_frames_idx, device = device, range = 1)
 
-        prev_mask = (prev_idx >= 1).float #.reshape(1, -1, 1)
-        next_mask = (next_idx >= 1).float #.reshape(1, -1, 1)
+        prev_mask = (prev_idx >= 1).float()
+        next_mask = (next_idx >= 1).float()
 
-        h = h + self.c1(prev_mask * h[prev_idx, :]) # add to hidden state information about temporal patches neighbours 
-        h = h + self.c2(next_mask * h[next_idx, :]) # add to hidden state information about temporal patches neighbours 
+        h = h + self.c1(prev_mask.unsqueeze(-1) * h[prev_idx, :]) # add to hidden state information about temporal patches neighbours 
+        h = h + self.c2(next_mask.unsqueeze(-1) * h[next_idx, :]) # add to hidden state information about temporal patches neighbours 
 
         h = h + self.patches_agg(h, patches_idx)
-        # h = h + self.edges_agg(h, source_frame_idx*12345 + target_frames_idx)
-        h = h + self.edges_agg(h, source_frame_idx*(target_frames_idx.max() + 1) + target_frames_idx)
 
+        h = h + self.edges_agg(h, source_frame_idx*(target_frames_idx.max() + 1) + target_frames_idx)
+        
         h = self.gru(h)
 
         delta = self.d(h) # projection correction (dx, dy)
         weights = self.w(h) # correction weights, confidence 
         
-        return h, delta, weights
+        return h, (delta, weights)
 
 # =========
 
@@ -126,7 +127,6 @@ class GatedResidual(nn.Module):
 
     def forward(self, x):
         return x + self.gate(x) * self.res(x)
-
 class SoftAgg(nn.Module):
     def __init__(self, dim=512, expand=True):
         super(SoftAgg, self).__init__()
@@ -137,21 +137,21 @@ class SoftAgg(nn.Module):
         self.linear3 = nn.Linear(self.dim, self.dim)
 
     def forward(self, x, id):
-
-        # assign each element of id tensor to group, a unique group assigment is achived
-        # unique, idx = torch.unique(input, return_inverse=True) # returns: unique - unique values that occurs in input tensor, idx - for each element idx of value from unique is assigned 
+        # --- extract indexes of unique group 
         _, group_idx = torch.unique(id, return_inverse=True)
+       
+        group_idx = group_idx.unsqueeze(-1)
 
-        # scatter_softmax perform softmax independly per each unique group. 
-        # Group assigments are passed as second argument. 
-        weights = torch_scatter.scatter_softmax(self.linear1(x), group_idx, dim=1)
-        
-        y = torch_scatter.scatter_sum(self.linear2(x) * weights, group_idx, dim=1)
-
+        # --- weights - softmax on each group separately ---
+        weights = torch_scatter.scatter_softmax(self.linear1(x), group_idx, dim=0)
+        y = torch_scatter.scatter_sum(self.linear2(x) * weights, group_idx, dim=0)
+  
         if self.expand:
-            return self.self.linear3(y)[:,group_idx]
-            
+            y = self.linear3(y)
+            return y[group_idx.squeeze(-1), :]
+   
         return self.linear3(y)
+
 
 def neighbours_broadcast(patch_idx, target_frame, device, range = 1): # alternative
     

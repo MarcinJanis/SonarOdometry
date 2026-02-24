@@ -186,13 +186,13 @@ class Graph(nn.Module):
   def corr(self, poses, coords_phi, eps, device):
 
     b, n, p, _ = self.coords_r_theta.shape
-    print(f'batch size: {b}. frames: {n}')
+
     # --- get source poses and target poses --- 
     source_frames_idx = self.i // self.patches_per_frame
     target_frames_idx = self.j
-    print(f'debug: {poses.shape}')
+
     poses = poses.view(b*n, 7) # shape: (batch_size, frames_in_series, 7) -> (batch_size * frames_in_series, 7)
-    print(f'debug: {poses.shape}')
+
     source_poses = poses[source_frames_idx]
     target_poses = poses[target_frames_idx]
 
@@ -282,7 +282,7 @@ class Graph(nn.Module):
     Approximate new pose and create edges. 
     
     '''
-    self.N = frames.shape[0]
+    # self.N = frames.shape[0]
 
     # --- extract patches --- 
     coords, patches_f, patches_c, fmap = self.patchifier(frames, mode =  self.patchifier_method)
@@ -304,6 +304,8 @@ class Graph(nn.Module):
 
   def update_step(self, poses, coords_phi,  device):
 
+    # b, n, p, _ = coords_phi.shape
+
     corr, ctx, valid_mask = self.corr(poses, coords_phi, 0.1, device)
     
     patch_idx = self.i[valid_mask]
@@ -311,3 +313,5 @@ class Graph(nn.Module):
     target_frame_idx = self.j[valid_mask]
 
     return corr, ctx, source_frame_idx, target_frame_idx, patch_idx
+
+
