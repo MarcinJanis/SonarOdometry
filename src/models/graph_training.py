@@ -273,6 +273,7 @@ class Graph(nn.Module):
 
     corr_map = torch.cat((corr_map1.reshape(pts_num, -1), corr_map2.reshape(pts_num, -1)), dim=-1) 
 
+    
     return corr_map, act_patches_c, valid_mask
 
 

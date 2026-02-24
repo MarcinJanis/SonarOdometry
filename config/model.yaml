@@ -41,7 +41,9 @@ CORR_NEIGHBOUR: 5
 
 MOTION_APPRO_MODEL: None #'linear' # [DAMPED_LINEAR, LINEAR in developement]
 
+# === Update operation === #
 
+UPDATE_ITERATION: 5
 
 
 

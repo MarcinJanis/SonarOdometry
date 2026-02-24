@@ -82,6 +82,7 @@ class DPSO(nn.Module):
         # --- Optimize iteration --- 
 
         # -- init hidden state -- 
+        
         self.h = torch.zeros((n_edges, self.hidden_state_dim), device=self.device, dtype=torch.float) 
         # -- iterate -- 
         for _ in range(self.update_iter):

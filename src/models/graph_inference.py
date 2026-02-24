@@ -345,9 +345,9 @@ class Graph(nn.Module):
     corr_map2 = torch.einsum('ncpr, ncp -> nr', target_patches_fmap2, act_patches_f)
 
     if pts_num > 0:
-      corr_map = torch.cat((corr_map1.reshape(pts_num, -1), corr_map2.reshape(pts_num, -1)), dim= - 1) 
+      corr_map = torch.cat((corr_map1.reshape(pts_num, -1), corr_map2.reshape(pts_num, -1)), dim= - 1)
     else:
-      corr_map = torch.tensor([], device = device, dtype = float)
+      corr_map = torch.tensor([], device = device, dtype = torch.float)
 
     return corr_map, act_patches_c, i[valid_mask], j[valid_mask]
     
@@ -374,30 +374,40 @@ class Graph(nn.Module):
     frame_num = self.frame_n
     return pose_vct, time_vct, frame_num 
     
-  @property
-  def last_pose(self):
-    return self.poses[(self.frame_n - 1)%self.buff_size].detach().cpu()
 
-  @property
-  def id(self):
-    return self.frame_n
-    
-  @property
-  def get_size(self):
-    size_dict = {
-      'time':self.time.shape,
-      'poses':self.poses.shape,
-      'fmap1':self.fmap1.shape,
-      'fmap2':self.fmap2.shape,
-      'patches':self.patches.shape,
-      'patch_state':self.patch_state.shape,
-      'source_frame':self.source_frame.shape,
-      'i':self.i.shape,
-      'j':self.j.shape,
-      'weight':self.weight.shape
-    }
+  @property 
+  def patch_coords_r_theta(self):
+    return self.patch_state[:, :, :2]
   
-    return size_dict
+  @property 
+  def patch_coords_phi(self):
+    return self.patch_state[:, :, 2:3]
+
+
+  # @property
+  # def last_pose(self):
+  #   return self.poses[(self.frame_n - 1)%self.buff_size].detach().cpu()
+
+  # @property
+  # def id(self):
+  #   return self.frame_n
+    
+  # @property
+  # def get_size(self):
+  #   size_dict = {
+  #     'time':self.time.shape,
+  #     'poses':self.poses.shape,
+  #     'fmap1':self.fmap1.shape,
+  #     'fmap2':self.fmap2.shape,
+  #     'patches':self.patches.shape,
+  #     'patch_state':self.patch_state.shape,
+  #     'source_frame':self.source_frame.shape,
+  #     'i':self.i.shape,
+  #     'j':self.j.shape,
+  #     'weight':self.weight.shape
+  #   }
+  
+  #   return size_dict
     
   def visu_data(self, source_frame_idx, target_frame_idx, patch_idx, last_frames = 3):
 

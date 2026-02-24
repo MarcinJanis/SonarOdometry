@@ -64,14 +64,16 @@ class Update(nn.Module):
 
     
     def forward(self, h, flow, corr, ctx, source_frame_idx, target_frames_idx, patches_idx, device):
-            
+        
         # --- update hidden state with new data --- 
         corr = self.corr_net(corr) # process correlation tensor
 
         h = h + ctx + corr # add to hidden state
+
         h = self.norm(h) # normalize
 
         # for each edge find edge idx, where same patch is matched with previous or next target frame in time. 
+
         prev_idx, next_idx = neighbours(patches_idx, target_frames_idx, device = device, range = 1)
 
         prev_mask = (prev_idx >= 1).float()
