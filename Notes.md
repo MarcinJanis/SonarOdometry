@@ -1,3 +1,20 @@
+# TODO:
+
+1) Add to Graph following funciton
+   
+ - PatchGraph.get_position()
+In inference mode it shound return newest position (for latest added frame)
+In trening mode: idk yet, it should return everything to loss fcn. Maybe first estimation and last estimation 
+
+ - PatchGrapg.update_pose(optimized_pose, optimized_phi)
+Get optimized poses and phi, assign to graph.
+
+- PatchGrapg.get_hidden_state(patch_idx)
+Only in inference mode, get hidden state for this patches that are included in current edges 
+
+- PatchGrapg.save_hidden_state(h, patch_idx)
+When new hidden state returned save it for propper patches 
+
 
 
 Elementy do zaadoptowania z DPVO `https://github.com/princeton-vl/DPVO`.
