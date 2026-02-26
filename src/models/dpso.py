@@ -5,6 +5,7 @@ import os
 
 import time 
 
+import csv
 from box import Box
 import yaml
 
@@ -14,17 +15,38 @@ from .graph_inference import Graph as Graph_interference
 from .graph_training import Graph as Graph_train
 from .bundle_adjustment import BundleAdjustment
 
+# file = open('trajectory.csv', mode='w', newline='')
+# writer = csv.writer(file)
 
+# # Zapisujemy nagłówki
+# writer.writerow(['timestamp', 'tx', 'ty', 'tz', 'qx', 'qy', 'qz', 'qw'])
+# file.flush() 
+
+# # 2. Główna pętla programu (np. po marginalizacji klatki)
+# def log_new_pose(pose_data_list):
+#     writer.writerow(pose_data_list)
+#     # Wymuszamy fizyczny zapis na dysk bez zamykania pliku!
+#     file.flush() 
+
+# # 3. Zakończenie programu (gdy zamykamy system)
+# file.close()
 
 class DPSO(nn.Module):
 
-    def _init__(self, model_cfg, sonar_cfg, train_cfg, mode = 'inference'):
+    def _init__(self, model_cfg, sonar_cfg, train_cfg, mode = 'inference', output_dir = None):
         super().__init__()
 
         self.debug = False
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+        # --- set mode --- 
+        if mode == 'train':
+            self.train_mode = True
+        else:
+            self.train_mode = False
+
+        
         # --- read config files --- 
         with open(model_cfg, "r") as f:
             model_config = Box(yaml.safe_load(f))
@@ -41,21 +63,43 @@ class DPSO(nn.Module):
         self.ba_min_err = model.cfg.BUNDLE_ADJUSTMENT_MIN_ERR
         
         # --- init components --- 
-        if mode == 'inference':
-            self.train_mode = False
-            self.PatchGraph = Graph_interference(model_config, sonar_config)
-            
-        elif mode == 'train':
+        
+        if self.train_mode:
             self.train_mode = True
             self.PatchGraph = Graph_train(model_config, sonar_config, train_config)
-
         else:
-            raise 'Wrong mode. Choose \'inference\' or \'train\'.'
+            self.train_mode = False
+            self.PatchGraph = Graph_interference(model_config, sonar_config)
+
         
         self.UpdateOperator = Update(model_config)
        
         self.hidden_state_dim = model_config.CONTEXT_OUTPUT_CH
-        
+
+        # --- create file for output --- 
+        if not self.train_mode:
+        os.makedirs(output_dir, exist_ok=True)
+        self.output_dir = output_dir
+
+        self.primary_traj_file = os.path.join(self.output_dir, "trajectory_primary_estimation.csv")
+        self.secondary_traj_file = os.path.join(self.output_dir, "trajectory_secondary_estimation.csv")
+        self.points3d_file = os.path.join(self.output_dir, "3d_points_estimation.csv")
+
+        # create file writers 
+        with open(self.primary_traj_file, mode = 'w', newline='') as file:
+            self.prim_traj_writer(file)
+        with open(self.secondary_traj_file, mode = 'w', newline='') as file:
+            self.sec_traj_writer(file)
+        with open(self.points3d_file, mode = 'w', newline='') as file:
+            self.pts3d__writer(file)
+
+        # init files with headers 
+        self.prim_traj_writer.writerow(['pose_no', 't', 'x', 'y', 'z', 'qx', 'qy', 'qz', 'qw' ])
+        self.sec_traj_writer.writerow(['pose_no', 't', 'x', 'y', 'z', 'qx', 'qy', 'qz', 'qw' ])
+#       self.pts3d__writer.writerow(['n', 'x', 'y', 'z'])
+
+
+
     def debug(self, enable = True):
 
         if enable:
