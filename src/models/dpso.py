@@ -95,19 +95,25 @@ class DPSO(nn.Module):
             if self.train_mode:
                 BA = BundleAdjustment(poses, PatchGraph.coords_r_theta, coords_phi)
             else:
-                BA = BundleAdjustment(poses, PatchGraph.patch_coords_r_theta, PatchGraph_i.patch_coords_phi)
+                BA = BundleAdjustment(poses, PatchGraph.patch_coords_r_theta, PatchGraph.patch_coords_phi)
             
             BA.init_ba(source_frame_idx, patch_idx, delta, weights)
     
             opt_poses, opt_elevation = BA.run(max_iter=self.ba_iter, early_stop_tol=self.ba_min_err)
-
             # --- Save optimization results --- 
+
             # pseudo code: 
             # poses[source_frame_idx % buff_size] = opt_poses 
             # patch_state[patch_idx  % buff_size][:, 2] = opt_elevation
 
+        # --- Return current estimation of the newest psition 
+        return PatchGraph.get_position()
+            
+            # add some mechanizm to extract already optimized poses and points clouds,
+            # two modes: 
+            # 1) when frame is deleting from buffer. We save to file: position and points cloud 
+            # 2) return the newest, it will be optimized later but for control purpose it should be enough 
 
-            # add some mechanizm to extract already optimized poses and points clouds, eg. outside of time window, save to file.
                 
             
 
