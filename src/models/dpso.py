@@ -81,32 +81,38 @@ class DPSO(nn.Module):
         os.makedirs(output_dir, exist_ok=True)
         self.output_dir = output_dir
 
-        self.primary_traj_file = os.path.join(self.output_dir, "trajectory_primary_estimation.csv")
-        self.secondary_traj_file = os.path.join(self.output_dir, "trajectory_secondary_estimation.csv")
-        self.points3d_file = os.path.join(self.output_dir, "3d_points_estimation.csv")
+        primary_traj_file_pth = os.path.join(self.output_dir, "trajectory_primary_estimation.csv")
+        secondary_traj_file_pth = os.path.join(self.output_dir, "trajectory_secondary_estimation.csv")
+        points3d_file_pth = os.path.join(self.output_dir, "3d_points_estimation.csv")
 
         # create file writers 
-        with open(self.primary_traj_file, mode = 'w', newline='') as file:
+        with open(primary_traj_file_pth, mode = 'w', newline='') as file:
+            self.primary_traj_file = file
             self.prim_traj_writer(file)
-        with open(self.secondary_traj_file, mode = 'w', newline='') as file:
+        with open(secondary_traj_file_pth, mode = 'w', newline='') as file:
+            self.secondary_traj_file = file
             self.sec_traj_writer(file)
-        with open(self.points3d_file, mode = 'w', newline='') as file:
+        with open(points3d_file_pth, mode = 'w', newline='') as file:
+            self.points3d_file = file
             self.pts3d__writer(file)
 
         # init files with headers 
         self.prim_traj_writer.writerow(['pose_no', 't', 'x', 'y', 'z', 'qx', 'qy', 'qz', 'qw' ])
+        self.primary_traj_file.flush()
         self.sec_traj_writer.writerow(['pose_no', 't', 'x', 'y', 'z', 'qx', 'qy', 'qz', 'qw' ])
-#       self.pts3d__writer.writerow(['n', 'x', 'y', 'z'])
-
-
-
+        self.secondary_traj_file.flush()
+        self.pts3d__writer.writerow(['n', 'x', 'y', 'z'])
+        self.points3d_file.flush()
+    
     def debug(self, enable = True):
 
         if enable:
             self.debug = True
         else:
             self.debug = False
-    
+
+    def close_files():
+        file.close()
 
     def forward(self, x, t):
 
@@ -119,6 +125,7 @@ class DPSO(nn.Module):
             # --- init hidden state --- 
             n_edges = patch_idx.shape[0]
             self.h = torch.zeros((n_edges, self.hidden_state_dim), device=self.device, dtype=torch.float)
+            
         else:
             # -- update with new data --
             self.PatchGraph.append(x, t, self.device)
@@ -144,6 +151,7 @@ class DPSO(nn.Module):
             BA.init_ba(source_frame_idx, patch_idx, delta, weights)
     
             opt_poses, opt_elevation = BA.run(max_iter=self.ba_iter, early_stop_tol=self.ba_min_err)
+            
             # --- Save optimization results --- 
 
             # pseudo code: 
@@ -151,7 +159,10 @@ class DPSO(nn.Module):
             # patch_state[patch_idx  % buff_size][:, 2] = opt_elevation
 
         # --- Return current estimation of the newest psition 
-        return PatchGraph.get_position()
+        if self.train_mode:
+            pass
+        else:
+            return PatchGraph.get_position()
             
             # add some mechanizm to extract already optimized poses and points clouds,
             # two modes: 
