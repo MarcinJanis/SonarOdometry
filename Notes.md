@@ -20,52 +20,108 @@ When new hidden state returned save it for propper patches
 Elementy do zaadoptowania z DPVO `https://github.com/princeton-vl/DPVO`.
 
 
-1) Feature extraction:
-2 network (sumilar or identical, CNN + residual con):
-features exctrator, contex ectractor
+Do poprawy: 
+_____________________
 
-2) Patchifire:
-Eextrac patches from places:
-a) random
-b) with strong echo intensity <- prefered
+# 1.  Zabicie przepływu gradientów w Bundle Adjustment (Trening)
 
-Also we should add current frame to graph, where n last frames (whole images) are kept.
+W architekturach RAFT/DPVO siła tkwi w możliwości różniczkowania przez pętlę optymalizacji, 
+dzięki czemu błąd na końcu propaguje się wstecz do sieci wyliczającej delta i weights. 
 
-for each patch represent it as:
-- features for this patch, 
-- contex for this patch
-- pos vect [x, y, 1, d], where x, y -> pos of center of patch, d - inverse depth
-(d can be init with:
-- random value,
-- based on mean d vals from other patches (my idea) <- prefered in first place
-- based on other sensor (my idea) <- prefer for later development, development that dont need antoher training)
+W pliku bundle_adjustment.py na samym końcu metody run zwracasz wyciągnięte parametry używając .detach():
+
+Python:
+
+optimized_poses = self.poses.detach()
+optimized_elevation = self.elevation_angle.detach()
+return optimized_poses.tensor().view(self.b, self.n, 7), ...
+
+To całkowicie odcina graf obliczeniowy. Model nie będzie się uczył. 
+
+Zamiast tego powinieneś użyć wbudowanych mechanizmów optymalizatorów z biblioteki pypose, 
+które wspierają różniczkowanie analityczne lub wyliczają odpowiedź różniczkzkowalną wewnątrz frameworka, 
+i zwracać tensory bez odpinania ich od grafu obliczeniowego podczas treningu.
+
+# 2. Brak sprzężenia zwrotnego korelacji (Static Correlation)
+
+DPVO iteracyjnie poprawia estymaty. W każdej iteracji wektor ukryty ($h$) i estymata pozy aktualizują się, 
+po czym sieć powinna ponownie wyciągnąć cechy z mapy korelacji (tzw. lookup) bazując na nowej rzutowanej pozie.
+
+W Twoim pliku dpso.py funkcja update_step() wyciąga corr tylko raz, przed pętlą for _ in range(self.update_iter):
+:Python
+
+corr, ctx, ... = self.PatchGraph.update_step(...) # Wywoływane RAZ
+for _ in range(self.update_iter):
+    self.h, correction = self.UpdateOperator(h, None, corr, ctx, ...) # Corr jest STATYCZNE
+    ...
 
 
-3) For extracted points:
-2D sonar image point -> 3D space point -> move with expected shift and rotation of vehicle -> 2D sonar image point
-
-expected shif can be: 
-- estimated shift from previous iteration
-
-4) Calculate error os estimation:
-calc correlation between tranformed patch and its neighbour on whole frame
+Oznacza to, że UpdateOperator dostaje dokładnie tę samą mapę korelacji w każdej iteracji, 
+mimo że pozy i przewidywane poprawki się zmieniają. Sieć działa na "ślepo" po pierwszej iteracji, 
+co całkowicie psuje ideę podejścia opartego na RAFT. Musisz aktualizować pozycję wewnątrz pętli 
+i przepróbkowywać (re-sample) corr w każdym kroku.
 
 
+# 3. Niespójności między train a inference (Domain Gap)
+Wykryłem różnice w zachowaniu systemu, które sprawią, że sieć nauczona w trybie treningowym będzie działać źle w środowisku produkcyjnym (inference).
+
+## Model ruchu i inicjalizacja (Priors)
+
+Inference (graph_inference.py): 
+Funkcja approx_movement przewiduje nową pozę na podstawie poprzedniej prędkości z użyciem fizycznego modelu (np. ruchu liniowego dla $SE(3)$). 
+Sieć ma za zadanie jedynie skorygować ten domyślny ruch (delta).
+
+Trening (graph_training.py): 
+Funkcja approx_movement inicjalizuje całą serię póz jako zera (lub macierze identyczności).
+Skutek: W treningu sieć uczy się przewidywać absolutny ruch (od 0 do wartości rzeczywistej), 
+podczas gdy w inferencji wymaga się od niej korekty małego błędu między przewidywaniem liniowym a rzeczywistością. 
+Inicjalizacja w obu trybach musi być tożsama. W trybie treningowym musisz zasymulować ten sam mechanizm przewidywania linear, 
+korzystając z danych wejściowych Ground Truth w odpowiedni sposób.
 
 
+## Maskowanie krawędzi (Dynamic vs Static Batching)
 
-Feature / Context Extractor	Wyciąga głębokie cechy (deskryptory) z obrazu sonaru oraz kontekst dla GRU.	models.py -> BasicEncoder	PyTorch (CNN / ResNet)
+W funkcji corr pliku graph_training.py używasz warunku eps=0.1 do weryfikacji pola widzenia (FOV) dla valid_mask, po czym filtrujesz tensory np. valid_j = self.j[valid_mask].
 
-Patch Sampler	Wybiera rzadki zbiór punktów (np. silne odbicia od dna), które będziemy śledzić.	dpvo.py -> patches / __init__	PyTorch
+W graph_inference.py nie używasz eps (co sprawia, że krawędzie zachowują się ostrzej).
+Ponadto, ucinanie maską rozmiarów tensorów w trakcie działania batcha treningowego potrafi zniszczyć równe wymiary batcha, 
+jeśli dla różnych serii odpadnie inna liczba krawędzi. 
+Rekomenduję zachowanie pełnych tensorów i nakładanie maski mnożąc wagi zaufania (weights) dla nieprawidłowych krawędzi przez 0.
 
-Sonar Projector (Warping)Przelicza, gdzie punkt $(r, \theta)$ z klatki A powinien znaleźć się w klatce B przy danym ruchu.projective_ops.py -> ProjectiveOpsPyTorch (Matematyka sonaru)
 
-Correlation Sampler	Buduje piramidę podobieństwa (kosztu) między patchem a nowym obrazem.	altcorr/ (CUDA) lub CorrSampler	PyTorch (lub CUDA dla wydajności)
+## Mniejsze błędy i luki logiczne
+Zarządzanie stanem pozy w dpso.py: 
+W trybie treningowym tworzysz nową instancję BundleAdjustment w każdej iteracji (BA = BundleAdjustment(poses, ...)), przesyłając zmienną poses. 
+Jednak poses nie jest nigdzie nadpisywana wynikiem z poprzedniej iteracji BA (opt_poses). 
 
-Update Block (GRU)Iteracyjnie wylicza poprawki ruchu ($\Delta$ pozycji) oraz pewność pomiaru.update.py -> UpdateBlockPyTorch (ConvGRU)
+Twój optymalizator za każdym razem startuje od zera.
 
-Weighting / Masking	Generuje wagi ufności (weights) dla każdego patcha, aby wykluczyć szumy i odbicia.	update.py -> mask	PyTorch (Sigmoid/Softmax)
+Literówka w nazewnictwie: Importujesz klasę jako Graph_interference zamiast Graph_inference (from .graph_inference import Graph as Graph_interference). 
+Zwyczajowa nazwa to "inference" (wnioskowanie), a nie "interference" (zakłócenie/interferencja).
 
-Factor Graph (BA)	Optymalizuje globalnie całą trajektorię (Bundle Adjustment), łącząc wszystkie pomiary.	ba.py / FactorGraph	PyGTSAM (C++ pod maską)
 
-Sliding Window Manager	Zarządza pamięcią: dodaje nowe klatki i usuwa te, które wyszły poza zasięg.	dpvo.py -> DPVO (pętla główna)	Python
+Proponowane rozwiązanie
+
+Twoim priorytetem powinno być naprawienie głównej pętli sprzężenia zwrotnego. 
+
+Pętla w DPSO.forward (plik dpso.py) powinna wyglądać koncepcyjnie tak:
+
+Pobierz ramkę i wyznacz początkowe pozycje/położenia łat.
+
+Inicjalizuj wektor ukryty $h$.
+
+Pętla dla update_iter:
+
+Wylicz rzutowania i wyciągnij corr na podstawie aktualnie przechowywanych pozy/kąta.
+
+Wykonaj UpdateOperator, który zwraca optyczne delty i wagi ufności.
+
+Zainicjuj BA z nowymi deltami.Uruchom optymalizator BA, który zwraca nowe poses.
+
+Zastąp stare poses nowymi poses na następną iterację.
+
+Czy chciałbyś, abym napisał dla Ciebie zrefaktoryzowaną strukturę głównej pętli forward w dpso.py, 
+upewniając się, że mapa korelacji jest poprawnie przepróbkowywana, 
+a wagi nie tracą gradientów?
+
+

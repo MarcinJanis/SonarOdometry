@@ -192,9 +192,9 @@ class Graph(nn.Module):
     phi = torch.zeros((self.patches_per_frame), device = device, dtype = torch.float)
     
     # save optimized pts
-    optimize_pts3d = self.patch_state[local_idx, :, :]
-    
-    self.outputf_write_pts((self.frame_n - 1) * self.patches_per_frame, self.frame_n * self.patches_per_frame, optimize_pts3d)
+    if self.frame_n > self.buff_size:
+      optimize_pts3d = self.patch_state[local_idx, :, :]
+      self.outputf_write_pts((self.frame_n - 1) * self.patches_per_frame, self.frame_n * self.patches_per_frame, optimize_pts3d)
 
     # add new to graph 
     self.patch_state[local_idx, :, :] = torch.stack([r.squeeze(0), theta.squeeze(0), phi], dim=1)
