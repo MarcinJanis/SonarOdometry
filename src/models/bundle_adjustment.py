@@ -13,7 +13,7 @@ class BundleAdjustment(nn.Module):
         
         # --- set propper shape --- 
         if len(patch_coords_r_theta.shape) == 4:
-            print('whaaaat')
+            
             b, n, p, _ = patch_coords_r_theta.shape
             self.b = b
             self.n = n
@@ -28,8 +28,7 @@ class BundleAdjustment(nn.Module):
 
         pose_num = self.b*self.n
         edge_num = self.b*self.n*self.p
-        print(f'pose_num: {pose_num}')
-        print(f'edge_num: {edge_num}')
+
         poses = poses.view(1, pose_num, 7)
         patch_coords_r_theta = patch_coords_r_theta.view(1, edge_num, 2)
         patch_coords_phi = patch_coords_phi.view(1, edge_num, 1)

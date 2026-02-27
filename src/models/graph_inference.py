@@ -3,13 +3,17 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 import math
+import os 
+import csv
+
+import numpy as np 
 
 from .patchifier import Patchifier
 from .utils import hamilton_product, q_conjugate, project_points
 
 
 class Graph(nn.Module):
-  def __init__(self, model_cfg, sonar_cfg):
+  def __init__(self, model_cfg, sonar_cfg, output_dir):
     super().__init__()
 
     # --- import sonar configuration ---
@@ -31,7 +35,7 @@ class Graph(nn.Module):
     self.time_window = model_cfg.TIME_WINDOW # time window in frames history in which patches are tracked
     
     self.fmap_c = model_cfg.FEATURES_OUTPUT_CH # channels num of encoder output 
-    self.cmap_c = model_cfg.CONTEXT_OUTPUT_CH
+    self.cmap_c = model_cfg.CONTEXT_OUTPUT_CH # context features = hidden state features 
 
     self.corr_neighbour = model_cfg.CORR_NEIGHBOUR # size of nieghbour of projected patch that is used in correlation calculations
     self.fmap_h = sonar_cfg.resolution.bins // model_cfg.ENCODER_DOWNSIZE # feature map size h
@@ -43,8 +47,7 @@ class Graph(nn.Module):
     self.grid_size = (model_cfg.PATCHES_GRID_SIZE.y, model_cfg.PATCHES_GRID_SIZE.x) # grid size used to detect key points from whole image equally
 
     # --- Patchifier ---
-    self.patchifier = Patchifier(model_cfg,
-                                 debug_mode = False)
+    self.patchifier = Patchifier(model_cfg, debug_mode = False)
     
     # === Graph initialization ===
     self.frame_n = 0 # frame counter for ring buffer 
@@ -63,6 +66,8 @@ class Graph(nn.Module):
 
     # --- patch center coords buffer ---
     self.register_buffer('patch_state', torch.zeros((self.buff_size, self.patches_per_frame, 3), dtype = torch.float)) # points (r, theta, phi) refered to patches in real world units
+    self.register_buffer('hidden_state', torch.zeros((self.buff_size, self.patches_per_frame, self.cmap_c), dtype = torch.float))
+
     # --- source frame buffer ---
     self.register_buffer('source_frame', torch.zeros((self.buff_size, self.patches_per_frame), dtype = torch.int)) # id of source frame for each patch
                          
@@ -73,6 +78,68 @@ class Graph(nn.Module):
     self.register_buffer('j', torch.full((self.max_edges,), -1, dtype=torch.long)) # keeps idxs of frame
     # self.register_buffer('weights', torch.zeros(self.max_edges, dtype=torch.float)) # weights of each patch, how good estimation is, based on this patch 
   
+
+    # --- init output files --- 
+
+    if not output_dir is None: 
+
+      os.makedirs(output_dir, exist_ok=True)
+      self.output_dir = output_dir
+
+      self.outputf_init(output_dir)
+      
+  def __del__(self):
+    try:
+        self.outputf_close()
+    except:
+        pass
+    
+    
+  # --- data acquisition fcn ---
+
+  def outputf_init(self, output_dir):
+    # primary_traj_file_pth = os.path.join(self.output_dir, "trajectory_primary_estimation.csv")
+    secondary_traj_file_pth = os.path.join(self.output_dir, "trajectory_secondary_estimation.csv")
+    points3d_file_pth = os.path.join(self.output_dir, "3d_points_estimation.csv")
+
+    # create references to file
+    # self.f_prim_traj = open(primary_traj_file_pth, mode='a', newline='')
+    # self.w_prim_traj = csv.writer(self.f_prim_traj)
+    
+    self.f_sec_traj = open(secondary_traj_file_pth, mode='a', newline='')
+    self.w_sec_traj = csv.writer(self.f_sec_traj)
+
+    self.f_pts3d = open(points3d_file_pth, mode='a', newline='')
+    self.w_pts3d = csv.writer(self.f_pts3d)
+    
+    # define headers
+    # if self.f_prim_traj.tell() == 0: 
+    #   self.w_prim_traj.writerow(['pose_no', 't', 'x', 'y', 'z', 'qx', 'qy', 'qz', 'qw' ])
+
+    if self.f_sec_traj.tell() == 0: 
+      self.w_sec_traj.writerow(['pose_no', 't', 'x', 'y', 'z', 'qx', 'qy', 'qz', 'qw' ])
+
+    if self.f_pts3d.tell() == 0: 
+      self.w_pts3d.writerow(['n', 'x', 'y', 'z'])
+
+
+  def outputf_write_pose(self, num, time, sec_traj):
+      data_sec_traj = sec_traj.detach().cpu().numpy()
+      data_sec_traj = np.concatenate([np.expand_dims(num, axis=0), np.expand_dims(time, axis=0), data_sec_traj], axis = 0)
+      self.w_sec_traj.writerow(data_sec_traj)
+
+  def outputf_write_pts(self, num1, num2, pts):
+      data_pts = pts.detach().cpu().numpy()
+      num = np.expand_dims(np.arange(num1, num2), axis=1)
+      data_pts = np.concatenate([num, data_pts], axis = 1)
+      self.w_pts3d.writerow(data_pts)
+
+  def outputf_close(self):
+    self.f_sec_traj.close()
+    self.f_pts3d.close()
+
+# --- Append Graph fcn --- 
+
   def add_frame(self, fmap, time_stamp, device): 
     # local index for ring buffer 
     local_idx = self.frame_n % self.buff_size
@@ -84,11 +151,6 @@ class Graph(nn.Module):
     return 
       
   def _scale_fls2phisical(self, coords):
-    '''
-    Scale coords units from pixels in fls image to phisical units [m], [rad]
-    
-    :param coords: coords tensor, shape: (n, 2); n - points number, 2 - r and theta [pix]
-    '''
   
     # range r - measured by sonar
     r_norm = coords[:, 1] / self.fls_h
@@ -101,11 +163,7 @@ class Graph(nn.Module):
     return torch.stack([r, theta], dim = 1)
 
   def _scale_phisical2fls(self, coords):
-    '''
-    Scale coords units phisical units [m], [rad] to from pixels in fls image 
-    
-    :param coords: coords tensor, shape: (n, 2); n - points number, 2 - r [m] and theta [deg]
-    '''
+
     # range r - measured by sonar
     r_norm = (coords[:, 0] - self.r_min) / (self.r_max - self.r_min)
     r = r_norm * self.fls_h
@@ -117,13 +175,7 @@ class Graph(nn.Module):
     return torch.stack([r, theta], dim = 1)
   
   def add_patches(self, patches_f, patches_c, coords, device):
-    '''
-    Add patches to graph
-    
-    :param patches_f:  tensor of patches, contains features from feature map, shape: (n, c, p, p); c - channels, p - patch size
-    :param patches_c: tensor of patches, contains features from context map, shape: (n, c, p, p); c - channels, p - patch size
-    :param coords: coordinates of center of patches (pix units), shape: (n, 2)
-    '''
+
     # local index for ring buffer
     local_idx = self.frame_n % self.buff_size
 
@@ -139,7 +191,12 @@ class Graph(nn.Module):
     # approximate elevation angle - phi - to be optimized 
     phi = torch.zeros((self.patches_per_frame), device = device, dtype = torch.float)
     
-    # add to graph
+    # save optimized pts
+    optimize_pts3d = self.patch_state[local_idx, :, :]
+    
+    self.outputf_write_pts((self.frame_n - 1) * self.patches_per_frame, self.frame_n * self.patches_per_frame, optimize_pts3d)
+
+    # add new to graph 
     self.patch_state[local_idx, :, :] = torch.stack([r.squeeze(0), theta.squeeze(0), phi], dim=1)
     
     # add source frame id to graph
@@ -147,10 +204,6 @@ class Graph(nn.Module):
     return 
 
   def approx_movement(self, device):
-    '''
-    Approximate next position based of two previous positions and their time stamps
-
-    '''
     
     k_idx = self.frame_n % self.buff_size
 
@@ -214,9 +267,19 @@ class Graph(nn.Module):
         x0 = x1
 
     # --- save to buffer ---
+
+    # get old optimize pose
+    if self.frame_n > self.buff_size:
+      optimize_pose = self.poses[k_idx, :]
+      self.outputf_write_pose(self.frame_n - self.buff_size, self.time[k_idx], optimize_pose)
+
+    # overwrite new 
     self.poses[k_idx, :] = x0
+
     return 
 
+
+# --- Create connections in Graph --- 
 
   def create_edges(self, device):    
     '''
@@ -351,29 +414,15 @@ class Graph(nn.Module):
 
     return corr_map, act_patches_c, i[valid_mask], j[valid_mask]
     
-  # === define interface to obtain data === #TODO
+  # === define interface to obtain data === 
 
-  @property
-  def edges_idx(self):
-
-    source_frame_idx_global = self.i // self.patches_per_frame # global idx of source frame for each patch in graph
-    source_frame_idx_local = source_frame_idx_global % self.buff_size # local idx of source frame for each patch in graph
-
-    patch_idx_global = self.i  # global idx of each patch in graph
-    patch_idx_local = self.i % self.patches_per_frame # local index of each patch in graph
-
-    target_frame_idx_global = self.j # global idx of target frame for each patch in graph
-    target_frame_idx_local = self.j % self.buff_size # local idx of target frame for each patch in graph
   
-    return source_frame_idx_global, source_frame_idx_local, patch_idx_global, patch_idx_local, target_frame_idx_global, target_frame_idx_local
-
-  @property
-  def state(self):
-    pose_vct = self.pose.detach().cpu()
-    time_vct = self.time.detach().cpu()
+  def get_state(self):
+    lcl_idx = self.frame_n % self.buff_size
+    act_pose = self.poses[lcl_idx, :].detach().clone().cpu()
+    act_time = self.time[lcl_idx].detach().clone().cpu()
     frame_num = self.frame_n
-    return pose_vct, time_vct, frame_num 
-    
+    return act_pose, act_time, frame_num 
 
   @property 
   def patch_coords_r_theta(self):
@@ -383,69 +432,22 @@ class Graph(nn.Module):
   def patch_coords_phi(self):
     return self.patch_state[:, :, 2:3]
 
+  def update_state(self, opt_pose, opt_elev_angle, h, patch_idx):
 
-  # @property
-  # def last_pose(self):
-  #   return self.poses[(self.frame_n - 1)%self.buff_size].detach().cpu()
+    self.poses[:, :] = opt_pose.squeeze(0)
 
-  # @property
-  # def id(self):
-  #   return self.frame_n
-    
-  # @property
-  # def get_size(self):
-  #   size_dict = {
-  #     'time':self.time.shape,
-  #     'poses':self.poses.shape,
-  #     'fmap1':self.fmap1.shape,
-  #     'fmap2':self.fmap2.shape,
-  #     'patches':self.patches.shape,
-  #     'patch_state':self.patch_state.shape,
-  #     'source_frame':self.source_frame.shape,
-  #     'i':self.i.shape,
-  #     'j':self.j.shape,
-  #     'weight':self.weight.shape
-  #   }
-  
-  #   return size_dict
-    
-  def visu_data(self, source_frame_idx, target_frame_idx, patch_idx, last_frames = 3):
+    self.patch_state[:, :, 2] = opt_elev_angle.squeeze(0).squeeze(-1)
 
-    # get source coordinates of patches (patch_idx)
-    source_coords = self.patch_state[patch_idx // self.patches_per_frame % self.buff_size, patch_idx  % self.patches_per_frame]
-    
-    # project coordinates to target frames 
-    source_poses = self.poses[source_frame_idx % self.buff_size]
-    target_poses = self.poses[target_frame_idx % self.buff_size]
-    target_coords = project_points(source_coords, source_poses, target_poses)
+    self.hidden_state[patch_idx // self.patches_per_frame, patch_idx % self.patches_per_frame, :] = h
 
-    # get only edges that are in range last_frames
-    mask = (source_frame_idx >= self.frame_n - last_frames) & \
-               (target_frame_idx >= self.frame_n - last_frames)
-    
-    visu_valid = mask.nonzero(as_tuple=True)[0]
+    # self.patch_state[patch_idx // self.patches_per_frame, patch_idx % self.patches_per_frame, :] = opt_pts3d
 
-    if len(visu_valid) == 0:
-            return []
-      
-    # validate
-    source_frame_idx = source_frame_idx[visu_valid]
-    target_frame_idx = target_frame_idx[visu_valid]
-    patch_idx = patch_idx[visu_valid]
-    source_coords = source_coords[visu_valid]
-    target_coords = target_coords[visu_valid]
+  def get_hidden_state(self, patch_idx):
 
-    # get list of frames and coords for each patch
-    unique_patches = torch.unique(patch_idx, sorted=True)
+    h = self.hidden_state[patch_idx // self.patches_per_frame, patch_idx % self.patches_per_frame, :]
 
-    output = []
-    for target_patch_id in unique_patches:
-      idxs = (patch_idx == target_patch_id).nonzero(as_tuple=True)[0]
-      frames = torch.cat([source_frame_idx[idxs[0:1]], target_frame_idx[idxs]], dim = 0)
-      coords = torch.cat([source_coords[idxs[0:1]], target_coords[idxs]], dim = 0)
-      output.append((target_patch_id, frames, coords))
-    return output
-  
+    return h 
+
   def append(self, frame, time_stamp, device):
     '''
     Add new frame and patches to graph. 
@@ -479,5 +481,45 @@ class Graph(nn.Module):
     target_frame_idx = valid_j
     
     return corr, ctx, source_frame_idx, target_frame_idx, patch_idx
+  
 
 
+
+
+
+  # def visu_data(self, source_frame_idx, target_frame_idx, patch_idx, last_frames = 3):
+
+  #   # get source coordinates of patches (patch_idx)
+  #   source_coords = self.patch_state[patch_idx // self.patches_per_frame % self.buff_size, patch_idx  % self.patches_per_frame]
+    
+  #   # project coordinates to target frames 
+  #   source_poses = self.poses[source_frame_idx % self.buff_size]
+  #   target_poses = self.poses[target_frame_idx % self.buff_size]
+  #   target_coords = project_points(source_coords, source_poses, target_poses)
+
+  #   # get only edges that are in range last_frames
+  #   mask = (source_frame_idx >= self.frame_n - last_frames) & \
+  #              (target_frame_idx >= self.frame_n - last_frames)
+    
+  #   visu_valid = mask.nonzero(as_tuple=True)[0]
+
+  #   if len(visu_valid) == 0:
+  #           return []
+      
+  #   # validate
+  #   source_frame_idx = source_frame_idx[visu_valid]
+  #   target_frame_idx = target_frame_idx[visu_valid]
+  #   patch_idx = patch_idx[visu_valid]
+  #   source_coords = source_coords[visu_valid]
+  #   target_coords = target_coords[visu_valid]
+
+  #   # get list of frames and coords for each patch
+  #   unique_patches = torch.unique(patch_idx, sorted=True)
+
+  #   output = []
+  #   for target_patch_id in unique_patches:
+  #     idxs = (patch_idx == target_patch_id).nonzero(as_tuple=True)[0]
+  #     frames = torch.cat([source_frame_idx[idxs[0:1]], target_frame_idx[idxs]], dim = 0)
+  #     coords = torch.cat([source_coords[idxs[0:1]], target_coords[idxs]], dim = 0)
+  #     output.append((target_patch_id, frames, coords))
+  #   return output
