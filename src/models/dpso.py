@@ -12,7 +12,7 @@ import yaml
 
 
 from .update import Update
-from .graph_inference import Graph as Graph_interference
+from .graph_inference import Graph as Graph_inference
 from .graph_training import Graph as Graph_train
 from .bundle_adjustment import BundleAdjustment
 
@@ -61,7 +61,7 @@ class DPSO(nn.Module):
 
         else:
             self.train_mode = False
-            self.PatchGraph = Graph_interference(model_config, sonar_config, output_dir)
+            self.PatchGraph = Graph_inference(model_config, sonar_config, output_dir)
 
         
         self.UpdateOperator = Update(model_config)
@@ -83,39 +83,32 @@ class DPSO(nn.Module):
 
     def forward(self, x, t):
 
-        # --- Graph --- 
+        # --- # -- update graph new data -- --- 
         if self.train_mode:
-
-            # -- update with new data --
             poses, coords_phi = self.PatchGraph.append(x, t, self.device)
-            # -- get correlation, contexet and graph edges idx -- 
-            corr, ctx, source_frame_idx, target_frame_idx, patch_idx = self.PatchGraph.update_step(poses, coords_phi, self.device)
-            # --- init hidden state --- 
-            n_edges = patch_idx.shape[0]
-            h = torch.zeros((n_edges, self.hidden_state_dim), device=self.device, dtype=torch.float)
-            
         else:
-
-            # -- update with new data --
             self.PatchGraph.append(x, t, self.device)
-            
-            # if self.PatchGraph.frame_n < 6:
-            #     return None, None, None 
-            
-            # -- get correlation, contexet and graph edges idx -- 
-            corr, ctx, source_frame_idx, target_frame_idx, patch_idx = self.PatchGraph.update_step(self.device)
-            # --- compose hidden state vector for actual edges --- 
-            h = self.PatchGraph.get_hidden_state(patch_idx)
-        
-        # --- Optimize iteration --- 
-        for _ in range(self.update_iter):
 
-            # Update operator 
-            if patch_idx.shape[0] > 0:
-                self.h, correction = self.UpdateOperator(h, None, corr, ctx, source_frame_idx, target_frame_idx, patch_idx, self.device)
+        # --- Optimize iteration --- 
+        for iter in range(self.update_iter):
+
+            # -- get correlation, contexet and graph edges idx -- 
+            if self.train_mode:
+                corr, ctx, source_frame_idx, target_frame_idx, patch_idx = self.PatchGraph.update_step(poses, coords_phi, self.device)
+            else:
+                corr, ctx, source_frame_idx, target_frame_idx, patch_idx = self.PatchGraph.update_step(self.device)
+
+            # --- get hidden state for active edges --- 
+            h = self.PatchGraph.get_hidden_state(patch_idx)
+
+            # --- Run if any edge exist --- 
+            if patch_idx.shape[0] > 0: 
+                 # --- Update operator --- 
+                h, correction = self.UpdateOperator(h, None, corr, ctx, source_frame_idx, target_frame_idx, patch_idx, self.device)
+
                 delta, weights = correction
-                
-                # Bundle adjustement 
+              
+                # --- Bundle adjustement ---
                 if self.train_mode:
                     BA = BundleAdjustment(poses, self.PatchGraph.coords_r_theta, coords_phi)
                 else:
@@ -125,30 +118,31 @@ class DPSO(nn.Module):
     
                 opt_poses, opt_elevation = BA.run(max_iter=self.ba_iter, early_stop_tol=self.ba_min_err)
                 
-            else:
+
+                # --- Feedback --- 
                 if self.train_mode:
-                    return None
+                    poses = opt_poses
+                    coords_phi = opt_elevation
                 else:
-                    return None, None, None
+                    self.PatchGraph.update_state(opt_poses.detach().clone(), 
+                                                 opt_elevation.detach().clone(), 
+                                                 h.detach().clone(), 
+                                                 patch_idx)
+
         # --- Output ----
-
-        
         if self.train_mode:
-            # when training return optimized position for loss fcn
-            return  opt_poses
-        
+            # return optimized position for loss fcn
+            return  poses
         else:
-            # save update poses, pts and hidden state to graph 
-
-            self.PatchGraph.update_state(opt_poses.detach().clone(), 
-                                         opt_elevation.detach().clone(), 
-                                         h.detach().clone(), 
-                                         patch_idx)
-
-            # when inference mode return first estimation of current position for control purpose
+            # return current estimation state for control purpose
             pose_vct, time_vct, frame_num = self.PatchGraph.get_state()
             return pose_vct , time_vct, frame_num
             
+
+
+
+
+
 
 
 

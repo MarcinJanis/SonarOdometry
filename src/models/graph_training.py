@@ -68,6 +68,8 @@ class Graph(nn.Module):
     self.i = None
     self.j = None
 
+    self.hidden_state = torch.zeros((self.batch_size*self.frames_in_series*self.patches_per_frame, self.cmap_c), dtype = torch.float)
+
     # --- Patchifier ---
     self.patchifier = Patchifier(model_cfg,
                                  debug_mode = False)
@@ -130,9 +132,12 @@ class Graph(nn.Module):
 
   def approx_movement(self, device): #TODO: 
 
-    poses = torch.zeros((self.batch_size, self.frames_in_series, 7), device=device, dtype=torch.float)
-    poses[:, :, -1] = 1.0 # Quaternion w
-    poses.requires_grad_(True)
+    if self.motion_model:
+      pass
+    else:
+      poses = torch.zeros((self.batch_size, self.frames_in_series, 7), device=device, dtype=torch.float)
+      poses[:, :, -1] = 1.0 # Quaternion w
+      poses.requires_grad_(True)
     
     return poses
 
@@ -264,6 +269,11 @@ class Graph(nn.Module):
     
     return corr_map, act_patches_c, valid_mask
 
+  def get_hidden_state(self, patch_idx):
+    
+    return self.hidden_state[patch_idx, :]
+
+
 
   def append(self, frames, time_stamp, device):
     '''
@@ -295,7 +305,7 @@ class Graph(nn.Module):
 
     # b, n, p, _ = coords_phi.shape
 
-    corr, ctx, valid_mask = self.corr(poses, coords_phi, 0.1, device)
+    corr, ctx, valid_mask = self.corr(poses, coords_phi, eps = 1e-2, device = device)
     
     patch_idx = self.i[valid_mask]
     source_frame_idx = patch_idx // self.patches_per_frame

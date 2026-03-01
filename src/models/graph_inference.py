@@ -225,48 +225,53 @@ class Graph(nn.Module):
       t1 = self.time[k1_idx]
       t2 = self.time[k2_idx]
       
-      assert t0 != t1, f'[Error] Time stamps for frame {self.frame_n} and {self.frame_n - 1} are the same.\nMovement approximation is not possible.\n time vector: {self.time}'
-      assert t1 != t2, f'[Error] Time stamps for frame {self.frame_n - 1} and {self.frame_n - 2} are the same.\nMovement approximation is not possible.\n time vector: {self.time}'
+      
+      # assert t0 < t1, f'[Error] Negative time interval for frames: {self.frame_n} and {self.frame_n - 1}.\nMovement approximation is not possible.\n time vector: {self.time}'
+      # assert t1 < t2, f'[Error] Negative time interval for frames: {self.frame_n - 1} and {self.frame_n - 2}.\nMovement approximation is not possible.\n time vector: {self.time}'
       
       # --- get previous position ---
       x1 = self.poses[k1_idx, :]
       x2 = self.poses[k2_idx, :]
 
       if self.motion_model == 'linear':
+        # --- check time intervals ---
+        if t0 >= t1 or t1 >= t2:
+          x0 = x1
 
-        # --- linear displacement ---
-        new_pose = x1[0:3] + (x1[0:3] - x2[0:3])/(t1 - t2)*(t0 - t1) 
+        else:
+          # --- linear displacement ---
+          new_pose = x1[0:3] + (x1[0:3] - x2[0:3])/(t1 - t2)*(t0 - t1) 
 
-        # --- extract quaterions ---
-        q1 = x1[3:]
-        q2 = x2[3:]
+          # --- extract quaterions ---
+          q1 = x1[3:]
+          q2 = x2[3:]
 
-        # --- find shortest rotation ---
-        dot = (q1 * q2).sum() 
-        if dot < 0: q1 = -q1
+          # --- find shortest rotation ---
+          dot = (q1 * q2).sum() 
+          if dot < 0: q1 = -q1
 
-        # --- rotation - quaterions difference ---
-        q2_conj = q_conjugate(q2)
-        diff = hamilton_product(q1, q2_conj)  # diff q2 -> q1: diff = q2 * q1^-1
+          # --- rotation - quaterions difference ---
+          q2_conj = q_conjugate(q2)
+          diff = hamilton_product(q1, q2_conj)  # diff q2 -> q1: diff = q2 * q1^-1
 
-        # --- rotation axis ---
-        s = torch.sqrt(torch.clamp(1 - diff[-1]*diff[-1], 0.0))
-        if s < 0.001: rot_axis = torch.tensor([1, 0, 0], device = device, dtype = diff.dtype)
-        else: rot_axis = diff[:-1]/s
+          # --- rotation axis ---
+          s = torch.sqrt(torch.clamp(1 - diff[-1]*diff[-1], 0.0))
+          if s < 0.001: rot_axis = torch.tensor([1, 0, 0], device = device, dtype = diff.dtype)
+          else: rot_axis = diff[:-1]/s
 
-        # --- rotation angle ---
-        rot_angle = 2 * torch.acos(torch.clamp(diff[-1], -1.0, 1.0))
-        rot_angle_appro = rot_angle/(t1 - t2)*(t0 - t1) # approximation apriori, to t0
+          # --- rotation angle ---
+          rot_angle = 2 * torch.acos(torch.clamp(diff[-1], -1.0, 1.0))
+          rot_angle_appro = rot_angle/(t1 - t2)*(t0 - t1) # approximation apriori, to t0
 
-        # --- apply rotation ---
-        q_step_vect = rot_axis * torch.sin(rot_angle_appro/2)
-        q_step_scal = torch.cos(rot_angle_appro/2).unsqueeze(0)   
-        q_step = torch.cat((q_step_vect, q_step_scal), dim=0)
+          # --- apply rotation ---
+          q_step_vect = rot_axis * torch.sin(rot_angle_appro/2)
+          q_step_scal = torch.cos(rot_angle_appro/2).unsqueeze(0)   
+          q_step = torch.cat((q_step_vect, q_step_scal), dim=0)
 
-        q0 = hamilton_product(q_step, q1)
-        q0 = q0 /torch.norm(q0)
+          q0 = hamilton_product(q_step, q1)
+          q0 = q0 /torch.norm(q0)
 
-        x0 = torch.cat((new_pose, q0), dim=0)
+          x0 = torch.cat((new_pose, q0), dim=0)
 
       else:
         x0 = x1
@@ -316,7 +321,7 @@ class Graph(nn.Module):
 
     return 
   
-  def corr(self, device):
+  def corr(self, eps, device):
 
     # --- get source poses and target poses --- 
     # each new frame creates 2*time_window*patches_per_frame new edges, max edges is 2*time_window*patches_per_frame new edges*buff_size
@@ -347,9 +352,9 @@ class Graph(nn.Module):
     theta_max = self.fov_horizontal / 2
     phi_max = self.fov_vertical / 2
 
-    out_of_range = (target_pts[:,0] < self.r_min) | (target_pts[:,0] > self.r_max)
-    out_of_range = out_of_range | (torch.abs(target_pts[:,1]) > theta_max)
-    out_of_range = out_of_range | (torch.abs(target_pts[:,2]) > phi_max)
+    out_of_range = (target_pts[:,0] < (self.r_min - eps)) | (target_pts[:,0] > (self.r_max+eps))
+    out_of_range = out_of_range | (torch.abs(target_pts[:,1]) > theta_max + eps)
+    out_of_range = out_of_range | (torch.abs(target_pts[:,2]) > phi_max + eps)
 
     out_of_range = out_of_range | (i < 0)
     out_of_range = out_of_range | (j < 0)
@@ -475,7 +480,7 @@ class Graph(nn.Module):
     
   def update_step(self, device):
 
-    corr, ctx, valid_i, valid_j= self.corr(device)
+    corr, ctx, valid_i, valid_j= self.corr(eps = 1e-2, device=device)
 
     patch_idx = valid_i
     source_frame_idx = patch_idx // self.patches_per_frame
