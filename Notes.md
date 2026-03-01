@@ -23,7 +23,7 @@ Elementy do zaadoptowania z DPVO `https://github.com/princeton-vl/DPVO`.
 Do poprawy: 
 _____________________
 
-# 1.  Zabicie przepływu gradientów w Bundle Adjustment (Trening)
+# 1. Zabicie przepływu gradientów w Bundle Adjustment (Trening)
 
 W architekturach RAFT/DPVO siła tkwi w możliwości różniczkowania przez pętlę optymalizacji, 
 dzięki czemu błąd na końcu propaguje się wstecz do sieci wyliczającej delta i weights. 

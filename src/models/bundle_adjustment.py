@@ -70,20 +70,17 @@ class BundleAdjustment(nn.Module):
        
         self.weights = torch.diag(weights.flatten())
        
+        # --- compose coords --- 
+        target_coords = torch.cat([patch_coords, elevation_angle], dim = 2)
         
-        with torch.no_grad():
+        # --- transform points --- 
+        
+        target_coords = self.transform(poses, target_coords)
+        
+        # --- add corrections ---
+        target_coords = target_coords[:, :, :2] +  delta 
 
-            # --- compose coords --- 
-            target_coords = torch.cat([patch_coords, elevation_angle], dim = 2)
-            
-            # --- transform points --- 
-            
-            target_coords = self.transform(poses, target_coords)
-            
-            # --- add corrections ---
-            target_coords = target_coords[:, :, :2] +  delta 
-
-            self.target_coords = target_coords.detach()
+        self.target_coords = target_coords
         
 
     def forward(self, dummy_input=None):
@@ -118,8 +115,5 @@ class BundleAdjustment(nn.Module):
                     break
                 
             prev_loss = loss.item()
-
-        optimized_poses = self.poses.detach()
-        optimized_elevation = self.elevation_angle.detach()
         
-        return optimized_poses.tensor().view(self.b, self.n, 7), optimized_elevation.view(self.b, self.n, self.p, 1)
+        return self.poses.tensor().view(self.b, self.n, 7), self.elevation_angle.view(self.b, self.n, self.p, 1)
