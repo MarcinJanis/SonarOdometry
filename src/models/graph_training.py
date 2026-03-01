@@ -51,6 +51,9 @@ class Graph(nn.Module):
     self.patchifier_method = model_cfg.PATCHIFIER_METHOD # method used in key points detection
     self.grid_size = (model_cfg.PATCHES_GRID_SIZE.y, model_cfg.PATCHES_GRID_SIZE.x) # grid size used to detect key points from whole image equally
 
+    self.phi_init_mode = model_cfg.ELEVATION_INIT_MODE
+
+
     # # === Graph initialization ===
     # Note: in training version of graph, graph itself is created once, for whole batch so it is no initialized 
     self.time_stamp = None
@@ -83,11 +86,7 @@ class Graph(nn.Module):
   
       
   def _scale_fls2phisical(self, coords):
-    '''
-    Scale coords units from pixels in fls image to phisical units [m], [rad]
-    
-    :param coords: coords tensor, shape: (n, 2); n - points number, 2 - r and theta [pix]
-    '''
+
     # range r - measured by sonar
     r_norm = coords[:, 1] / self.fls_h
     r = r_norm * (self.r_max - self.r_min) + self.r_min
@@ -99,11 +98,7 @@ class Graph(nn.Module):
     return torch.stack([r, theta], dim = 1)
 
   def _scale_phisical2fls(self, coords):
-    '''
-    Scale coords units phisical units [m], [rad] to from pixels in fls image 
-    
-    :param coords: coords tensor, shape: (n, 2); n - points number, 2 - r [m] and theta [deg]
-    '''
+
     # range r - measured by sonar
     r_norm = (coords[:, 0] - self.r_min) / (self.r_max - self.r_min)
     r = r_norm * self.fls_h
@@ -126,17 +121,15 @@ class Graph(nn.Module):
     self.coords_r_theta = coords.view(b, n, p, d)
 
     coords_phi = torch.zeros((b, n, p, 1), device=device, dtype=torch.float) # init elevation angle with zeros
+    if self.phi_init_mode == 'rand':
+      coords_phi = torch.rand_like(coords_phi) * (torch.pi) - torch.pi /2 
+
     coords_phi.requires_grad_(True)
 
     return coords_phi
 
   def approx_movement(self, device): #TODO: 
-    '''
-    In traning version of graph this function initialize poses for whole sequence
-    mode: 
-    - initialize with zeros
-    - initialize first k frames with gt pose (?) 
-    '''
+
     poses = torch.zeros((self.batch_size, self.frames_in_series, 7), device=device, dtype=torch.float)
     poses[:, :, -1] = 1.0 # Quaternion w
     poses.requires_grad_(True)
@@ -145,11 +138,6 @@ class Graph(nn.Module):
 
 
   def create_edges(self, device):    
-    '''
-    Create set of edges in graph based on new frame and new patches.
-    This set is for whole patch of N frames. 
-
-    '''
 
     i, j = [], [] # i - idx of patch, j - idx of frame. Connections: i -> j 
  

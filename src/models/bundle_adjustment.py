@@ -11,6 +11,8 @@ class BundleAdjustment(nn.Module):
     def __init__(self, poses, patch_coords_r_theta, patch_coords_phi):
         super().__init__()
         
+        # self.buff_size = poses.shape[1] # get buff size
+
         # --- set propper shape --- 
         if len(patch_coords_r_theta.shape) == 4:
             
@@ -26,12 +28,12 @@ class BundleAdjustment(nn.Module):
             self.n = bn
             self.p = p 
 
-        pose_num = self.b*self.n
-        edge_num = self.b*self.n*self.p
+        self.pose_num = self.b*self.n
+        self.edge_num = self.b*self.n*self.p
 
-        poses = poses.view(1, pose_num, 7)
-        patch_coords_r_theta = patch_coords_r_theta.view(1, edge_num, 2)
-        patch_coords_phi = patch_coords_phi.view(1, edge_num, 1)
+        poses = poses.view(1, self.pose_num, 7)
+        patch_coords_r_theta = patch_coords_r_theta.view(1, self.edge_num, 2)
+        patch_coords_phi = patch_coords_phi.view(1, self.edge_num, 1)
 
         # --- define parameters to optimize ---
         poses_se3 = pp.SE3(poses)
@@ -44,57 +46,70 @@ class BundleAdjustment(nn.Module):
         
 
 
-    def transform(self, poses, coords):
-        poses = poses.squeeze(0)
+    def transform(self, source_poses, target_poses, coords):
+
+        source_poses = source_poses.squeeze(0)
+        target_poses = target_poses.squeeze(0)
         coords = coords.squeeze(0)
-        coords = transorm_points_coords(coords, projection_type.POLAR2CARTESIAN)
-        coords = poses @ coords
-        coords = transorm_points_coords(coords, projection_type.CARTESIAN2POLAR)
-        poses = poses.unsqueeze(0)
-        coords = coords.unsqueeze(0)
-        return coords
+
+        local_source_coords = transorm_points_coords(coords, projection_type.POLAR2CARTESIAN)
+
+        global_coords = source_poses @ local_source_coords
+
+        local_target_coords = target_poses.Inv() @ global_coords
+
+        coords = transorm_points_coords(local_target_coords, projection_type.CARTESIAN2POLAR)
+
+        # source_poses = source_poses.unsqueeze(0)
+        # target_poses = target_poses.unsqueeze(0)
+        # coords = coords
+
+        return coords.unsqueeze(0)
     
 
 
-    def init_ba(self, poses_idx, patch_idx, delta, weights):
+    def init_ba(self, source_poses_idx, target_poses_idx, patch_idx, delta, weights):
         
-        self.poses_idx = poses_idx
-        self.patch_idx = patch_idx
+        self.source_poses_idx = source_poses_idx % self.pose_num
+        self.target_poses_idx = target_poses_idx % self.pose_num
+        self.patch_idx = patch_idx % self.edge_num
 
         # --- get poses and patch coords ---
-        poses = self.poses[:, self.poses_idx, :]
-        
-        patch_coords = self.patch_coords[:, self.patch_idx, :]
-        
-        elevation_angle = self.elevation_angle[:, self.patch_idx]
-       
-        self.weights = torch.diag(weights.flatten())
-       
-        # --- compose coords --- 
-        target_coords = torch.cat([patch_coords, elevation_angle], dim = 2)
-        
-        # --- transform points --- 
-        
-        target_coords = self.transform(poses, target_coords)
-        
-        # --- add corrections ---
-        target_coords = target_coords[:, :, :2] +  delta 
 
-        self.target_coords = target_coords
+        # get frozen poses (source and target), with no gradient to save unoptimized values as reference to optimization 
+        with torch.no_grad():
+            source_poses = self.poses[:, self.source_poses_idx, :].clone()
+            target_poses = self.poses[:, self.target_poses_idx, :].clone()
+            
+            patch_coords = self.patch_coords[:, self.patch_idx, :]
         
+            elevation_angle = self.elevation_angle[:, self.patch_idx].clone()
+    
+            # --- compose coords --- 
+            source_coords = torch.cat([patch_coords, elevation_angle], dim = 2)
+        
+            # --- transform points --- 
+            target_coords = self.transform(source_poses, target_poses, source_coords)
+            
+        # --- add corrections ---
+        self.target_coords = target_coords[:, :, :2] + delta 
+        
+        # --- set proper form o f weights 
+        self.weights = torch.diag(weights.flatten())
 
     def forward(self, dummy_input=None):
 
         # --- get poses and coords ---
-        poses = self.poses[:, self.poses_idx, :]
+        source_poses = self.poses[:, self.source_poses_idx, :]
+        target_poses = self.poses[:, self.target_poses_idx, :]
 
-        patch_coords = self.patch_coords[:, self.patch_idx, :]
-        elevation_angle = self.elevation_angle[:, self.patch_idx, :]
+        patch_coords = self.patch_coords[:, self.patch_idx % self.edge_num, :]
+        elevation_angle = self.elevation_angle[:, self.patch_idx % self.edge_num, :]
         
         proj_coords = torch.cat([patch_coords, elevation_angle], dim = 2)
 
         # --- transfom coords ---
-        proj_coords = self.transform(poses, proj_coords)
+        proj_coords = self.transform(source_poses, target_poses, proj_coords)
 
         # --- projection error ---
         residual = proj_coords[:, :, :2] - self.target_coords
@@ -106,14 +121,14 @@ class BundleAdjustment(nn.Module):
         
         optimizer = pp.optim.LM(self)
         prev_loss = float('inf')
-        
-        for i in range(max_iter):
-        
-            loss = optimizer.step(input = None, weight=self.weights)
-         
-            if abs(prev_loss - loss.item()) < early_stop_tol:
-                    break
-                
-            prev_loss = loss.item()
+        with torch.enable_grad():
+            for i in range(max_iter):
+            
+                loss = optimizer.step(input = None, weight=self.weights)
+
+                if abs(prev_loss - loss.item()) < early_stop_tol:
+                        break
+                    
+                prev_loss = loss.item()
         
         return self.poses.tensor().view(self.b, self.n, 7), self.elevation_angle.view(self.b, self.n, self.p, 1)

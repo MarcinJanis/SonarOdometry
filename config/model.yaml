@@ -41,6 +41,8 @@ CORR_NEIGHBOUR: 5
 
 MOTION_APPRO_MODEL: 'linear' # None
 
+ELEVATION_INIT_MODE: 'rand' # 'zeros' or None
+
 # === Update operation === #
 
 UPDATE_ITERATION: 5

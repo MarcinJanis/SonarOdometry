@@ -30,8 +30,10 @@ class DPSO(nn.Module):
         # --- set mode --- 
         if mode == 'train':
             self.train_mode = True
+            
         else:
             self.train_mode = False
+            
 
         
         # --- read config files --- 
@@ -97,14 +99,13 @@ class DPSO(nn.Module):
             # -- update with new data --
             self.PatchGraph.append(x, t, self.device)
             
-            if self.PatchGraph.frame_n < 6:
-                return None, None, None 
+            # if self.PatchGraph.frame_n < 6:
+            #     return None, None, None 
             
             # -- get correlation, contexet and graph edges idx -- 
             corr, ctx, source_frame_idx, target_frame_idx, patch_idx = self.PatchGraph.update_step(self.device)
             # --- compose hidden state vector for actual edges --- 
             h = self.PatchGraph.get_hidden_state(patch_idx)
-
         
         # --- Optimize iteration --- 
         for _ in range(self.update_iter):
@@ -120,11 +121,15 @@ class DPSO(nn.Module):
                 else:
                     BA = BundleAdjustment(self.PatchGraph.poses, self.PatchGraph.patch_coords_r_theta, self.PatchGraph.patch_coords_phi)
                 
-                BA.init_ba(source_frame_idx, patch_idx, delta, weights)
-        
+                BA.init_ba(source_frame_idx, target_frame_idx, patch_idx, delta, weights)
+    
                 opt_poses, opt_elevation = BA.run(max_iter=self.ba_iter, early_stop_tol=self.ba_min_err)
+                
             else:
-                return None
+                if self.train_mode:
+                    return None
+                else:
+                    return None, None, None
         # --- Output ----
 
         
@@ -143,9 +148,8 @@ class DPSO(nn.Module):
             # when inference mode return first estimation of current position for control purpose
             pose_vct, time_vct, frame_num = self.PatchGraph.get_state()
             return pose_vct , time_vct, frame_num
-          
-        # if not self.train_mode:
-        #     self.PatchGraph.outputf_close()
+            
+
 
 
 # def pts_fusion(pts, global_idx):

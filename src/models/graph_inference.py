@@ -46,6 +46,7 @@ class Graph(nn.Module):
     self.patchifier_method = model_cfg.PATCHIFIER_METHOD # method used in key points detection
     self.grid_size = (model_cfg.PATCHES_GRID_SIZE.y, model_cfg.PATCHES_GRID_SIZE.x) # grid size used to detect key points from whole image equally
 
+    self.phi_init_mode = model_cfg.ELEVATION_INIT_MODE
     # --- Patchifier ---
     self.patchifier = Patchifier(model_cfg, debug_mode = False)
     
@@ -132,7 +133,7 @@ class Graph(nn.Module):
       data_pts = pts.detach().cpu().numpy()
       num = np.expand_dims(np.arange(num1, num2), axis=1)
       data_pts = np.concatenate([num, data_pts], axis = 1)
-      self.w_pts3d.writerow(data_pts)
+      self.w_pts3d.writerows(data_pts)
 
   def outputf_close(self):
     self.f_sec_traj.close()
@@ -189,11 +190,15 @@ class Graph(nn.Module):
     r, theta = phisical_coords[:, 0], phisical_coords[:, 1]
 
     # approximate elevation angle - phi - to be optimized 
-    phi = torch.zeros((self.patches_per_frame), device = device, dtype = torch.float)
-    
+    phi = torch.zeros((self.patches_per_frame), device = device, dtype = torch.float) 
+
+    if self.phi_init_mode == 'rand':
+      phi = torch.rand_like(phi) * (torch.pi) - torch.pi /2 
+
     # save optimized pts
     if self.frame_n > self.buff_size:
       optimize_pts3d = self.patch_state[local_idx, :, :]
+      
       self.outputf_write_pts((self.frame_n - 1) * self.patches_per_frame, self.frame_n * self.patches_per_frame, optimize_pts3d)
 
     # add new to graph 
@@ -282,9 +287,6 @@ class Graph(nn.Module):
 # --- Create connections in Graph --- 
 
   def create_edges(self, device):    
-    '''
-    Create set of edges in graph based on new frame and new patches 
-    '''
 
     # --- current patches -> past frame --- 
     new_patches = torch.arange(self.frame_n*self.patches_per_frame, (self.frame_n+1)*self.patches_per_frame, device = device, dtype = torch.long) 
@@ -315,10 +317,7 @@ class Graph(nn.Module):
     return 
   
   def corr(self, device):
-    '''
-    Calculate correlation of patches with their actual fitting
-    '''
-    
+
     # --- get source poses and target poses --- 
     # each new frame creates 2*time_window*patches_per_frame new edges, max edges is 2*time_window*patches_per_frame new edges*buff_size
     if self.frame_n < self.buff_size:
@@ -418,7 +417,8 @@ class Graph(nn.Module):
 
   
   def get_state(self):
-    lcl_idx = self.frame_n % self.buff_size
+    frame_num = self.frame_n - 1
+    lcl_idx = frame_num % self.buff_size
     act_pose = self.poses[lcl_idx, :].detach().clone().cpu()
     act_time = self.time[lcl_idx].detach().clone().cpu()
     frame_num = self.frame_n
@@ -437,14 +437,14 @@ class Graph(nn.Module):
     self.poses[:, :] = opt_pose.squeeze(0)
 
     self.patch_state[:, :, 2] = opt_elev_angle.squeeze(0).squeeze(-1)
-
-    self.hidden_state[patch_idx // self.patches_per_frame, patch_idx % self.patches_per_frame, :] = h
+   
+    self.hidden_state[(patch_idx // self.patches_per_frame) % self.buff_size, patch_idx % self.patches_per_frame, :] = h
 
     # self.patch_state[patch_idx // self.patches_per_frame, patch_idx % self.patches_per_frame, :] = opt_pts3d
 
   def get_hidden_state(self, patch_idx):
-
-    h = self.hidden_state[patch_idx // self.patches_per_frame, patch_idx % self.patches_per_frame, :]
+    
+    h = self.hidden_state[(patch_idx // self.patches_per_frame) % self.buff_size, patch_idx % self.patches_per_frame, :]
 
     return h 
 
@@ -474,6 +474,7 @@ class Graph(nn.Module):
     return
     
   def update_step(self, device):
+
     corr, ctx, valid_i, valid_j= self.corr(device)
 
     patch_idx = valid_i

@@ -42,10 +42,12 @@ def transorm_points_coords(pts, mode:projection_type):
         # phi = np.arctan2(z, np.sqrt(x**2 + y**2))
         # r = z / np.sin(phi)
         # theta = np.arctan2(y, z)
+        r_sq_xy = torch.clamp(x**2 + y**2, min=1e-8)
+        r_sq = torch.clamp(x**2 + y**2 + z**2, min=1e-8)
 
-        r = torch.sqrt(x**2 +  y**2 + z**2)
-        theta = torch.atan2(y, x)
-        phi = torch.atan2(z, torch.sqrt(x**2 + y**2))
+        r = torch.sqrt(r_sq)
+        theta = torch.atan2(y, x + 1e-8)
+        phi = torch.atan2(z, torch.sqrt(r_sq_xy))
 
         return torch.stack((r, theta, phi), dim=1)
         
