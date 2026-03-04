@@ -43,6 +43,9 @@ MOTION_APPRO_MODEL: 'linear' # None
 
 ELEVATION_INIT_MODE: 'rand' # 'zeros' or None
 
+ELEVATION_ANGLE_INIT_MIN: -90
+ELEVATION_ANGLE_INIT_MAX: 0
+
 # === Update operation === #
 
 UPDATE_ITERATION: 5

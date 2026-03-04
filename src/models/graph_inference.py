@@ -43,10 +43,14 @@ class Graph(nn.Module):
     self.encoder_downsize = model_cfg.ENCODER_DOWNSIZE # encoder downsize factor 
     
     self.motion_model = model_cfg.MOTION_APPRO_MODEL # method used in initial estimating of new pose
+  
     self.patchifier_method = model_cfg.PATCHIFIER_METHOD # method used in key points detection
     self.grid_size = (model_cfg.PATCHES_GRID_SIZE.y, model_cfg.PATCHES_GRID_SIZE.x) # grid size used to detect key points from whole image equally
 
     self.phi_init_mode = model_cfg.ELEVATION_INIT_MODE
+    self.phi_init_min =  model_cfg.ELEVATION_ANGLE_INIT_MIN
+    self.phi_init_max =  model_cfg.ELEVATION_ANGLE_INIT_MAX
+
     # --- Patchifier ---
     self.patchifier = Patchifier(model_cfg, debug_mode = False)
     
@@ -54,29 +58,32 @@ class Graph(nn.Module):
     self.frame_n = 0 # frame counter for ring buffer 
 
     # --- poses and time stamp buffers ---
-    self.register_buffer('time', torch.zeros((self.buff_size), dtype=torch.float)) # time stamp
-    self.register_buffer('poses', torch.zeros((self.buff_size, 7), dtype=torch.float)) # poses 
+    self.register_buffer('time', torch.zeros((self.buff_size), dtype=torch.float), persistent=False) # time stamp
 
+    init_poses = torch.zeros((self.buff_size, 7), dtype=torch.float)
+    init_poses[:, -1] = 1.0
+    self.register_buffer('poses', init_poses, persistent=False) # poses 
+    
     # --- frame buffers ---
-    self.register_buffer('fmap1', torch.zeros((self.buff_size, self.fmap_c, self.fmap_h, self.fmap_w), dtype = torch.float)) # frames: features map
-    self.register_buffer('fmap2', torch.zeros((self.buff_size, self.fmap_c, self.fmap_h // self.encoder_downsize, self.fmap_w // self.encoder_downsize), dtype = torch.float)) # frames: features map 
+    self.register_buffer('fmap1', torch.zeros((self.buff_size, self.fmap_c, self.fmap_h, self.fmap_w), dtype = torch.float), persistent=False) # frames: features map
+    self.register_buffer('fmap2', torch.zeros((self.buff_size, self.fmap_c, self.fmap_h // self.encoder_downsize, self.fmap_w // self.encoder_downsize), dtype = torch.float), persistent=False) # frames: features map 
 
     # --- patches buffers ---
-    self.register_buffer('patches_f', torch.zeros((self.buff_size, self.patches_per_frame,  self.fmap_c, self.patch_size*self.patch_size), dtype = torch.float)) # patches: features
-    self.register_buffer('patches_c', torch.zeros((self.buff_size, self.patches_per_frame,  self.cmap_c), dtype = torch.float)) # patches: context
+    self.register_buffer('patches_f', torch.zeros((self.buff_size, self.patches_per_frame,  self.fmap_c, self.patch_size*self.patch_size), dtype = torch.float), persistent=False) # patches: features
+    self.register_buffer('patches_c', torch.zeros((self.buff_size, self.patches_per_frame,  self.cmap_c), dtype = torch.float), persistent=False) # patches: context
 
     # --- patch center coords buffer ---
-    self.register_buffer('patch_state', torch.zeros((self.buff_size, self.patches_per_frame, 3), dtype = torch.float)) # points (r, theta, phi) refered to patches in real world units
-    self.register_buffer('hidden_state', torch.zeros((self.buff_size, self.patches_per_frame, self.cmap_c), dtype = torch.float))
+    self.register_buffer('patch_state', torch.zeros((self.buff_size, self.patches_per_frame, 3), dtype = torch.float), persistent=False) # points (r, theta, phi) refered to patches in real world units
+    self.register_buffer('hidden_state', torch.zeros((self.buff_size, self.patches_per_frame, self.cmap_c), dtype = torch.float), persistent=False)
 
     # --- source frame buffer ---
-    self.register_buffer('source_frame', torch.zeros((self.buff_size, self.patches_per_frame), dtype = torch.int)) # id of source frame for each patch
+    self.register_buffer('source_frame', torch.zeros((self.buff_size, self.patches_per_frame), dtype = torch.int), persistent=False) # id of source frame for each patch
                          
     # --- graphs edges --- 
     self.max_edges = self.buff_size * self.patches_per_frame * self.time_window * 2 # max amount of edges in graph 
 
-    self.register_buffer('i', torch.full((self.max_edges,), -1, dtype=torch.long)) # keeps idxs of patch
-    self.register_buffer('j', torch.full((self.max_edges,), -1, dtype=torch.long)) # keeps idxs of frame
+    self.register_buffer('i', torch.full((self.max_edges,), -1, dtype=torch.long), persistent=False) # keeps idxs of patch
+    self.register_buffer('j', torch.full((self.max_edges,), -1, dtype=torch.long), persistent=False) # keeps idxs of frame
     # self.register_buffer('weights', torch.zeros(self.max_edges, dtype=torch.float)) # weights of each patch, how good estimation is, based on this patch 
   
 
@@ -190,11 +197,11 @@ class Graph(nn.Module):
     r, theta = phisical_coords[:, 0], phisical_coords[:, 1]
 
     # approximate elevation angle - phi - to be optimized 
-    phi = torch.zeros((self.patches_per_frame), device = device, dtype = torch.float) 
-
     if self.phi_init_mode == 'rand':
-      phi = torch.rand_like(phi) * (torch.pi) - torch.pi /2 
-
+      phi = torch.rand(self.patches_per_frame, device=device, dtype=torch.float) * (self.phi_init_max - self.phi_init_min) + self.phi_init_min
+    else: 
+      phi = torch.zeros(self.patches_per_frame, device=device, dtype=torch.float)
+      
     # save optimized pts
     if self.frame_n > self.buff_size:
       optimize_pts3d = self.patch_state[local_idx, :, :]
@@ -418,9 +425,8 @@ class Graph(nn.Module):
 
     return corr_map, act_patches_c, i[valid_mask], j[valid_mask]
     
-  # === define interface to obtain data === 
+  # --- interface to obtain data ---
 
-  
   def get_state(self):
     frame_num = self.frame_n - 1
     lcl_idx = frame_num % self.buff_size
@@ -429,20 +435,38 @@ class Graph(nn.Module):
     frame_num = self.frame_n
     return act_pose, act_time, frame_num 
 
+  @property
+  def actual_poses(self):
+    if self.frame_n > self.buff_size - 1:
+      poses = self.poses
+    else:
+      poses = self.poses[:self.frame_n, :]
+    return poses
+
   @property 
   def patch_coords_r_theta(self):
-    return self.patch_state[:, :, :2]
+    if self.frame_n > self.buff_size - 1:
+      output = self.patch_state[:, :, :2]
+    else:
+      output = self.patch_state[:self.frame_n, :, :2]
+    return output
   
   @property 
   def patch_coords_phi(self):
-    return self.patch_state[:, :, 2:3]
+    if self.frame_n > self.buff_size - 1:
+      output = self.patch_state[:, :, 2:3]
+    else:
+      output = self.patch_state[:self.frame_n, :, 2:3]
+    return output
 
   def update_state(self, opt_pose, opt_elev_angle, h, patch_idx):
 
-    self.poses[:, :] = opt_pose.squeeze(0)
+    n = opt_pose.shape[1]
 
-    self.patch_state[:, :, 2] = opt_elev_angle.squeeze(0).squeeze(-1)
-   
+    self.poses[:n, :] = opt_pose.squeeze(0)
+
+    self.patch_state[:n, :, 2] = opt_elev_angle.squeeze(0).squeeze(-1)
+    
     self.hidden_state[(patch_idx // self.patches_per_frame) % self.buff_size, patch_idx % self.patches_per_frame, :] = h
 
     # self.patch_state[patch_idx // self.patches_per_frame, patch_idx % self.patches_per_frame, :] = opt_pts3d
@@ -454,11 +478,7 @@ class Graph(nn.Module):
     return h 
 
   def append(self, frame, time_stamp, device):
-    '''
-    Add new frame and patches to graph. 
-    Approximate new pose and create edges. 
-    
-    '''
+
     # --- extract patches --- 
     coords, patches_f, patches_c, fmap= self.patchifier(frame, mode =  self.patchifier_method)
 

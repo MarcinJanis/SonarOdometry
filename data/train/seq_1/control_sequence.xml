@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<scenario name="circles_1">
+    <cmd>
+        <action>forward</action>
+        <time>30.0</time>
+        <value>40.0</value>
+    </cmd>
+    <cmd>
+        <action>rotate_left</action>
+        <time>5.0</time>
+        <value>0.2</value>
+    </cmd>
+    <cmd>
+        <action>forward</action>
+        <time>10</time>
+        <value>50</value>
+    </cmd>
+    <cmd>
+        <action>rotate_right</action>
+        <time>2.0</time>
+        <value>0.2</value>
+    </cmd>
+</scenario>
+
+
+<!--'forward'
+    'backward' 
+    'slide_left'
+    'slide_right'
+    'rotate_left'
+    'rotate_right' 
+    'depth_change'
+    'circle_left'
+    'circle_right' -->
+
+            

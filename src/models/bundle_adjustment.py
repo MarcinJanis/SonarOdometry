@@ -94,8 +94,27 @@ class BundleAdjustment(nn.Module):
         # --- add corrections ---
         self.target_coords = target_coords[:, :, :2] + delta 
         
-        # --- set proper form o f weights 
-        self.weights = torch.diag(weights.flatten())
+        # --- save initial state ---
+        self.init_poses = pp.SE3(self.poses.tensor().clone().detach())
+        self.init_elevation_angle = self.elevation_angle.clone().detach()
+
+        # --- compose weights matrix --- 
+
+        # weights refered to optimized parameters
+        weights_param = weights.flatten()
+        
+        # prior/anchor 
+        prior_weight = 1e-4
+
+        weights_anchor_pose = torch.full((self.pose_num * 6,), prior_weight, device=weights.device, dtype=weights.dtype)
+        weights_anchor_elev = torch.full((self.edge_num * 1,), prior_weight, device=weights.device, dtype=weights.dtype)
+        
+        weights = torch.cat([weights_param, weights_anchor_pose, weights_anchor_elev])
+        self.weights = torch.diag(weights)
+
+        
+        # # --- set proper form o f weights 
+        # self.weights = torch.diag(weights.flatten())
 
     def forward(self, dummy_input=None):
 
@@ -112,7 +131,18 @@ class BundleAdjustment(nn.Module):
         proj_coords = self.transform(source_poses, target_poses, proj_coords)
 
         # --- projection error ---
-        residual = proj_coords[:, :, :2] - self.target_coords
+        residual_proj = proj_coords[:, :, :2] - self.target_coords
+        residual_proj = residual_proj.view(1, -1)
+        # --- pose diff err --- 
+        # print(f'init poses: {self.init_poses.shape}, act poses: {self.poses.shape}')
+        residual_pose = (self.init_poses.Inv() @ self.poses).Log()
+        residual_pose = residual_pose.view(1, -1)
+        # --- elev ang err --- 
+        residual_elev = self.elevation_angle - self.init_elevation_angle
+        residual_elev = residual_elev.view(1, -1)
+        # print('cat')
+        # print(f'{residual_proj.shape}, {residual_pose.shape}, {residual_elev.shape}')
+        residual = torch.cat([residual_proj, residual_pose, residual_elev], dim=1)
 
         return residual 
 

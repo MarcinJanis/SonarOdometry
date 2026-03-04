@@ -70,54 +70,80 @@ class DPSO(nn.Module):
 
     
     
-    def debug(self, enable = True):
+    # def debug(self, enable = True):
 
-        if enable:
-            self.debug = True
-        else:
-            self.debug = False
-    
+    #     if enable:
+    #         self.debug = True
+    #         self.time_meas = []
+    #     else:
+    #         self.debug = False
+
+    # def _get_time_meas(self):
+    #     if self.debug:
+    #         self.time_meas.append(time.time())
+
+
+
     def close(self):
         if not self.train_mode:
             self.PatchGraph.outputf_close()
 
     def forward(self, x, t):
 
-        # --- # -- update graph new data -- --- 
+        t0 = time.time()
+
+        # --- update graph new data ---
         if self.train_mode:
             poses, coords_phi = self.PatchGraph.append(x, t, self.device)
         else:
             self.PatchGraph.append(x, t, self.device)
 
+        print(f'graph append: {time.time() - t0}')
         # --- Optimize iteration --- 
-        for iter in range(self.update_iter):
 
+        for iter in range(self.update_iter):
+            
+            t0 = time.time()
             # -- get correlation, contexet and graph edges idx -- 
             if self.train_mode:
                 corr, ctx, source_frame_idx, target_frame_idx, patch_idx = self.PatchGraph.update_step(poses, coords_phi, self.device)
             else:
                 corr, ctx, source_frame_idx, target_frame_idx, patch_idx = self.PatchGraph.update_step(self.device)
 
+            print(f'calc corr: {time.time() - t0}')
             # --- get hidden state for active edges --- 
             h = self.PatchGraph.get_hidden_state(patch_idx)
 
             # --- Run if any edge exist --- 
             if patch_idx.shape[0] > 0: 
-                 # --- Update operator --- 
+                t0 = time.time()
+                # --- Update operator --- 
                 h, correction = self.UpdateOperator(h, None, corr, ctx, source_frame_idx, target_frame_idx, patch_idx, self.device)
 
                 delta, weights = correction
-              
+                print(f'Update operator: {time.time() - t0}')
+
                 # --- Bundle adjustement ---
+                t0 = time.time()
                 if self.train_mode:
-                    BA = BundleAdjustment(poses, self.PatchGraph.coords_r_theta, coords_phi)
+                    ba_poses = poses
+                    ba_r_theta = self.PatchGraph.coords_r_theta
+                    ba_phi = coords_phi
                 else:
-                    BA = BundleAdjustment(self.PatchGraph.poses, self.PatchGraph.patch_coords_r_theta, self.PatchGraph.patch_coords_phi)
+                    ba_poses = self.PatchGraph.actual_poses
+                    ba_r_theta = self.PatchGraph.patch_coords_r_theta
+                    ba_phi = self.PatchGraph.patch_coords_phi
+                   
+                BA = BundleAdjustment(ba_poses, ba_r_theta, ba_phi)
+                # BA = BundleAdjustment(poses, self.PatchGraph.coords_r_theta, coords_phi)
+                # BA = BundleAdjustment(self.PatchGraph.poses, self.PatchGraph.patch_coords_r_theta, self.PatchGraph.patch_coords_phi)
                 
                 BA.init_ba(source_frame_idx, target_frame_idx, patch_idx, delta, weights)
-    
+                print(f'Init BA: {time.time() - t0}')
+                t0 = time.time()
                 opt_poses, opt_elevation = BA.run(max_iter=self.ba_iter, early_stop_tol=self.ba_min_err)
                 
+                print(f'Run BA: {time.time() - t0}')
 
                 # --- Feedback --- 
                 if self.train_mode:
@@ -141,26 +167,9 @@ class DPSO(nn.Module):
 
 
 
+#TODO:
 
 
+# - init first position/ scaling position 
+# - allow to init buffer with a few frames, and then predict future results 
 
-
-
-# def pts_fusion(pts, global_idx):
-#     unq_idx, group_idx = torch.unique(global_idx, return_inverse=True)
-#     pts_mean = scatter_mean(pts, group_idx, dim=0, dim_size=None)
-#     return pts_mean, unq_idx
-
-
-# def pose_fusion(poses, global_idx):
-#     unq_idx, group_idx = torch.unique(global_idx, return_inverse=True)
-
-#     pos_xyz = poses[:, :3]
-#     quat_wxyz = poses[:, 3:]
-
-#     mean_pos = scatter_mean(pos_xyz, group_idx, dim=0)
-#     mean_quat = scatter_mean(quat_wxyz, group_idx, dim=0)
-
-#     mean_quat = F.normalize(mean_quat, p=2, dim=1)
-
-#     return torch.cat([mean_pos, mean_quat], dim=1), unq_idx

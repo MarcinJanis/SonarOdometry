@@ -39,49 +39,21 @@ def transorm_points_coords(pts, mode:projection_type):
     elif mode == projection_type.CARTESIAN2POLAR:
         x, y, z = pts[:,0], pts[:,1], pts[:,2] 
 
-        # phi = np.arctan2(z, np.sqrt(x**2 + y**2))
-        # r = z / np.sin(phi)
-        # theta = np.arctan2(y, z)
+        # x = torch.clamp(x, min=1e-5)
+        x = torch.where(x.abs() < 1e-5, torch.sign(x + 1e-9) * 1e-5, x) # safe (no exploding grad) but to not set grad to 0 for points with small x
+
         r_sq_xy = torch.clamp(x**2 + y**2, min=1e-8)
         r_sq = torch.clamp(x**2 + y**2 + z**2, min=1e-8)
 
         r = torch.sqrt(r_sq)
-        theta = torch.atan2(y, x + 1e-8)
+        theta = torch.atan2(y, x)
         phi = torch.atan2(z, torch.sqrt(r_sq_xy))
 
         return torch.stack((r, theta, phi), dim=1)
         
-# def transform_matrix(state):
-#     x, y, z, qx, qy, qz, qw = state # quaterions 
-
-#     # pre-calculation
-#     xx = qx * qx
-#     yy = qy * qy
-#     zz = qz * qz
-#     xy = qx * qy
-#     xz = qx * qz
-#     yz = qy * qz
-#     wx = qw * qx
-#     wy = qw * qy
-#     wz = qw * qz
-
-#     # compose translation matrix
-#     row0 = torch.stack([1 - 2*(yy + zz),     2*(xy - wz),     2*(xz + wy),    x])
-#     row1 = torch.stack([    2*(xy + wz), 1 - 2*(xx + zz),     2*(yz - wx),    y])
-#     row2 = torch.stack([    2*(xz - wy),     2*(yz + wx), 1 - 2*(xx + yy),    z])
-#     row3 = torch.tensor([           0.0,             0.0,             0.0,  1.0], device=state.device, dtype=state.dtype)
- 
-#     T = torch.stack([row0, row1, row2, row3])
-#     return T
 
 def transform_matrix(state):
-    '''
-    Converts poses to transformation matrices (batch processing).
-    
-    :state: tensor (N, 7) [x, y, z, qx, qy, qz, qw]
-    :return: tensor (N, 4, 4)
-    '''
-    
+
     # -- -Extrac shift and rotation components for each pose ---
     x, y, z = state[:, 0], state[:, 1], state[:, 2]
     qx, qy, qz, qw = state[:, 3], state[:, 4], state[:, 5], state[:, 6]
@@ -103,10 +75,10 @@ def transform_matrix(state):
     row0 = torch.stack([1 - 2*(yy + zz),  2*(xy - wz),      2*(xz + wy),      x], dim=1)
     
     # Row 1: [R10, R11, R12, y]
-    row1 = torch.stack([2*(xy + wz),      1 - 2*(xx + zz),  2*(yz - wx),      y], dim=1)
+    row1 = torch.stack([2*(xy + wz), 1 - 2*(xx + zz),  2*(yz - wx), y], dim=1)
     
     # Row 2: [R20, R21, R22, z]
-    row2 = torch.stack([2*(xz - wy),      2*(yz + wx),      1 - 2*(xx + yy),  z], dim=1)
+    row2 = torch.stack([2*(xz - wy), 2*(yz + wx), 1 - 2*(xx + yy),  z], dim=1)
     
     # Row 3: [0, 0, 0, 1] 
     zeros = torch.zeros_like(x)
@@ -119,30 +91,8 @@ def transform_matrix(state):
     return T # shape (N, 4, 4)
 
 
-# def inverse_transform_matrix(T):
-
-#     # extract rotation and shift 
-#     R = T[:3, :3]
-#     t = T[:3, 3]
-
-#     # inverse components
-#     R_inv = R.T
-#     t_inv = - torch.mv(R_inv, t)
-
-#     # compose inverse matrix 
-#     T_inv = torch.zeros((4,4), device = T.device, dtype = T.dtype)
-    
-#     T_inv[:3, :3] = R_inv
-#     T_inv[:3, 3] = t_inv
-#     T_inv[3, :] = torch.tensor([0.0, 0.0, 0.0, 1.0], device = T.device, dtype = T.dtype)
-#     return T_inv 
-    
 def project_points(origin_pt, origin_pose, target_pose):
 
-    '''
-    Calculate projection of point from origin patch to target patch. 
-    Note: origin_pt shall be already scaled to real-world values, not in pixels. 
-    '''
     n_pts, _ = origin_pt.shape 
 
     # --- Project origin point from spehrical to cartesian coords sys. (r, theta, phi) -> (x, y, z, 1).T ---
@@ -178,14 +128,11 @@ def project_points(origin_pt, origin_pose, target_pose):
 
 def q_conjugate(q):
     # quaterion conjugate
-    return q * torch.tensor([-1, -1, -1, 1])
+    return q * torch.tensor([-1, -1, -1, 1], device=q.device, dtype=q.dtype)
 
 
 def hamilton_product(q1, q2):
-    '''
-    Calculate Hamiltion product for two quaterion tensors.
-    q = [x, y, z, w] -> w + i*x + j*y + k*z
-    '''
+
     x1, y1, z1, w1 = q1.unbind(dim=-1)
     x2, y2, z2, w2 = q2.unbind(dim=-1)
 

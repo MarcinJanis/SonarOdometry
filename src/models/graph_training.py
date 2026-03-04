@@ -52,7 +52,8 @@ class Graph(nn.Module):
     self.grid_size = (model_cfg.PATCHES_GRID_SIZE.y, model_cfg.PATCHES_GRID_SIZE.x) # grid size used to detect key points from whole image equally
 
     self.phi_init_mode = model_cfg.ELEVATION_INIT_MODE
-
+    self.phi_init_min =  model_cfg.ELEVATION_ANGLE_INIT_MIN
+    self.phi_init_max =  model_cfg.ELEVATION_ANGLE_INIT_MAX
 
     # # === Graph initialization ===
     # Note: in training version of graph, graph itself is created once, for whole batch so it is no initialized 
@@ -122,9 +123,11 @@ class Graph(nn.Module):
     coords = self._scale_fls2phisical(coords)
     self.coords_r_theta = coords.view(b, n, p, d)
 
-    coords_phi = torch.zeros((b, n, p, 1), device=device, dtype=torch.float) # init elevation angle with zeros
+   
     if self.phi_init_mode == 'rand':
-      coords_phi = torch.rand_like(coords_phi) * (torch.pi) - torch.pi /2 
+        coords_phi = torch.rand((b, n, p, 1), device=device, dtype=torch.float) * (self.phi_init_max - self.phi_init_min) + self.phi_init_min
+    else: 
+        coords_phi = torch.zeros((b, n, p, 1), device=device, dtype=torch.float) # init elevation angle with zeros
 
     coords_phi.requires_grad_(True)
 
@@ -133,7 +136,9 @@ class Graph(nn.Module):
   def approx_movement(self, device): #TODO: 
 
     if self.motion_model:
-      pass
+      poses = torch.zeros((self.batch_size, self.frames_in_series, 7), device=device, dtype=torch.float)
+      poses[:, :, -1] = 1.0 # Quaternion w
+      poses.requires_grad_(True)
     else:
       poses = torch.zeros((self.batch_size, self.frames_in_series, 7), device=device, dtype=torch.float)
       poses[:, :, -1] = 1.0 # Quaternion w
