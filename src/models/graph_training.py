@@ -30,8 +30,8 @@ class Graph(nn.Module):
     self.fls_h = sonar_cfg.resolution.bins # vertical resolution of input fls image
     self.fls_w = sonar_cfg.resolution.beams # horizontal resolution of input fls image
 
-    self.fov_vertical = sonar_cfg.fov.vertical * math.pi / 180 # vertical fov is in  [deg]
-    self.fov_horizontal = sonar_cfg.fov.horizontal  * math.pi / 180 # horizontal fov is in [deg]
+    self.fov_vertical = sonar_cfg.fov.vertical * math.pi / 180 # vertical fov [deg] -> [rad]
+    self.fov_horizontal = sonar_cfg.fov.horizontal  * math.pi / 180 # horizontal fov [deg] -> [rad]
 
     # --- import sys configuration ---
     self.patches_per_frame = model_cfg.PATCHES_PER_FRAME # amount of patches generated per each frames
@@ -88,7 +88,7 @@ class Graph(nn.Module):
     return 
   
       
-  def _scale_fls2phisical(self, coords):
+  def scale_fls2phisical(self, coords):
 
     # range r - measured by sonar
     r_norm = coords[:, 1] / self.fls_h
@@ -96,18 +96,18 @@ class Graph(nn.Module):
 
     # azimuth angle theta - measured by sonar
     theta_norm = coords[:, 0] / self.fls_w - 0.5
-    theta = theta_norm * self.fov_horizontal * torch.pi / 180.0
+    theta = theta_norm * self.fov_horizontal 
     
     return torch.stack([r, theta], dim = 1)
 
-  def _scale_phisical2fls(self, coords):
+  def scale_phisical2fls(self, coords):
 
     # range r - measured by sonar
     r_norm = (coords[:, 0] - self.r_min) / (self.r_max - self.r_min)
     r = r_norm * self.fls_h
 
     # azimuth angle theta - measured by sonar
-    theta_norm = coords[:, 1] * 180.0 / torch.pi / self.fov_horizontal 
+    theta_norm = coords[:, 1] / self.fov_horizontal 
     theta = (theta_norm + 0.5) * self.fls_w
     
     return torch.stack([r, theta], dim = 1)
@@ -120,7 +120,7 @@ class Graph(nn.Module):
     self.patches_c = patches_c # shape [b, n, patches_per_frame, c]     
 
     coords = coords.view(b*n*p, d)
-    coords = self._scale_fls2phisical(coords)
+    coords = self.scale_fls2phisical(coords)
     self.coords_r_theta = coords.view(b, n, p, d)
 
    
@@ -188,7 +188,6 @@ class Graph(nn.Module):
     # --- get source poses and target poses --- 
     source_frames_idx = self.i // self.patches_per_frame
     target_frames_idx = self.j
-
     poses = poses.view(b*n, 7) # shape: (batch_size, frames_in_series, 7) -> (batch_size * frames_in_series, 7)
 
     source_poses = poses[source_frames_idx]
@@ -222,7 +221,7 @@ class Graph(nn.Module):
     pts_num = target_pts.shape[0]
     
     # --- get correlation neighbour from fmap --- 
-    target_pts_fls = self._scale_phisical2fls(target_pts)
+    target_pts_fls = self.scale_phisical2fls(target_pts)
 
     # get grid to sample pixels from feature map 
     search_size = self.corr_neighbour + self.patch_size - 1

@@ -18,10 +18,12 @@ class SonarSimDataset(Dataset):
 
         self.time = {} # time vector
         self.traj_gt = {} # trajectory 
+        self.depth = {}
         self.seq_strat_idx = [] # idx of starting frame 
         self.seq_len = {} # sample number for each sequence
 
         for dir in os.scandir(self.root_dir):
+            
             seq_name = dir.name
             seq_path = dir.path
 
@@ -32,16 +34,19 @@ class SonarSimDataset(Dataset):
 
             time = pd.read_csv(csv_path, usecols=['timestamp'])
             pose = pd.read_csv(csv_path, usecols=['pos_x', 'pos_y', 'pos_z', 'quat_x', 'quat_y', 'quat_z', 'quat_w'])
-            
+            depth = pd.read_csv(csv_path, usecols=['dvl_alt'])
+
             self.time[seq_name] = time
             self.traj_gt[seq_name] = pose 
-
+            self.depth[seq_name] = depth
             seq_len = len(time)
             self.seq_len[seq_name] = seq_len
 
             if seq_len > self.window_size:
                 for idx in range(seq_len - self.window_size + 1): # imo bez + 1
                     self.seq_strat_idx.append((seq_name, idx)) 
+   
+            
 
     def __len__(self):
         return len(self.seq_strat_idx)
@@ -53,8 +58,12 @@ class SonarSimDataset(Dataset):
 
         
         time = self.time[seq_name].iloc[start_idx:end_idx]#[start_idx:end_idx]
-        # 2
         trajectory = self.traj_gt[seq_name].iloc[start_idx:end_idx, :]
+        depth = self.depth[seq_name].iloc[start_idx:end_idx]
+
+        time = torch.from_numpy(time.values).float()
+        trajectory = torch.from_numpy(trajectory.values).float()
+        depth = torch.from_numpy(depth.values).float()
 
         imgs = []
         for i in range(self.window_size):
@@ -69,7 +78,7 @@ class SonarSimDataset(Dataset):
         # norm 
         series = series / 255.0
 
-        return series, time, trajectory
+        return series, time, trajectory, depth
 
     def print_info(self):
         print('='*40)

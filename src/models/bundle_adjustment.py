@@ -8,7 +8,7 @@ import pypose as pp
 
 
 class BundleAdjustment(nn.Module):
-    def __init__(self, poses, patch_coords_r_theta, patch_coords_phi):
+    def __init__(self, poses, patch_coords_r_theta, patch_coords_phi, sonar_param, freeze_poses = False):
         super().__init__()
         
         # self.buff_size = poses.shape[1] # get buff size
@@ -37,13 +37,17 @@ class BundleAdjustment(nn.Module):
 
         # --- define parameters to optimize ---
         poses_se3 = pp.SE3(poses)
-        self.poses = pp.Parameter(poses_se3)
+        
+        if freeze_poses:
+            self.poses = poses_se3
+        else:
+            self.poses = pp.Parameter(poses_se3)
 
         self.elevation_angle = nn.Parameter(patch_coords_phi) # pp.Parameter(patch_coords_phi)
 
         # --- define constants parameters --- 
         self.patch_coords = patch_coords_r_theta
-        
+        self.sonar_param = sonar_param
 
 
     def transform(self, source_poses, target_poses, coords):
@@ -92,7 +96,7 @@ class BundleAdjustment(nn.Module):
             target_coords = self.transform(source_poses, target_poses, source_coords)
             
         # --- add corrections ---
-        self.target_coords = target_coords[:, :, :2] + delta 
+        self.target_coords = target_coords[:, :, :2] + self.scale_delta(delta)
         
         # --- save initial state ---
         self.init_poses = pp.SE3(self.poses.tensor().clone().detach())
@@ -132,16 +136,14 @@ class BundleAdjustment(nn.Module):
 
         # --- projection error ---
         residual_proj = proj_coords[:, :, :2] - self.target_coords
+        residual_proj = self.scale_proj_err(residual_proj)
         residual_proj = residual_proj.view(1, -1)
         # --- pose diff err --- 
-        # print(f'init poses: {self.init_poses.shape}, act poses: {self.poses.shape}')
         residual_pose = (self.init_poses.Inv() @ self.poses).Log()
-        residual_pose = residual_pose.view(1, -1)
+        residual_pose = residual_pose.tensor().view(1, -1)
         # --- elev ang err --- 
         residual_elev = self.elevation_angle - self.init_elevation_angle
         residual_elev = residual_elev.view(1, -1)
-        # print('cat')
-        # print(f'{residual_proj.shape}, {residual_pose.shape}, {residual_elev.shape}')
         residual = torch.cat([residual_proj, residual_pose, residual_elev], dim=1)
 
         return residual 
@@ -162,3 +164,17 @@ class BundleAdjustment(nn.Module):
                 prev_loss = loss.item()
         
         return self.poses.tensor().view(self.b, self.n, 7), self.elevation_angle.view(self.b, self.n, self.p, 1)
+    
+    def scale_proj_err(self, proj_err):
+        err_r = proj_err[:, :, 0] / (self.sonar_param.range.max - self.sonar_param.range.min) * self.sonar_param.resolution.bins
+        err_t = proj_err[:, :, 1] / self.sonar_param.fov.horizontal * self.sonar_param.resolution.beams
+
+        return torch.stack((err_r, err_t), dim=-1)
+
+    def scale_delta(self, delta):
+        delta_r = delta[:, 0] / self.sonar_param.resolution.bins * (self.sonar_param.range.max - self.sonar_param.range.min)
+        delta_t = delta[:, 1] / self.sonar_param.resolution.beams * (self.sonar_param.fov.horizontal)
+        return torch.stack((delta_r, delta_t), dim=-1)
+
+
+

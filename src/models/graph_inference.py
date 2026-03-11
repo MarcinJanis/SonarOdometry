@@ -158,7 +158,7 @@ class Graph(nn.Module):
     self.time[local_idx] = time_stamp 
     return 
       
-  def _scale_fls2phisical(self, coords):
+  def scale_fls2phisical(self, coords):
   
     # range r - measured by sonar
     r_norm = coords[:, 1] / self.fls_h
@@ -166,18 +166,18 @@ class Graph(nn.Module):
 
     # azimuth angle theta - measured by sonar
     theta_norm = coords[:, 0] / self.fls_w - 0.5
-    theta = theta_norm * self.fov_horizontal * torch.pi / 180.0
+    theta = theta_norm * self.fov_horizontal 
     
     return torch.stack([r, theta], dim = 1)
 
-  def _scale_phisical2fls(self, coords):
+  def scale_phisical2fls(self, coords):
 
     # range r - measured by sonar
     r_norm = (coords[:, 0] - self.r_min) / (self.r_max - self.r_min)
     r = r_norm * self.fls_h
 
     # azimuth angle theta - measured by sonar
-    theta_norm = coords[:, 1] * 180.0 / torch.pi / self.fov_horizontal 
+    theta_norm = coords[:, 1] / self.fov_horizontal 
     theta = (theta_norm + 0.5) * self.fls_w
     
     return torch.stack([r, theta], dim = 1)
@@ -192,7 +192,7 @@ class Graph(nn.Module):
     self.patches_c[local_idx, :, :] = patches_c.squeeze(0) 
 
     # rescale coords to real world values  
-    phisical_coords = self._scale_fls2phisical(coords.squeeze(0).squeeze(0))
+    phisical_coords = self.scale_fls2phisical(coords.squeeze(0).squeeze(0))
     
     r, theta = phisical_coords[:, 0], phisical_coords[:, 1]
 
@@ -377,7 +377,7 @@ class Graph(nn.Module):
     
     # print(f'total edges: {source_coords.shape[0]}, valid edges: {torch.sum(valid_mask.long())}')
     # --- get correlation neighbour from fmap --- 
-    target_pts_fls = self._scale_phisical2fls(target_pts)
+    target_pts_fls = self.scale_phisical2fls(target_pts)
 
     # get grid to sample pixels from feature map 
     search_size = self.corr_neighbour + self.patch_size - 1

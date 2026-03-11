@@ -1,22 +1,23 @@
 --extra-index-url https://download.pytorch.org/whl/cpu
--f https://data.pyg.org/whl/torch-2.5.1+cpu.html
+-f https://data.pyg.org/whl/torch-2.4.0+cpu.html
 
-# Torch 2.5 
-torch==2.5.1+cpu
-torchvision>=0.20.1+cpu
-torch-scatter>=2.1.2
+torch==2.4.1+cpu
+torchvision==0.19.1+cpu
+torch-scatter
 
-# Lightning 
-pytorch-lightning>=2.1.0
-
-# Others
-numpy>=1.24.0
 python-box>=7.0.0
-PyYAML>=6.0
+lightning>=2.6.1 # pytorch-lightning>=2.1.0
+pypose>=0.7.0
+
+stack-data>=0.6.3
+executing>=2.0.0
+asttokens>=2.4.1
+ipython>=8.10.0
+
+numpy>=1.24.0
+opencv-python>=4.8.0
 scipy>=1.10.0
 matplotlib>=3.5.0
 pandas>=2.0.0
-opencv-python>=4.8.0
-pypose>=0.7.0
 networkx>=3.0
-
+PyYAML>=6.0

@@ -25,14 +25,14 @@ class SonarSimDataModule(pl.LightningDataModule):
 
     def setup(self):
 
-        train_pth = os.patch.join(self.root_dir, 'train')
+        train_pth = os.path.join(self.root_dir, 'train')
         self.train_dataset = SonarSimDataset(train_pth, self.window_size, transform=self.transforms)
         
-        val_pth = os.patch.join(self.root_dir, 'val')
-        self.train_dataset = SonarSimDataset(val_pth, self.window_size, transform=self.transforms)
+        val_pth = os.path.join(self.root_dir, 'val')
+        self.val_dataset = SonarSimDataset(val_pth, self.window_size, transform=self.transforms)
 
-        test_pth = os.patch.join(self.root_dir, 'test')
-        self.train_dataset = SonarSimDataset(test_pth, self.window_size, transform=self.transforms)
+        test_pth = os.path.join(self.root_dir, 'test')
+        self.test_dataset = SonarSimDataset(test_pth, self.window_size, transform=self.transforms)
         
     def train_dataloader(self):
         return DataLoader(self.train_dataset, batch_size=self.batch_size, 
