@@ -22,6 +22,12 @@ Results on each dataset ws presented below. All results with metrics are compare
 
 ### 2. [Aracati2017](https://github.com/matheusbg8/aracati2017)
 
+### 3. [Caves-dataset](https://cirs.udg.edu/caves-dataset/)
+
+### 4. [Aurora-dataset](https://ieee-dataport.org/open-access/aurora-multi-sensor-dataset-robotic-ocean-exploration)
+
+### 5. [Seaward-dataset](https://seaward.science/data/pos/)
+
 
 ___
 ## Repository content
@@ -40,6 +46,7 @@ Dataset is available [HERE](https://drive.google.com/drive/folders/1BgosYlaRkQkS
 
 ___
 ## How to run 
+
 
 
 
