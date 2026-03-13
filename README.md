@@ -30,7 +30,7 @@ Results on each dataset ws presented below. All results with metrics are compare
 
 
 ___
-## Repository content
+## Repository content and structure
 
 
 
@@ -46,7 +46,6 @@ Dataset is available [HERE](https://drive.google.com/drive/folders/1BgosYlaRkQkS
 
 ___
 ## How to run 
-
 
 
 
