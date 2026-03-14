@@ -133,16 +133,18 @@ class Graph(nn.Module):
 
     return coords_phi
 
-  def approx_movement(self, device): #TODO: 
+  def approx_movement(self, poses_gt, device):  
 
-    if self.motion_model:
-      poses = torch.zeros((self.batch_size, self.frames_in_series, 7), device=device, dtype=torch.float)
-      poses[:, :, -1] = 1.0 # Quaternion w
-      poses.requires_grad_(True)
-    else:
-      poses = torch.zeros((self.batch_size, self.frames_in_series, 7), device=device, dtype=torch.float)
-      poses[:, :, -1] = 1.0 # Quaternion w
-      poses.requires_grad_(True)
+    # --- set all init poses to first poses in sequence --- 
+    # b, n, d = poses_gt.shape
+    # init_pose = poses_gt[:, 0, :]
+    # poses = init_pose.unsqueeze(1).expand(b, n, d).clone()    
+
+    # # set all poses to zero (with keeping quaterions normalized)
+    poses = torch.zeros((self.batch_size, self.frames_in_series, 7), device=device, dtype=torch.float)
+    poses[:, :, -1] = 1.0 # Quaternion w
+    
+    poses.requires_grad_(True)
     
     return poses
 
@@ -279,7 +281,7 @@ class Graph(nn.Module):
 
 
 
-  def append(self, frames, time_stamp, device):
+  def append(self, frames, time_stamp, poses_gt, device):
     '''
     Add new frame and patches to graph. 
     Approximate new pose and create edges. 
@@ -297,7 +299,7 @@ class Graph(nn.Module):
     coords_phi = self.add_patches(patches_f, patches_c, coords, device)
 
     # --- approximation of new initial pose ---
-    poses = self.approx_movement(device)
+    poses = self.approx_movement(poses_gt, device)
 
     # --- create edges for new data ---- 
     self.create_edges(device)

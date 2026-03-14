@@ -1,5 +1,6 @@
 import numpy as np
 import torch 
+import torch.nn.functional as F
 
 from enum import IntEnum
 
@@ -91,30 +92,55 @@ def transform_matrix(state):
     return T # shape (N, 4, 4)
 
 
-def project_points(origin_pt, origin_pose, target_pose):
+def project_points(origin_pt, origin_pose, target_pose, use_quaterions=True):
 
     n_pts, _ = origin_pt.shape 
 
     # --- Project origin point from spehrical to cartesian coords sys. (r, theta, phi) -> (x, y, z, 1).T ---
     origin_pt_xyz = transorm_points_coords(origin_pt, projection_type.POLAR2CARTESIAN)
 
-    ones = torch.ones((n_pts, 1), device=origin_pt.device, dtype=origin_pt.dtype)
-    origin_pt = torch.cat((origin_pt_xyz, ones), dim=1).unsqueeze(-1) # Shape: (N, 4, 1)
 
-    # --- Transform matrixes ---
-    T_origin = transform_matrix(origin_pose)       # (N, 4, 4)
-    T_target = transform_matrix(target_pose)       # (N, 4, 4)
-    
-    # Inverse target transform matrix
-    T_target_inv = torch.linalg.inv(T_target)      # (N, 4, 4)
+    if use_quaterions:
+        # extract quaterions and translations:
+        origin_shift = origin_pose[:, :3]
+        origin_rot = origin_pose[:, 3:7]
 
-    # Relative transform matrxi 
-    T_relative = T_target_inv @ T_origin
+        target_shift = target_pose[:, :3]
+        target_rot = target_pose[:, 3:7]
 
-    # --- transform ---
-    target_pt= T_relative @ origin_pt
+        # --- origin frame -> global ---
+        # rotation:
+        global_pt_xyz = hamilton_product(origin_rot, origin_pt_xyz) 
+        global_pt_xyz = hamilton_product(global_pt_xyz, q_conjugate(origin_rot))
+        # translation: 
+        global_pt_xyz = global_pt_xyz[:, :3] + origin_shift
 
-    target_pt_xyz = target_pt[:, :3, 0] 
+        # --- global -> target frame ---
+        # translation:
+        target_pt_xyz = global_pt_xyz - target_shift
+        # rotation:
+        target_pt_xyz = hamilton_product(q_conjugate(target_rot), target_pt_xyz) 
+        target_pt_xyz = hamilton_product(target_pt_xyz, target_rot) 
+        target_pt_xyz = target_pt_xyz[:, :3]
+    else:
+        # homogenous coordinates:
+        ones = torch.ones((n_pts, 1), device=origin_pt.device, dtype=origin_pt.dtype)
+        origin_pt = torch.cat((origin_pt_xyz, ones), dim=1).unsqueeze(-1) # Shape: (N, 4, 1)
+
+        # --- Transform matrixes ---
+        T_origin = transform_matrix(origin_pose)       # (N, 4, 4)
+        T_target = transform_matrix(target_pose)       # (N, 4, 4)
+        
+        # Inverse target transform matrix
+        T_target_inv = torch.linalg.inv(T_target)      # (N, 4, 4)
+
+        # Relative transform matrxi 
+        T_relative = T_target_inv @ T_origin
+
+        # --- transform ---
+        target_pt= T_relative @ origin_pt
+
+        target_pt_xyz = target_pt[:, :3, 0] 
 
     # --- Cartesian -> Polar ---
     target_pt = transorm_points_coords(target_pt_xyz, projection_type.CARTESIAN2POLAR)
@@ -122,9 +148,10 @@ def project_points(origin_pt, origin_pose, target_pose):
     return target_pt
 
 
-# =======================
-# ===    Quaterions   ===
-# =======================
+
+# =================================
+# ===    Quaterions operation   ===
+# =================================
 
 def q_conjugate(q):
     # quaterion conjugate
@@ -133,8 +160,17 @@ def q_conjugate(q):
 
 def hamilton_product(q1, q2):
 
-    x1, y1, z1, w1 = q1.unbind(dim=-1)
-    x2, y2, z2, w2 = q2.unbind(dim=-1)
+    if q1.shape[1] == 3: 
+        x1, y1, z1 = q1.unbind(dim=-1)
+        w1 = torch.zeros_like(x1) #, dtype = x1.dtype, device = x1.device)
+    else:
+        x1, y1, z1, w1 = q1.unbind(dim=-1)
+
+    if q2.shape[1] == 3: 
+        x2, y2, z2 = q2.unbind(dim=-1)
+        w2 = torch.zeros_like(x2)
+    else:
+        x2, y2, z2, w2 = q2.unbind(dim=-1)
 
     # vector (x, y, z)
     x =  w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2
@@ -145,3 +181,32 @@ def hamilton_product(q1, q2):
     w = w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2
     
     return torch.stack((x, y, z, w), dim=-1)
+
+
+# -------------- 
+import time 
+
+n = 100
+points = torch.rand(n, 3)
+origin_pose = torch.rand(n, 7)
+target_pose = torch.rand(n, 7)
+
+origin_pose[:, 3:7] = F.normalize(origin_pose[:, 3:7], p=2, dim=-1)
+target_pose[:, 3:7] = F.normalize(target_pose[:, 3:7], p=2, dim=-1)
+
+t0 = time.time()
+output_q = project_points(points, origin_pose,target_pose, use_quaterions=True)
+t1 = time.time()
+output = project_points(points, origin_pose,target_pose, use_quaterions=False)
+t2 = time.time()
+
+
+# for i in range(n):
+#     print(f'> pt {i}: {output_q[i, :]} =? {output[i, :]}')
+
+eps = 1e-6 # permissible tolerance, when 1e-6 -> 100% compliance, 1e-7 -> 87% compliance
+compare_res = torch.sum(torch.sum((torch.abs(output_q - output) <= eps), dim=1) > 0)
+
+print(f'Test:\ncorrect transforms: {compare_res/n*100} %.')
+
+print(f'Quaterions exec time: {t1-t0:.4f}\nMatrices exec time: {t2-t1:.4f}')

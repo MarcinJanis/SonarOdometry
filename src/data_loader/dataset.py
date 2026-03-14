@@ -6,8 +6,10 @@ import os
 import cv2
 
 import torch
+import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 import torchvision.io as io
+
 
 class SonarSimDataset(Dataset):
     def __init__(self, root_dir, window_size, transform=None):
@@ -64,6 +66,9 @@ class SonarSimDataset(Dataset):
         time = torch.from_numpy(time.values).float()
         trajectory = torch.from_numpy(trajectory.values).float()
         depth = torch.from_numpy(depth.values).float()
+
+        # ensure that quaterions in trajectory are normnalized 
+        trajectory[:, 3:7] = F.normalize(trajectory[:, 3:7], p=2, dim=-1)
 
         imgs = []
         for i in range(self.window_size):
