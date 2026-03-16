@@ -7,7 +7,7 @@ ___
 
 This project focus on implementation of odometry system based on **Forward Looking Sonar**, using **Deep Neural Networks**.
 
-Architecture core is inspired by [**DPVO** (*Deep Patch-based Visual Odometry*)](https://github.com/princeton-vl/DPVO), adapted to work with forward looking sonar data. 
+Architecture core is inspired by [**DPVO** (*Deep Patch-based Visual Odometry*)](https://github.com/princeton-vl/DPVO), in order to use proven and efficient visual odometry techniques to process sonar data in underwater environments. 
 
 ___
 ## Results and Evaluation
@@ -17,8 +17,7 @@ Model was evaluated on both simulated data used in training process and datasets
 Results on each dataset ws presented below. All results with metrics are compared in table on the end of this section. 
 
 
-### 1. [Simulated Dataset](https://drive.google.com/drive/folders/1BgosYlaRkQkSa43Jpgb6hoGK88n3bXLL?usp=sharing)
-
+### 1. [Simulated Dataset](https://drive.google.com/drive/folders/1BgosYlaRkQkSa43Jpgb6hoGK88n3bXLL?usp=sharing) - own dataset
 
 ### 2. [Aracati2017](https://github.com/matheusbg8/aracati2017)
 
