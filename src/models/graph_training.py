@@ -72,8 +72,7 @@ class Graph(nn.Module):
     self.hidden_state = torch.zeros((self.batch_size*self.frames_in_series*self.patches_per_frame, self.cmap_c), dtype = torch.float)
 
     # --- Patchifier ---
-    self.patchifier = Patchifier(model_cfg,
-                                 debug_mode = False)
+    self.patchifier = Patchifier(model_cfg)
     
       
   def add_frame(self, fmap, time_stamp, device):
@@ -221,7 +220,7 @@ class Graph(nn.Module):
     valid_i = self.i[valid_mask]
 
     pts_num = target_pts.shape[0]
-    
+    print(f'Valid edge number: {pts_num}')
     # --- get correlation neighbour from fmap --- 
     target_pts_fls = self.scale_phisical2fls(target_pts)
 
@@ -290,7 +289,7 @@ class Graph(nn.Module):
     # self.N = frames.shape[0]
 
     # --- extract patches --- 
-    coords, patches_f, patches_c, fmap = self.patchifier(frames, mode =  self.patchifier_method)
+    coords, patches_f, patches_c, fmap = self.patchifier(frames)
 
     # --- add frame to graph ---
     self.add_frame(fmap, time_stamp, device)

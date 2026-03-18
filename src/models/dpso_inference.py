@@ -20,9 +20,9 @@ from .utils import project_points
 
 class DPSO(nn.Module):
 
-    def __init__(self, model_cfg, sonar_cfg, output_dir = None):
+    def __init__(self, model_cfg, sonar_cfg, output_dir = None, save_to_file = False):
         super().__init__()
-
+        
         self.debug = False
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -42,15 +42,19 @@ class DPSO(nn.Module):
         self.ba_min_err = float(model_config.BUNDLE_ADJUSTMENT_MIN_ERR)
         
         # --- init components --- 
-
-        self.PatchGraph = Graph_inference(model_config, sonar_config, output_dir)
-        
-        self.UpdateOperator = Update(model_config)
+        with torch.no_grad():
+            self.PatchGraph = Graph_inference(model_config, sonar_config, output_dir, save_to_file)
+            
+            self.UpdateOperator = Update(model_config)
        
         
     def close(self):
         self.PatchGraph.outputf_close()
 
+    def set_init_pose(self, init_frame, init_t, init_pose):
+        self.PatchGraph.set_init_pose(init_pose)
+        self.PatchGraph.append(init_frame, init_t, self.device)
+        
     def forward(self, x, t):
 
         self.PatchGraph.append(x, t, self.device)
@@ -82,16 +86,17 @@ class DPSO(nn.Module):
                 
                 BA.init_ba(source_frame_idx, target_frame_idx, patch_idx, delta, weights)
                 
-                opt_poses, opt_elevation = BA.run(max_iter=self.ba_iter, early_stop_tol=self.ba_min_err)
-                
+                try: 
+                    opt_poses, opt_elevation = BA.run(max_iter=self.ba_iter, early_stop_tol=self.ba_min_err)
+                    # --- Feedback --- 
+                    self.PatchGraph.update_state(opt_poses.detach().clone(), 
+                                                    opt_elevation.detach().clone(), 
+                                                    h.detach().clone(), 
+                                                    patch_idx)
+                except Exception as e: 
+                    print(f'[Warning] Cannot run BA for frame {self.PatchGraph.frame_n}: {e}')
 
-                # --- Feedback --- 
-                self.PatchGraph.update_state(opt_poses.detach().clone(), 
-                                                 opt_elevation.detach().clone(), 
-                                                 h.detach().clone(), 
-                                                 patch_idx)
-                    
-        # --- Output ----
+        # --- Output ---
         # return current estimation state for control purpose
         pose_vct, time_vct, frame_num = self.PatchGraph.get_state()
         return pose_vct, time_vct, frame_num

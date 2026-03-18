@@ -2,45 +2,41 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 from .encoders import Encoder
 
-# for debug purpose:
 import numpy as np 
 import cv2
 
 class Patchifier(nn.Module):
-    # def __init__(self, patches_per_frame, patch_size:int=3, grid_size:tuple=(24, 24), debug_mode = False):
-    def __init__(self, cfg, debug_mode = False):
+
+    def __init__(self, cfg):
         super().__init__()
         
         self.cfg = cfg
 
-        self.debug_mode = debug_mode
-        self.debug_dict = {}
-
-        # --- Import configuration 
+        # --- Import configuration ---
         self.patches_per_frame = self.cfg.PATCHES_PER_FRAME
         self.patch_size = self.cfg.PATCH_SIZE
-
         self.grid_size_h, self.grid_size_w = self.cfg.PATCHES_GRID_SIZE.x, self.cfg.PATCHES_GRID_SIZE.y
-
+        self.downsize_factor = self.cfg.ENCODER_DOWNSIZE
         
         self.feature_extractor = Encoder(in_ch = 1, 
                                          out_ch = self.cfg.FEATURES_OUTPUT_CH,
                                          dim = self.cfg.FEATURES_MAP_FIRST_DIM, 
                                          dropout=0.5, 
-                                         norm_fn=self.cfg.ENCODER_NORM_METHOD)
+                                         norm_fn=self.cfg.ENCODER_NORM_METHOD,
+                                         downsize=self.downsize_factor)
         
         self.context_extractor = Encoder(in_ch = 1, 
                                          out_ch = self.cfg.CONTEXT_OUTPUT_CH,
                                          dim = self.cfg.CONTEXT_MAP_FIRST_DIM, 
                                          dropout=0.5, 
-                                         norm_fn=None)
+                                         norm_fn=None,
+                                         downsize=self.downsize_factor)
         
-        self.downsize_factor = self.cfg.ENCODER_DOWNSIZE
-
+        
         assert self.patches_per_frame <= self.grid_size_h*self.grid_size_w , f'[Error]: Patchifier module.\n number of patches can\'t be greater than number of cells in grid.'
-
 
     def _harris_response(self, frame, ksize=7, padding=3):
 
@@ -63,9 +59,6 @@ class Patchifier(nn.Module):
         determinant = Ixx * Iyy - Ixy**2
         
         response = determinant / (trace + 1e-8)
-
-        if self.debug_mode:
-            self.debug_dict['harris_response'] =  response.detach().cpu().squeeze(0).squeeze(0).numpy().astype(np.uint8)
 
         return response
 
@@ -176,18 +169,21 @@ class Patchifier(nn.Module):
         
         return patches_f, patches_c
 
-    def _patchifier_draw_keypoints(self, frame, coords):
-            single_frame = frame[0, 0, ...]
-            single_coord = coords[0, 0, ...]
-
+    def get_visu(self, frames, coords, batch=0, frame_num=0):
+         
+            single_frame = frames[batch, frame_num, ...]
+            single_coord = coords[batch, frame_num, ...]
+          
             # create copy of new frame
-            frame_np = single_frame.detach().cpu().numpy()
-            frame_np = frame_np.astype(np.uint8)
+            frame_np = single_frame.clone().detach().squeeze(0).cpu().numpy() 
+
+            frame_np = (frame_np*255).astype(np.uint8) 
             frame_np = cv2.cvtColor(frame_np, cv2.COLOR_GRAY2BGR)
+
 
             # create copy of coords
             coords_np = single_coord.detach().cpu().numpy()
-            coords_np = coords_np.astype(np.int16) * self.downsize_factor  
+            coords_np = coords_np.astype(np.int16)
 
             # draw grid 
             h, w, _ = frame_np.shape
@@ -208,10 +204,14 @@ class Patchifier(nn.Module):
             # draw points
             for i in range(coords_np.shape[0]):
                 x, y = coords_np[i,:]     
+                print(f'pt: {i}: x={x}, y={y}')
                 cv2.circle(frame_np, (x, y), 2, (0, 255, 0), 4)
 
-            # save in debug dict
-            self.debug_dict['key_points'] =  frame_np
+            harris_response = self._harris_response(single_frame.unsqueeze(0).unsqueeze(0))
+            harris_response = harris_response.clone().detach().squeeze(0).squeeze(0)
+            harris_response = (harris_response*255).cpu().numpy().astype(np.uint8)
+            
+            return frame_np, harris_response
             
             
 
@@ -238,12 +238,6 @@ class Patchifier(nn.Module):
             patches_c = patches_c.view(b, n, self.patches_per_frame, c2)
             coords = coords.view(b, n, self.patches_per_frame, 2)
 
-            # debug functionalities
-            if self.debug_mode:
-                # draw grid on orginal frame, mark key points, accesible via self.debug_dict['key_points'], as numpy RGB img
-                self._patchifier_draw_keypoints(frame, coords) 
-
-        
         return coords, patches_f, patches_c, fmap
         
 

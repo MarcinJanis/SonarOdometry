@@ -9,11 +9,11 @@ import csv
 import numpy as np 
 
 from .patchifier import Patchifier
-from .utils import hamilton_product, q_conjugate, project_points
+from .utils import hamilton_product, q_conjugate, project_points, transform_to_global
 
 
 class Graph(nn.Module):
-  def __init__(self, model_cfg, sonar_cfg, output_dir):
+  def __init__(self, model_cfg, sonar_cfg, output_dir, save_to_file = False):
     super().__init__()
 
     # --- import sonar configuration ---
@@ -52,7 +52,7 @@ class Graph(nn.Module):
     self.phi_init_max =  model_cfg.ELEVATION_ANGLE_INIT_MAX
 
     # --- Patchifier ---
-    self.patchifier = Patchifier(model_cfg, debug_mode = False)
+    self.patchifier = Patchifier(model_cfg)
     
     # === Graph initialization ===
     self.frame_n = 0 # frame counter for ring buffer 
@@ -60,9 +60,10 @@ class Graph(nn.Module):
     # --- poses and time stamp buffers ---
     self.register_buffer('time', torch.zeros((self.buff_size), dtype=torch.float), persistent=False) # time stamp
 
-    init_poses = torch.zeros((self.buff_size, 7), dtype=torch.float)
-    init_poses[:, -1] = 1.0
-    self.register_buffer('poses', init_poses, persistent=False) # poses 
+    zero_poses = torch.zeros((self.buff_size, 7), dtype=torch.float)
+    zero_poses[:, -1] = 1.0
+    self.register_buffer('poses', zero_poses, persistent=False) # poses 
+    self.init_pose = torch.tensor([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0], dtype = torch.float)
     
     # --- frame buffers ---
     self.register_buffer('fmap1', torch.zeros((self.buff_size, self.fmap_c, self.fmap_h, self.fmap_w), dtype = torch.float), persistent=False) # frames: features map
@@ -88,8 +89,9 @@ class Graph(nn.Module):
   
 
     # --- init output files --- 
+    self.save_to_file = save_to_file
 
-    if not output_dir is None: 
+    if not output_dir is None and save_to_file: 
 
       os.makedirs(output_dir, exist_ok=True)
       self.output_dir = output_dir
@@ -136,7 +138,10 @@ class Graph(nn.Module):
       data_sec_traj = np.concatenate([np.expand_dims(num, axis=0), np.expand_dims(time, axis=0), data_sec_traj], axis = 0)
       self.w_sec_traj.writerow(data_sec_traj)
 
-  def outputf_write_pts(self, num1, num2, pts):
+  def outputf_write_pts(self, num1, num2, pts, sec_traj):
+      # print(pts.shape, sec_traj.shapes)
+      pts = transform_to_global(pts, sec_traj)
+    
       data_pts = pts.detach().cpu().numpy()
       num = np.expand_dims(np.arange(num1, num2), axis=1)
       data_pts = np.concatenate([num, data_pts], axis = 1)
@@ -203,10 +208,10 @@ class Graph(nn.Module):
       phi = torch.zeros(self.patches_per_frame, device=device, dtype=torch.float)
       
     # save optimized pts
-    if self.frame_n > self.buff_size:
+    if self.frame_n > self.buff_size and self.save_to_file:
       optimize_pts3d = self.patch_state[local_idx, :, :]
-      
-      self.outputf_write_pts((self.frame_n - 1) * self.patches_per_frame, self.frame_n * self.patches_per_frame, optimize_pts3d)
+      optimize_pose = self.poses[local_idx, :].repeat(optimize_pts3d.shape[0], 1)
+      self.outputf_write_pts((self.frame_n - 1) * self.patches_per_frame, self.frame_n * self.patches_per_frame, optimize_pts3d, optimize_pose)
 
     # add new to graph 
     self.patch_state[local_idx, :, :] = torch.stack([r.squeeze(0), theta.squeeze(0), phi], dim=1)
@@ -215,13 +220,24 @@ class Graph(nn.Module):
     self.source_frame[local_idx, :] = self.frame_n 
     return 
 
+  def set_init_pose(self, init_pose):
+    self.init_pose = init_pose 
+    # idx = self.frame_n % self.buff_size
+    # self.poses[idx, :] = init_pose
+    # self.time[idx] = init_time
+    # print(f'init: pose {idx} was set to: {self.poses[idx, :]}')
+    # # self.frame_n += 1
+
   def approx_movement(self, device):
     
     k_idx = self.frame_n % self.buff_size
 
     # print(f'act n: {self.frame_n}')
     if self.frame_n < 2: # initialization
-      x0 = torch.tensor([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0], device=device, dtype=torch.float)
+      x0 = self.init_pose + 1e-3
+      self.init_pose = x0
+      # x0 = self.poses[k_idx, :] + 1e-3 #torch.tensor([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0], device=device, dtype=torch.float)
+      # print(f'appro mov: copy pose from frame: {k_idx} to {k_idx + 1}')
     else: 
       # --- indexes ---
       k1_idx = (k_idx - 1) % self.buff_size  
@@ -279,14 +295,14 @@ class Graph(nn.Module):
           q0 = q0 /torch.norm(q0)
 
           x0 = torch.cat((new_pose, q0), dim=0)
-
+          print(f'appro mov: new pose: {x0}')
       else:
         x0 = x1
 
     # --- save to buffer ---
 
     # get old optimize pose
-    if self.frame_n > self.buff_size:
+    if self.frame_n > self.buff_size and self.save_to_file:
       optimize_pose = self.poses[k_idx, :]
       self.outputf_write_pose(self.frame_n - self.buff_size, self.time[k_idx], optimize_pose)
 
@@ -511,41 +527,3 @@ class Graph(nn.Module):
 
 
 
-
-
-  # def visu_data(self, source_frame_idx, target_frame_idx, patch_idx, last_frames = 3):
-
-  #   # get source coordinates of patches (patch_idx)
-  #   source_coords = self.patch_state[patch_idx // self.patches_per_frame % self.buff_size, patch_idx  % self.patches_per_frame]
-    
-  #   # project coordinates to target frames 
-  #   source_poses = self.poses[source_frame_idx % self.buff_size]
-  #   target_poses = self.poses[target_frame_idx % self.buff_size]
-  #   target_coords = project_points(source_coords, source_poses, target_poses)
-
-  #   # get only edges that are in range last_frames
-  #   mask = (source_frame_idx >= self.frame_n - last_frames) & \
-  #              (target_frame_idx >= self.frame_n - last_frames)
-    
-  #   visu_valid = mask.nonzero(as_tuple=True)[0]
-
-  #   if len(visu_valid) == 0:
-  #           return []
-      
-  #   # validate
-  #   source_frame_idx = source_frame_idx[visu_valid]
-  #   target_frame_idx = target_frame_idx[visu_valid]
-  #   patch_idx = patch_idx[visu_valid]
-  #   source_coords = source_coords[visu_valid]
-  #   target_coords = target_coords[visu_valid]
-
-  #   # get list of frames and coords for each patch
-  #   unique_patches = torch.unique(patch_idx, sorted=True)
-
-  #   output = []
-  #   for target_patch_id in unique_patches:
-  #     idxs = (patch_idx == target_patch_id).nonzero(as_tuple=True)[0]
-  #     frames = torch.cat([source_frame_idx[idxs[0:1]], target_frame_idx[idxs]], dim = 0)
-  #     coords = torch.cat([source_coords[idxs[0:1]], target_coords[idxs]], dim = 0)
-  #     output.append((target_patch_id, frames, coords))
-  #   return output

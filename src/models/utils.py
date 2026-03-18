@@ -40,18 +40,32 @@ def transorm_points_coords(pts, mode:projection_type):
     elif mode == projection_type.CARTESIAN2POLAR:
         x, y, z = pts[:,0], pts[:,1], pts[:,2] 
 
-        # x = torch.clamp(x, min=1e-5)
-        x = torch.where(x.abs() < 1e-5, torch.sign(x + 1e-9) * 1e-5, x) # safe (no exploding grad) but to not set grad to 0 for points with small x
+        # # x = torch.clamp(x, min=1e-5)
+        # x = torch.where(x.abs() < 1e-5, torch.sign(x + 1e-9) * 1e-5, x) # safe (no exploding grad) but to not set grad to 0 for points with small x
 
-        r_sq_xy = torch.clamp(x**2 + y**2, min=1e-8)
-        r_sq = torch.clamp(x**2 + y**2 + z**2, min=1e-8)
+        # r_sq_xy = torch.clamp(x**2 + y**2, min=1e-8)
+        # r_sq = torch.clamp(x**2 + y**2 + z**2, min=1e-8)
 
-        r = torch.sqrt(r_sq)
-        theta = torch.atan2(y, x)
-        phi = torch.atan2(z, torch.sqrt(r_sq_xy))
+        # r = torch.sqrt(r_sq)
+        # theta = torch.atan2(y, x)
+        # phi = torch.atan2(z, torch.sqrt(r_sq_xy))
+
+        # return torch.stack((r, theta, phi), dim=1)
+        
+        r_sq_xy = x**2 + y**2
+        r_xy = torch.sqrt(r_sq_xy + 1e-8)
+        
+        r_sq = r_sq_xy + z**2
+        r = torch.sqrt(r_sq + 1e-8)
+
+        x_s = torch.where(r_sq_xy < 1e-10, x + 1e-5, x)
+        
+        theta = torch.atan2(y, x_s)
+        phi = torch.atan2(z, r_xy)
 
         return torch.stack((r, theta, phi), dim=1)
-        
+    
+    
 # === Create Transform Matrix from quaterions=== 
 def transform_matrix(state):
 
@@ -168,18 +182,18 @@ def transform_to_global(origin_pt, origin_pose):
     # --- Project origin point from spehrical to cartesian coords sys. (r, theta, phi) -> (x, y, z, 1).T ---
     origin_pt_xyz = transorm_points_coords(origin_pt, projection_type.POLAR2CARTESIAN)
     
-        # extract quaterions and translations:
-        origin_shift = origin_pose[:, :3]
-        origin_rot = origin_pose[:, 3:7]
+    # extract quaterions and translations:
+    origin_shift = origin_pose[:, :3]
+    origin_rot = origin_pose[:, 3:7]
 
-        # --- origin frame -> global ---
-        # rotation:
-        global_pt_xyz = hamilton_product(origin_rot, origin_pt_xyz) 
-        global_pt_xyz = hamilton_product(global_pt_xyz, q_conjugate(origin_rot))
-        # translation: 
-        global_pt_xyz = global_pt_xyz[:, :3] + origin_shift
+    # --- origin frame -> global ---
+    # rotation:
+    global_pt_xyz = hamilton_product(origin_rot, origin_pt_xyz) 
+    global_pt_xyz = hamilton_product(global_pt_xyz, q_conjugate(origin_rot))
+    # translation: 
+    global_pt_xyz = global_pt_xyz[:, :3] + origin_shift
 
-        return global_pt_xyz
+    return global_pt_xyz
 
 # === Pose distance === 
 
@@ -196,11 +210,11 @@ def pose_distance(p1, p2):
     dt = t2 - t1
     dist_lin = torch.sqrt(dt[:,0]**2 + dt[:,1]**2 + dt[:,2]**2)
 
-    # angular distance
-    # q1 * dq = q2 => dq = q1^-1 q2
-    dq = hamilton_product(q_conjugate(q1), q2)
-    dist_ang = #TODO SE(3), log(), norm (?)
-    return dist_lin, dist_ang
+    # # angular distance
+    # # q1 * dq = q2 => dq = q1^-1 q2
+    # dq = hamilton_product(q_conjugate(q1), q2)
+    # dist_ang = #TODO SE(3), log(), norm (?)
+    # return dist_lin, dist_ang
 
 
 

@@ -111,6 +111,7 @@ class BundleAdjustment(nn.Module):
         prior_weight = 1e-4
 
         weights_anchor_pose = torch.full((self.pose_num * 6,), prior_weight, device=weights.device, dtype=weights.dtype)
+        # weights_anchor_pose = torch.full((self.pose_num * 7,), prior_weight, device=weights.device, dtype=weights.dtype)
         weights_anchor_elev = torch.full((self.edge_num * 1,), prior_weight, device=weights.device, dtype=weights.dtype)
         
         weights = torch.cat([weights_param, weights_anchor_pose, weights_anchor_elev])
@@ -120,6 +121,58 @@ class BundleAdjustment(nn.Module):
         # # --- set proper form o f weights 
         # self.weights = torch.diag(weights.flatten())
 
+
+    # def forward(self, dummy_input=None):
+
+    #         # --- get poses and coords ---
+    #         source_poses = self.poses[:, self.source_poses_idx, :]
+    #         print("1. source_poses NaN:", torch.isnan(source_poses.tensor()).any())
+
+    #         target_poses = self.poses[:, self.target_poses_idx, :]
+    #         print("2. target_poses NaN:", torch.isnan(target_poses.tensor()).any())
+
+    #         patch_coords = self.patch_coords[:, self.patch_idx % self.edge_num, :]
+    #         print("3. patch_coords NaN:", torch.isnan(patch_coords).any())
+
+    #         elevation_angle = self.elevation_angle[:, self.patch_idx % self.edge_num, :]
+    #         print("4. elevation_angle NaN:", torch.isnan(elevation_angle).any())
+            
+    #         proj_coords = torch.cat([patch_coords, elevation_angle], dim = 2)
+    #         print("5. proj_coords (przed transform) NaN:", torch.isnan(proj_coords).any())
+
+    #         # --- transfom coords ---
+    #         proj_coords = self.transform(source_poses, target_poses, proj_coords)
+    #         print("6. proj_coords (PO transform) NaN:", torch.isnan(proj_coords).any())
+
+    #         # --- projection error ---
+    #         residual_proj = proj_coords[:, :, :2] - self.target_coords
+    #         print("7. residual_proj (odejmowanie) NaN:", torch.isnan(residual_proj).any())
+
+    #         residual_proj = self.scale_proj_err(residual_proj)
+    #         print("8. residual_proj (po scale_proj_err) NaN:", torch.isnan(residual_proj).any())
+
+    #         residual_proj = residual_proj.view(1, -1)
+    #         print("9. residual_proj (po view) NaN:", torch.isnan(residual_proj).any())
+
+    #         # --- pose diff err --- 
+    #         residual_pose = self.poses.tensor() - self.init_poses.tensor() # Safe option
+    #         print("10. residual_pose (odejmowanie poses) NaN:", torch.isnan(residual_pose).any())
+
+    #         residual_pose = residual_pose.view(1, -1)
+    #         print("11. residual_pose (po view) NaN:", torch.isnan(residual_pose).any())
+
+    #         # --- elev ang err --- 
+    #         residual_elev = self.elevation_angle - self.init_elevation_angle
+    #         print("12. residual_elev (odejmowanie elev) NaN:", torch.isnan(residual_elev).any())
+
+    #         residual_elev = residual_elev.view(1, -1)
+    #         print("13. residual_elev (po view) NaN:", torch.isnan(residual_elev).any())
+
+    #         residual = torch.cat([residual_proj, residual_pose, residual_elev], dim=1)
+    #         print("14. residual (FINALNY) NaN:", torch.isnan(residual).any())
+
+    #         return residual
+    
     def forward(self, dummy_input=None):
 
         # --- get poses and coords ---
@@ -139,8 +192,11 @@ class BundleAdjustment(nn.Module):
         residual_proj = self.scale_proj_err(residual_proj)
         residual_proj = residual_proj.view(1, -1)
         # --- pose diff err --- 
-        residual_pose = (self.init_poses.Inv() @ self.poses).Log()
-        residual_pose = residual_pose.tensor().view(1, -1)
+
+        residual_pose = (self.init_poses.Inv() @ self.poses).Log().tensor()
+        # residual_pose = self.poses.tensor() - self.init_poses.tensor() # Safe option
+
+        residual_pose = residual_pose.view(1, -1)
         # --- elev ang err --- 
         residual_elev = self.elevation_angle - self.init_elevation_angle
         residual_elev = residual_elev.view(1, -1)
@@ -151,7 +207,10 @@ class BundleAdjustment(nn.Module):
 
     def run(self, max_iter, early_stop_tol):
         
-        optimizer = pp.optim.LM(self)
+        # optimizer = pp.optim.LM(self)
+        strategy = pp.optim.strategy.TrustRegion(radius=1.0) # define limits for optimized - damping, radius [m]
+        optimizer = pp.optim.LM(self, strategy=strategy)
+
         prev_loss = float('inf')
         with torch.enable_grad():
             for i in range(max_iter):
