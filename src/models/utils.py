@@ -6,6 +6,39 @@ from enum import IntEnum
 
 
 # === Points Transformation === 
+
+
+
+def transform_cart2polar(pts, eps=1e-8):
+    x, y, z = pts[:,0], pts[:,1], pts[:,2] 
+    
+    r_sq_xy = torch.clamp(x**2 + y**2, min=eps)
+    r_xy = torch.sqrt(r_sq_xy)
+    
+    r_sq = r_sq_xy + z**2
+    r = torch.sqrt(r_sq)
+    
+    mask_theta = (torch.abs(x) < eps) & (torch.abs(y) < eps)
+    x_s = torch.where(mask_theta, x + eps, x)
+    # x_s = torch.where(mask_theta, torch.ones_like(x), x) # alternative version, for points with x = 0 and y = 0, x = 0 -> x = 1 ->  atan2(0.0, 1.0) = 0 
+    theta = torch.atan2(y, x_s)
+
+    phi = torch.atan2(z, r_xy)
+
+    return torch.stack((r, theta, phi), dim=1)
+
+
+
+def transform_polar2car(pts):
+    r, theta, phi = pts[:,0], pts[:,1], pts[:,2]
+    
+    r_xy = r * torch.cos(phi)
+    x = r_xy * torch.cos(theta)
+    y = r_xy * torch.sin(theta)
+    z = r * torch.sin(phi) 
+    return  torch.stack((x, y, z), dim=1)
+    
+
 # Transform points between polar and carthesian coords system
 
 class projection_type(IntEnum):
