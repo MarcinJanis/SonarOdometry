@@ -1,5 +1,5 @@
 # TODO:
-
+- Dodać F.normalize zaraz przed zwróceniem predykcji póz!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 
 ## Ideas:
