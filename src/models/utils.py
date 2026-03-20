@@ -28,7 +28,6 @@ def transorm_points_coords(pts, mode:projection_type):
 
     :mode: projection_type
     '''
-
     if mode == projection_type.POLAR2CARTESIAN:
         r, theta, phi = pts[:,0], pts[:,1], pts[:,2]
         r_xy = r * torch.cos(phi)
@@ -65,7 +64,17 @@ def transorm_points_coords(pts, mode:projection_type):
 
         return torch.stack((r, theta, phi), dim=1)
     
-    
+#################
+
+# Safe atan2:
+
+# mask = (torch.abs(x) < eps) && (torch.abs(y) < eps)
+# # y stay unchanged 
+# x = torch.where(mask, x + eps, x)
+# torch.atan2(y, x)
+
+
+
 # === Create Transform Matrix from quaterions=== 
 def transform_matrix(state):
 
