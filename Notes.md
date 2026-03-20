@@ -1,5 +1,7 @@
 # TODO:
 - Dodać F.normalize zaraz przed zwróceniem predykcji póz!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+- Dodać F.normalize za każdym razem, gdy modyfikuje pozę, czyli w zasadzie w BA
+- W inference zmienić logikę z tym valid mask 
 
 
 ## Ideas:
