@@ -239,7 +239,7 @@ def transform_to_global(origin_pt, origin_pose):
 
 # === Pose distance === 
 
-def pose_distance(p1, p2):
+def pose_distance(p1, p2, eps=1e-8):
     
     # extract translation and rotation
     t1 = p1[:, :3]
@@ -250,7 +250,7 @@ def pose_distance(p1, p2):
 
     # linear distance
     dt = t2 - t1
-    dist_lin = torch.sqrt(dt[:,0]**2 + dt[:,1]**2 + dt[:,2]**2)
+    dist_lin = torch.sqrt(torch.clamp(dt[:,0]**2 + dt[:,1]**2 + dt[:,2]**2, eps))
 
     # # angular distance
     # # q1 * dq = q2 => dq = q1^-1 q2
