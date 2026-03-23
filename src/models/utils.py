@@ -8,7 +8,6 @@ from enum import IntEnum
 # === Points Transformation === 
 
 
-
 def transform_cart2polar(pts, eps=1e-8):
     x, y, z = pts[:,0], pts[:,1], pts[:,2] 
     
@@ -98,16 +97,6 @@ def transorm_points_coords(pts, mode:projection_type):
 
         return torch.stack((r, theta, phi), dim=1)
     
-#################
-
-# Safe atan2:
-
-# mask = (torch.abs(x) < eps) && (torch.abs(y) < eps)
-# # y stay unchanged 
-# x = torch.where(mask, x + eps, x)
-# torch.atan2(y, x)
-
-
 
 # === Create Transform Matrix from quaterions=== 
 def transform_matrix(state):
@@ -162,8 +151,9 @@ def project_points(origin_pt, origin_pose, target_pose, use_quaterions=True):
     n_pts, _ = origin_pt.shape 
 
     # --- Project origin point from spehrical to cartesian coords sys. (r, theta, phi) -> (x, y, z, 1).T ---
-    origin_pt_xyz = transorm_points_coords(origin_pt, projection_type.POLAR2CARTESIAN)
-
+    
+    # origin_pt_xyz = transorm_points_coords(origin_pt, projection_type.POLAR2CARTESIAN)
+    origin_pt_xyz = transform_polar2car(origin_pt)
 
     if use_quaterions:
         # extract quaterions and translations:
@@ -208,7 +198,9 @@ def project_points(origin_pt, origin_pose, target_pose, use_quaterions=True):
         target_pt_xyz = target_pt[:, :3, 0] 
 
     # --- Cartesian -> Polar ---
-    target_pt = transorm_points_coords(target_pt_xyz, projection_type.CARTESIAN2POLAR)
+
+    # target_pt = transorm_points_coords(target_pt_xyz, projection_type.CARTESIAN2POLAR)
+    target_pt = transform_cart2polar(target_pt_xyz)
 
     return target_pt
 
@@ -223,8 +215,10 @@ def transform_to_global(origin_pt, origin_pose):
     n_pts, _ = origin_pt.shape 
 
     # --- Project origin point from spehrical to cartesian coords sys. (r, theta, phi) -> (x, y, z, 1).T ---
-    origin_pt_xyz = transorm_points_coords(origin_pt, projection_type.POLAR2CARTESIAN)
     
+    # origin_pt_xyz = transorm_points_coords(origin_pt, projection_type.POLAR2CARTESIAN)
+    origin_pt_xyz = transform_polar2car(origin_pt)
+
     # extract quaterions and translations:
     origin_shift = origin_pose[:, :3]
     origin_rot = origin_pose[:, 3:7]
@@ -237,6 +231,56 @@ def transform_to_global(origin_pt, origin_pose):
     global_pt_xyz = global_pt_xyz[:, :3] + origin_shift
 
     return global_pt_xyz
+
+# === Movement approximation === 
+
+def approx_movement(self, poses, time, n,  mode = 'linear'):
+    
+        if n < 2: 
+            return 
+
+        b = self.time.shape[0]
+
+        # --- get time stams ---
+        t0 = time[:, n].view(b, 1)
+        t1 = time[:, n-1].view(b, 1)
+        t2 = time[:, n-2].view(b, 1)
+      
+        # --- get previous position ---
+        x1 = poses[:, n-1, :].view(b, 7)
+        x2 = poses[:, n-2, :].view(b, 7)
+
+        if mode == 'linear':   
+           
+            if (t0 >= t1).all() or (t1 >= t2).all():  # check time intervals 
+
+                # linear displacement 
+                new_translation = x1[:, 0:3] + (x1[:, 0:3] - x2[:, 0:3])/(t1 - t2)*(t0 - t1)  
+
+                # extract quaterions 
+                q1 = x1[3:]
+                q2 = x2[3:]
+
+                # find shortest rotation
+                dot = (q1 * q2).sum(dim=1, keepdim=True) 
+                q1 = torch.where(dot < 0, -q1, q1)
+                
+                # quaterion difference: dq = dq * q2^-1
+                diff = hamilton_product(q1, q_conjugate(q2))
+
+                # add rotation to last pose
+                new_rot = hamilton_product(q1, diff)
+
+                new_pose = torch.cat([new_translation, new_rot], dim=1)
+                
+        else: 
+            new_pose = x1
+
+        new_pose = new_pose.unsqueeze(1) # (b, 7) -> (b, 1, 7)
+        return new_pose
+
+
+
 
 # === Pose distance === 
 

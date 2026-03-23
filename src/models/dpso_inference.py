@@ -13,7 +13,7 @@ import yaml
 
 from .update import Update
 from .graph_inference import Graph as Graph_inference
-from .graph_training import Graph as Graph_train
+from .graph_training_obsolete import Graph as Graph_train
 from .bundle_adjustment import BundleAdjustment
 from .utils import project_points
 
@@ -65,17 +65,21 @@ class DPSO(nn.Module):
         for iter in range(self.update_iter):
             
             # -- get correlation, contexet and graph edges idx -- 
-            corr, ctx, source_frame_idx, target_frame_idx, patch_idx = self.PatchGraph.update_step(self.device)
+            corr, ctx, source_frame_idx, target_frame_idx, patch_idx, valid_mask = self.PatchGraph.update_step(self.device)
 
             # --- get hidden state for active edges --- 
             h = self.PatchGraph.get_hidden_state(patch_idx)
 
             # --- Optimiziation loop --- 
-            if patch_idx.shape[0] > 0: # if any edge exist
+            valid_edges = torch.sum(valid_mask)
+
+            # if patch_idx.shape[0] > 0: # if any edge exist
+            if valid_edges > 0:
 
                 # --- Update operator --- 
                 h, correction = self.UpdateOperator(h, None, corr, ctx, source_frame_idx, target_frame_idx, patch_idx, self.device)
                 delta, weights = correction
+                weights = weights * valid_mask.unsqueeze(-1) # apply valid mask to exclude non valid edges
 
                 # --- Bundle adjustement ---
                 BA = BundleAdjustment(self.PatchGraph.actual_poses, 

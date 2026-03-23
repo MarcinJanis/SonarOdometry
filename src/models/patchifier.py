@@ -109,7 +109,7 @@ class Patchifier(nn.Module):
         x_best = torch.gather(x_flat, 1, top_idxs)
         
         # stack coords, rescale to downsized shape (compliance with output of encoder)
-        coords = torch.stack([x_best, y_best], dim=-1).float()
+        coords = torch.stack([y_best, x_best], dim=-1).float()
         coords = coords.view(bn, self.patches_per_frame, 2)
         return coords
 
@@ -122,7 +122,7 @@ class Patchifier(nn.Module):
         # offsets to get patches
         r = torch.arange(self.patch_size, device=device).float() - (self.patch_size // 2)
         dy, dx = torch.meshgrid(r, r, indexing="ij")
-        coords_offsets = torch.stack([dx, dy], dim=-1).float() # shape [K, K, 2]
+        coords_offsets = torch.stack([dy, dx], dim=-1).float() # shape [K, K, 2]
 
         # add offsets dim to coords
         coords = coords.unsqueeze(-2)
@@ -132,15 +132,15 @@ class Patchifier(nn.Module):
         bn, c1, h, w = fmap.shape
         c2 = cmap.shape[1]
 
-        xp_norm = (2 * coords_p[:, :, :, :, 0] + 1) / w - 1
-        yp_norm = (2 * coords_p[:, :, :, :, 1] + 1) / h - 1
+        yp_norm = (2 * coords_p[:, :, :, :, 0] + 1) / h - 1
+        xp_norm = (2 * coords_p[:, :, :, :, 1] + 1) / w - 1
 
         # sampling grid with norm coords of patches ceneter 
-        grid_p = torch.stack([xp_norm, yp_norm], dim=-1) # grid shape [b*n, patcher_per_frame, K, K 2]
+        grid_p = torch.stack([yp_norm, xp_norm], dim=-1) # grid shape [b*n, patcher_per_frame, K, K 2]
 
-        x1_norm = (2 * coords[:, :, :, 0] + 1) / w - 1
-        y1_norm = (2 * coords[:, :, :, 1] + 1) / h - 1
-        grid_1 = torch.stack([x1_norm, y1_norm], dim=-1)
+        y1_norm = (2 * coords[:, :, :, 0] + 1) / h - 1
+        x1_norm = (2 * coords[:, :, :, 1] + 1) / w - 1
+        grid_1 = torch.stack([y1_norm, x1_norm], dim=-1)
 
         # sample patches
         patches_f = torch.nn.functional.grid_sample(
@@ -203,7 +203,7 @@ class Patchifier(nn.Module):
 
             # draw points
             for i in range(coords_np.shape[0]):
-                x, y = coords_np[i,:]     
+                y, x = coords_np[i,:]     
                 print(f'pt: {i}: x={x}, y={y}')
                 cv2.circle(frame_np, (x, y), 2, (0, 255, 0), 4)
 

@@ -64,12 +64,11 @@ class Graph(nn.Module):
     self.fmap2 = None
 
     self.coords_r_theta = None # coords of patch, only r and theta, contants
-    # coords_phi = None # coords of patch, only phi, which is estimating; self.patch_state = torch.cat([self.coords_r_theta, coords_phi], dim = 1)
-
+    
     self.i = None
     self.j = None
 
-    self.hidden_state = torch.zeros((self.batch_size*self.frames_in_series*self.patches_per_frame, self.cmap_c), dtype = torch.float)
+    self.hidden_state = None
 
     # --- Patchifier ---
     self.patchifier = Patchifier(model_cfg)
@@ -122,13 +121,10 @@ class Graph(nn.Module):
     coords = self.scale_fls2phisical(coords)
     self.coords_r_theta = coords.view(b, n, p, d)
 
-   
     if self.phi_init_mode == 'rand':
         coords_phi = torch.rand((b, n, p, 1), device=device, dtype=torch.float) * (self.phi_init_max - self.phi_init_min) + self.phi_init_min
     else: 
         coords_phi = torch.zeros((b, n, p, 1), device=device, dtype=torch.float) # init elevation angle with zeros
-
-    coords_phi.requires_grad_(True)
 
     return coords_phi
 
@@ -139,15 +135,6 @@ class Graph(nn.Module):
     init_pose = poses_gt[:, 0, :]
     poses = init_pose.unsqueeze(1).clone()
     poses = poses.repeat(1, n, 1)  
-
-    # print(f'init pose: {init_pose[0, :]}')
-    # for i in range(n):
-    #    print(f'new pose 1:\n{poses[0, i, :]}')
-    # print(f'end of debugginh')
-    
-    # set all poses to zero (with keeping quaterions normalized)
-    # poses = torch.zeros((self.batch_size, self.frames_in_series, 7), device=device, dtype=torch.float)
-    # poses[:, :, -1] = 1.0 # Quaternion w
     
     poses.requires_grad_(True)
     
@@ -185,6 +172,9 @@ class Graph(nn.Module):
     self.i = i_global.view(-1) # flat into one dimensional vector
     self.j = j_global.view(-1)
 
+    # --- init hidden state for all edges --- 
+    self.hidden_state = torch.zeros((self.i.shape[0], self.cmap_c), device = device, dtype=torch.float)
+    
     return
 
 
@@ -221,9 +211,9 @@ class Graph(nn.Module):
     valid_mask = ~out_of_range
 
     # discard non valid edges
-    # target_pts = target_pts[valid_mask]
-    # valid_j = self.j[valid_mask]
-    # valid_i = self.i[valid_mask]
+    target_pts = target_pts[valid_mask]
+    valid_j = self.j[valid_mask]
+    valid_i = self.i[valid_mask]
 
     pts_num = target_pts.shape[0]
   
@@ -268,8 +258,8 @@ class Graph(nn.Module):
     patches_f = self.patches_f.view(b*n*p, c1, d)
     patches_c = self.patches_c.view(b*n*p, c2)
 
-    act_patches_f = patches_f[self.i, :, :]
-    act_patches_c = patches_c[self.i, :]
+    act_patches_f = patches_f[valid_i, :, :]
+    act_patches_c = patches_c[valid_j, :]
     
     # --- calc correlation and connect to single tensor --- 
     corr_map1 = torch.einsum('ncpr, ncp -> nr', target_patches_fmap1, act_patches_f)
@@ -277,13 +267,15 @@ class Graph(nn.Module):
 
     corr_map = torch.cat((corr_map1.reshape(pts_num, -1), corr_map2.reshape(pts_num, -1)), dim=-1) 
 
-    
     return corr_map, act_patches_c, valid_mask
 
-  def get_hidden_state(self, patch_idx):
+  def get_hidden_state(self, valid_mask):
     
-    return self.hidden_state[patch_idx, :]
+    return self.hidden_state[valid_mask, :]
 
+  def update_hidden_state(self, h, valid_mask):
+     
+     self.hidden_state[valid_mask, :] = h
 
 
   def append(self, frames, time_stamp, poses_gt, device):
@@ -312,15 +304,15 @@ class Graph(nn.Module):
     return poses, coords_phi
 
 
-  def update_step(self, poses, coords_phi,  device):
+  def update_step(self, poses, coords_phi, device):
 
     # b, n, p, _ = coords_phi.shape
 
-    corr, ctx, valid_mask = self.corr(poses, coords_phi, eps = 1e-2, device = device)
+    corr, ctx, valid_mask = self.corr(poses, coords_phi, eps=1e-2, device=device)
     
-    patch_idx = self.i #[valid_mask]
+    patch_idx = self.i[valid_mask]
     source_frame_idx = patch_idx // self.patches_per_frame
-    target_frame_idx = self.j #[valid_mask]
+    target_frame_idx = self.j[valid_mask]
 
     return corr, ctx, source_frame_idx, target_frame_idx, patch_idx, valid_mask
 

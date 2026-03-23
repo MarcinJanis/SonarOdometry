@@ -13,7 +13,7 @@ import yaml
 
 from .update import Update
 from .graph_inference import Graph as Graph_inference
-from .graph_training import Graph as Graph_train
+from .graph_training_obsolete import Graph as Graph_train
 from .bundle_adjustment import BundleAdjustment
 
 

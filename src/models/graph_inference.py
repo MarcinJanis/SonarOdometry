@@ -384,10 +384,11 @@ class Graph(nn.Module):
 
     # discard non valid edges
     valid_mask = ~out_of_range
-    target_pts = target_pts[valid_mask]
-    buff_source_frame_idx = buff_source_frame_idx[valid_mask]
-    buff_target_frame_idx = buff_target_frame_idx[valid_mask]
-    local_patch_idx = local_patch_idx[valid_mask]
+
+    # target_pts = target_pts[valid_mask]
+    # buff_source_frame_idx = buff_source_frame_idx[valid_mask]
+    # buff_target_frame_idx = buff_target_frame_idx[valid_mask]
+    # local_patch_idx = local_patch_idx[valid_mask]
     
     pts_num = target_pts.shape[0]
     
@@ -439,7 +440,7 @@ class Graph(nn.Module):
     else:
       corr_map = torch.tensor([], device = device, dtype = torch.float)
 
-    return corr_map, act_patches_c, i[valid_mask], j[valid_mask]
+    return corr_map, act_patches_c, i, j, valid_mask
     
   # --- interface to obtain data ---
 
@@ -516,13 +517,13 @@ class Graph(nn.Module):
     
   def update_step(self, device):
 
-    corr, ctx, valid_i, valid_j= self.corr(eps = 1e-2, device=device)
+    corr, ctx, patch_idx, target_frame_idx, valid_mask = self.corr(eps = 1e-2, device=device)
 
-    patch_idx = valid_i
+    # patch_idx = i
     source_frame_idx = patch_idx // self.patches_per_frame
-    target_frame_idx = valid_j
+    # target_frame_idx = j
     
-    return corr, ctx, source_frame_idx, target_frame_idx, patch_idx
+    return corr, ctx, source_frame_idx, target_frame_idx, patch_idx, valid_mask
   
 
 

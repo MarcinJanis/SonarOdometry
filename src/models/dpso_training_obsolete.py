@@ -13,7 +13,7 @@ import yaml
 
 from .update import Update
 from .graph_inference import Graph as Graph_inference
-from .graph_training import Graph as Graph_train
+from .graph_training_obsolete import Graph as Graph_train
 from .bundle_adjustment import BundleAdjustment
 from .utils import project_points
 
@@ -42,8 +42,6 @@ class DPSO_train(nn.Module):
         self.hidden_state_dim = model_config.CONTEXT_OUTPUT_CH
         self.ba_min_err = float(model_config.BUNDLE_ADJUSTMENT_MIN_ERR)
 
-        
-
         # --- init components --- 
         self.PatchGraph = Graph_train(model_config, sonar_config, train_config)
         self.UpdateOperator = Update(model_config)
@@ -52,33 +50,36 @@ class DPSO_train(nn.Module):
         
         # --- update graph new data ---
         poses, coords_phi = self.PatchGraph.append(x, t, poses_gt, self.device)
-        # print(f'Debug 1. poses = {poses.shape}, poses_gt = {poses_gt.shape}')
-        if freeze_poses:
-            poses = poses_gt
-       
+
         # --- Optimize iteration --- 
         output_iter = [] # for accumulate output from ech iteration
 
         for iter in range(self.update_iter):
+
+            # --- detach data optimized in BA from torch graph --- 
+            if freeze_poses:
+                poses = poses_gt.detach().clone()
+            else:
+                poses = poses.detach().clone()
+                poses.requires_grad_(True)
+
+            coords_phi = coords_phi.detach().clone()
+            coords_phi.requires_grad_(True)
             
             # -- get correlation, contexet and graph edges idx -- 
             corr, ctx, source_frame_idx, target_frame_idx, patch_idx, valid_mask = self.PatchGraph.update_step(poses, coords_phi, self.device)
 
-            # --- get hidden state for active edges --- 
-            h = self.PatchGraph.get_hidden_state(patch_idx)
+            valid_edges_num = patch_idx.shape[0] # number of active edges
 
             # --- Optimiziation loop --- 
-            valid_edges = torch.sum(valid_mask)
-            print(f'Optim iter {iter}, valid edges: {valid_edges}/{valid_mask.shape[0]}')
-            if valid_edges > 0:
-            
+            if valid_edges_num > 0:
+
+                # --- Get hidden state for active edges --- 
+                h = self.PatchGraph.get_hidden_state(valid_mask)
+
                 # --- Update operator --- 
                 h, correction = self.UpdateOperator(h, None, corr, ctx, source_frame_idx, target_frame_idx, patch_idx, self.device)
                 delta, weights = correction
-                weights = weights * valid_mask.unsqueeze(-1) # apply valid mask to exclude non valid edges
-
-                
-                # if torch.sum(weights[:, 0], dim=0) == 0.0: print(f'AHTUNG!! all weights are zero!!!')
                 
                 # --- Bundle adjustement ---
                 BA = BundleAdjustment(poses, 
@@ -88,15 +89,16 @@ class DPSO_train(nn.Module):
                                       freeze_poses=freeze_poses)
                 
                 BA.init_ba(source_frame_idx, target_frame_idx, patch_idx, delta, weights)
+
                 try:
                     opt_poses, opt_elevation = BA.run(max_iter=self.ba_iter, early_stop_tol=self.ba_min_err)
-                    print(f'opt_poses: {torch.isnan(opt_poses).any()}')
-                    print(f'opt_elevation: {torch.isnan(opt_elevation).any()}')
                    
                     # --- Feedback --- 
                     poses = opt_poses
                     coords_phi = opt_elevation 
-                    
+
+                    self.PatchGraph.update_hidden_state(h, valid_mask)
+
                     # --- Final projection error ---
                     if self.training:
 
@@ -136,8 +138,6 @@ class DPSO_train(nn.Module):
                 output_iter.append((poses, patch_projection_error_pix))
             else: 
                 print(f'[Warning] For iteration {iter} there was no active edges. Otimiziation impossible.')
-
-            
 
         return  output_iter
 
