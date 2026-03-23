@@ -94,7 +94,7 @@ class DPSO(nn.Module):
                                                     h.detach().clone(), 
                                                     patch_idx)
                 except Exception as e: 
-                    print(f'[Warning] Cannot run BA for frame {self.PatchGraph.frame_n}: {e}')
+                    print(f'[Warning] Cannot run BA for frame {self.PatchGraph.frame_n}, iter: {iter}: {e}')
 
         # --- Output ---
         # return current estimation state for control purpose

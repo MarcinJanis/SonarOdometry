@@ -135,13 +135,19 @@ class Graph(nn.Module):
   def approx_movement(self, poses_gt, device):  
 
     # --- set all init poses to first poses in sequence --- 
-    # b, n, d = poses_gt.shape
-    # init_pose = poses_gt[:, 0, :]
-    # poses = init_pose.unsqueeze(1).expand(b, n, d).clone()    
+    b, n, d = poses_gt.shape
+    init_pose = poses_gt[:, 0, :]
+    poses = init_pose.unsqueeze(1).clone()
+    poses = poses.repeat(1, n, 1)  
 
-    # # set all poses to zero (with keeping quaterions normalized)
-    poses = torch.zeros((self.batch_size, self.frames_in_series, 7), device=device, dtype=torch.float)
-    poses[:, :, -1] = 1.0 # Quaternion w
+    # print(f'init pose: {init_pose[0, :]}')
+    # for i in range(n):
+    #    print(f'new pose 1:\n{poses[0, i, :]}')
+    # print(f'end of debugginh')
+    
+    # set all poses to zero (with keeping quaterions normalized)
+    # poses = torch.zeros((self.batch_size, self.frames_in_series, 7), device=device, dtype=torch.float)
+    # poses[:, :, -1] = 1.0 # Quaternion w
     
     poses.requires_grad_(True)
     
@@ -212,15 +218,15 @@ class Graph(nn.Module):
     out_of_range = (target_pts[:,0] < (self.r_min - eps)) | (target_pts[:,0] > (self.r_max + eps))
     out_of_range = out_of_range | (torch.abs(target_pts[:,1]) > theta_max + eps)
     out_of_range = out_of_range | (torch.abs(target_pts[:,2]) > phi_max + eps)
+    valid_mask = ~out_of_range
 
     # discard non valid edges
-    valid_mask = ~out_of_range
-    target_pts = target_pts[valid_mask]
-    valid_j = self.j[valid_mask]
-    valid_i = self.i[valid_mask]
+    # target_pts = target_pts[valid_mask]
+    # valid_j = self.j[valid_mask]
+    # valid_i = self.i[valid_mask]
 
     pts_num = target_pts.shape[0]
-    print(f'Valid edge number: {pts_num}')
+  
     # --- get correlation neighbour from fmap --- 
     target_pts_fls = self.scale_phisical2fls(target_pts)
 
@@ -246,8 +252,8 @@ class Graph(nn.Module):
     b, n, c, h, w = self.fmap1.shape
     fmap1_cpy, fmap2_cpy = self.fmap1.view(b*n, c, h, w), self.fmap2.view(b*n, c, h//self.encoder_downsize, w//self.encoder_downsize)
 
-    target_patches_fmap1 = F.grid_sample(fmap1_cpy[valid_j], grid1, mode='bilinear', padding_mode='zeros', align_corners=True) #TODO:
-    target_patches_fmap2 = F.grid_sample(fmap2_cpy[valid_j], grid2, mode='bilinear', padding_mode='zeros', align_corners=True)
+    target_patches_fmap1 = F.grid_sample(fmap1_cpy[self.j], grid1, mode='bilinear', padding_mode='zeros', align_corners=True) #TODO:
+    target_patches_fmap2 = F.grid_sample(fmap2_cpy[self.j], grid2, mode='bilinear', padding_mode='zeros', align_corners=True)
 
     target_patches_fmap1 = F.unfold(target_patches_fmap1, kernel_size=(self.patch_size, self.patch_size), stride=1)
     target_patches_fmap2 = F.unfold(target_patches_fmap2, kernel_size=(self.patch_size, self.patch_size), stride=1)
@@ -262,8 +268,8 @@ class Graph(nn.Module):
     patches_f = self.patches_f.view(b*n*p, c1, d)
     patches_c = self.patches_c.view(b*n*p, c2)
 
-    act_patches_f = patches_f[valid_i, :, :]
-    act_patches_c = patches_c[valid_i, :]
+    act_patches_f = patches_f[self.i, :, :]
+    act_patches_c = patches_c[self.i, :]
     
     # --- calc correlation and connect to single tensor --- 
     corr_map1 = torch.einsum('ncpr, ncp -> nr', target_patches_fmap1, act_patches_f)
@@ -312,10 +318,10 @@ class Graph(nn.Module):
 
     corr, ctx, valid_mask = self.corr(poses, coords_phi, eps = 1e-2, device = device)
     
-    patch_idx = self.i[valid_mask]
+    patch_idx = self.i #[valid_mask]
     source_frame_idx = patch_idx // self.patches_per_frame
-    target_frame_idx = self.j[valid_mask]
+    target_frame_idx = self.j #[valid_mask]
 
-    return corr, ctx, source_frame_idx, target_frame_idx, patch_idx
+    return corr, ctx, source_frame_idx, target_frame_idx, patch_idx, valid_mask
 
 

@@ -58,7 +58,8 @@ def transorm_points_coords(pts, mode:projection_type):
         r_sq = r_sq_xy + z**2
         r = torch.sqrt(r_sq + 1e-8)
 
-        x_s = torch.where(r_sq_xy < 1e-10, x + 1e-5, x)
+        # x_s = torch.where(r_sq_xy < 1e-10, x + 1e-5, x)
+        x_s = torch.where(r_sq_xy < 1e-10, x + torch.sign(x + 1e-9) * 1e-5, x)
         
         theta = torch.atan2(y, x_s)
         phi = torch.atan2(z, r_xy)

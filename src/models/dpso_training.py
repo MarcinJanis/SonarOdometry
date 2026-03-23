@@ -62,18 +62,24 @@ class DPSO_train(nn.Module):
         for iter in range(self.update_iter):
             
             # -- get correlation, contexet and graph edges idx -- 
-            corr, ctx, source_frame_idx, target_frame_idx, patch_idx = self.PatchGraph.update_step(poses, coords_phi, self.device)
+            corr, ctx, source_frame_idx, target_frame_idx, patch_idx, valid_mask = self.PatchGraph.update_step(poses, coords_phi, self.device)
 
             # --- get hidden state for active edges --- 
             h = self.PatchGraph.get_hidden_state(patch_idx)
 
             # --- Optimiziation loop --- 
-            if patch_idx.shape[0] > 0: # if any edge exist
-
+            valid_edges = torch.sum(valid_mask)
+            print(f'Optim iter {iter}, valid edges: {valid_edges}/{valid_mask.shape[0]}')
+            if valid_edges > 0:
+            
                 # --- Update operator --- 
                 h, correction = self.UpdateOperator(h, None, corr, ctx, source_frame_idx, target_frame_idx, patch_idx, self.device)
                 delta, weights = correction
+                weights = weights * valid_mask.unsqueeze(-1) # apply valid mask to exclude non valid edges
 
+                
+                # if torch.sum(weights[:, 0], dim=0) == 0.0: print(f'AHTUNG!! all weights are zero!!!')
+                
                 # --- Bundle adjustement ---
                 BA = BundleAdjustment(poses, 
                                       self.PatchGraph.coords_r_theta, 
@@ -82,46 +88,56 @@ class DPSO_train(nn.Module):
                                       freeze_poses=freeze_poses)
                 
                 BA.init_ba(source_frame_idx, target_frame_idx, patch_idx, delta, weights)
+                try:
+                    opt_poses, opt_elevation = BA.run(max_iter=self.ba_iter, early_stop_tol=self.ba_min_err)
+                    print(f'opt_poses: {torch.isnan(opt_poses).any()}')
+                    print(f'opt_elevation: {torch.isnan(opt_elevation).any()}')
+                   
+                    # --- Feedback --- 
+                    poses = opt_poses
+                    coords_phi = opt_elevation 
+                    
+                    # --- Final projection error ---
+                    if self.training:
+
+                        # Project patches using estimated and real pose and elevation. 
+                        b, n, p, _ = self.PatchGraph.coords_r_theta.shape
+
+                        # ground truth patch coords
+                        depth_gt_flatten = depth_gt.view(b*n, -1)
+                        depth_gt_flatten = depth_gt_flatten[source_frame_idx]
+
+                        r_theta = self.PatchGraph.coords_r_theta.view(b*n*p, -1)
+                        r_theta = r_theta[patch_idx, :]
+                        depth_r_ratio = torch.clamp(depth_gt_flatten/r_theta[:, 0], -1, 1)
+                        gt_elevation = torch.asin(depth_r_ratio) # Approximation!! True only for flat surrounding. 
+                        gt_patch_coords = torch.cat((r_theta, gt_elevation), dim=-1)
+
+                        # predicted patch coords
+                        opt_elevation_flatten = opt_elevation.view(b*n*p, -1)
+                        pred_patch_coords = torch.cat((r_theta, opt_elevation_flatten[patch_idx]), dim=-1)
+
+                        # project with corresponding optimized/gt pose
+                        opt_poses_flatten = opt_poses.view(b*n, -1)
+                        poses_gt_flatten = poses_gt.view(b*n, -1)
+                        predict_patch_coords = project_points(pred_patch_coords, opt_poses_flatten[source_frame_idx], opt_poses_flatten[target_frame_idx])
+                        gt_patch_coords = project_points(gt_patch_coords, poses_gt_flatten[source_frame_idx], poses_gt_flatten[target_frame_idx])
+
+                        patch_projection_error = (predict_patch_coords[:, :2] - gt_patch_coords[:, :2])
+                        patch_projection_error_pix = self.PatchGraph.scale_phisical2fls(patch_projection_error) # scale to pixels -> normalizaition
+                    
+                    else:
+                        patch_projection_error_pix = None
+
+                except Exception as e: 
+                    print(f'[Warning] Cannot run BA for iteration {iter}: {e}')
+                    patch_projection_error_pix = torch.Tensor([0, 0]).unsqueeze(0)
                 
-                opt_poses, opt_elevation = BA.run(max_iter=self.ba_iter, early_stop_tol=self.ba_min_err)
-
-                # --- Feedback --- 
-                poses = opt_poses
-                coords_phi = opt_elevation
-
-                # --- Final projection error ---
-                if self.training:
-
-                    # Project patches using estimated and real pose and elevation. 
-                    b, n, p, _ = self.PatchGraph.coords_r_theta.shape
-
-                    # ground truth patch coords
-                    depth_gt_flatten = depth_gt.view(b*n, -1)
-                    depth_gt_flatten = depth_gt_flatten[source_frame_idx]
-
-                    r_theta = self.PatchGraph.coords_r_theta.view(b*n*p, -1)
-                    r_theta = r_theta[patch_idx, :]
-                    depth_r_ratio = torch.clamp(depth_gt_flatten/r_theta[:, 0], -1, 1)
-                    gt_elevation = torch.asin(depth_r_ratio) # Approximation!! True only for flat surrounding. 
-                    gt_patch_coords = torch.cat((r_theta, gt_elevation), dim=-1)
-
-                    # predicted patch coords
-                    opt_elevation_flatten = opt_elevation.view(b*n*p, -1)
-                    pred_patch_coords = torch.cat((r_theta, opt_elevation_flatten[patch_idx]), dim=-1)
-
-                    # project with corresponding optimized/gt pose
-                    opt_poses_flatten = opt_poses.view(b*n, -1)
-                    poses_gt_flatten = poses_gt.view(b*n, -1)
-                    predict_patch_coords = project_points(pred_patch_coords, opt_poses_flatten[source_frame_idx], opt_poses_flatten[target_frame_idx])
-                    gt_patch_coords = project_points(gt_patch_coords, poses_gt_flatten[source_frame_idx], poses_gt_flatten[target_frame_idx])
-
-                    patch_projection_error = (predict_patch_coords[:, :2] - gt_patch_coords[:, :2])
-                    patch_projection_error_pix = self.PatchGraph.scale_phisical2fls(patch_projection_error) # scale to pixels -> normalizaition
-                else:
-                    patch_projection_error_pix = None
-
-
                 output_iter.append((poses, patch_projection_error_pix))
+            else: 
+                print(f'[Warning] For iteration {iter} there was no active edges. Otimiziation impossible.')
+
+            
 
         return  output_iter
 

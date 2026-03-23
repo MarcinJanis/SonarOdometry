@@ -76,8 +76,8 @@ class Update(nn.Module):
 
         prev_idx, next_idx = neighbours(patches_idx, target_frames_idx, device = device, range = 1)
 
-        prev_mask = (prev_idx >= 1).float()
-        next_mask = (next_idx >= 1).float()
+        prev_mask = (prev_idx >= 1).float() # or (prev_idx >= 0)
+        next_mask = (next_idx >= 1).float() # or (prev_idx >= 0)
 
         h = h + self.c1(prev_mask.unsqueeze(-1) * h[prev_idx, :]) # add to hidden state information about temporal patches neighbours 
         h = h + self.c2(next_mask.unsqueeze(-1) * h[next_idx, :]) # add to hidden state information about temporal patches neighbours 

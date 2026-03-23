@@ -42,7 +42,7 @@ class BundleAdjustment(nn.Module):
             self.poses = poses_se3
         else:
             self.poses = pp.Parameter(poses_se3)
-
+            
         self.elevation_angle = nn.Parameter(patch_coords_phi) # pp.Parameter(patch_coords_phi)
 
         # --- define constants parameters --- 
@@ -116,14 +116,13 @@ class BundleAdjustment(nn.Module):
         
         weights = torch.cat([weights_param, weights_anchor_pose, weights_anchor_elev])
         self.weights = torch.diag(weights)
-
         
         # # --- set proper form o f weights 
         # self.weights = torch.diag(weights.flatten())
 
 
     # def forward(self, dummy_input=None):
-
+    #         print(f'BA: num edges: {self.source_poses_idx.shape}')
     #         # --- get poses and coords ---
     #         source_poses = self.poses[:, self.source_poses_idx, :]
     #         print("1. source_poses NaN:", torch.isnan(source_poses.tensor()).any())
@@ -192,7 +191,7 @@ class BundleAdjustment(nn.Module):
         residual_proj = self.scale_proj_err(residual_proj)
         residual_proj = residual_proj.view(1, -1)
         # --- pose diff err --- 
-
+        
         residual_pose = (self.init_poses.Inv() @ self.poses).Log().tensor()
         # residual_pose = self.poses.tensor() - self.init_poses.tensor() # Safe option
 
