@@ -5,11 +5,10 @@ import torch.nn.functional as F
 import math 
 
 from .patchifier import Patchifier
-from .utils import hamilton_product, q_conjugate, project_points, transform_polar2car, transform_cart2polar
-
+from .utils import project_points
 
 class Graph(nn.Module):
-    def __init__(self, model_cfg, sonar_cfg, train_cfg):
+    def __init__(self, model_cfg, sonar_cfg, batch_size, frames_in_series):
         super().__init__()
         
          # --- import sonar configuration ---
@@ -19,8 +18,12 @@ class Graph(nn.Module):
         self.fls_h = sonar_cfg.resolution.bins # vertical resolution of input fls image
         self.fls_w = sonar_cfg.resolution.beams # horizontal resolution of input fls image
 
-        self.fov_vertical = sonar_cfg.fov.vertical  * math.pi / 180 # vertical fov [deg]
-        self.fov_horizontal = sonar_cfg.fov.horizontal  * math.pi / 180 # horizontal fov [deg]
+        self.fov_vertical = sonar_cfg.fov.vertical # vertical fov [rad]
+        
+        self.phi_max =  - sonar_cfg.position.pitch # max available elevation angle
+        self.phi_min =  - sonar_cfg.position.pitch - self.fov_vertical # min available elevation angle
+        
+        self.fov_horizontal = sonar_cfg.fov.horizontal # horizontal fov [rad]
 
         # --- import sys configuration ---
         self.patches_per_frame = model_cfg.PATCHES_PER_FRAME # amount of patches generated per each frames
@@ -37,12 +40,10 @@ class Graph(nn.Module):
         self.encoder_downsize = model_cfg.ENCODER_DOWNSIZE # encoder downsize factor 
     
         self.phi_init_mode = model_cfg.ELEVATION_INIT_MODE
-        self.phi_init_min =  model_cfg.ELEVATION_ANGLE_INIT_MIN
-        self.phi_init_max =  model_cfg.ELEVATION_ANGLE_INIT_MAX
 
         # --- import traning configuration --- 
-        self.batch_size = train_cfg.BATCH_SIZE
-        self.frames_in_series = train_cfg.FRAMES_IN_SERIES
+        self.batch_size = batch_size
+        self.frames_in_series = frames_in_series
 
         self.patchifier = Patchifier(model_cfg)
        
@@ -74,11 +75,11 @@ class Graph(nn.Module):
         fmap2 = F.avg_pool2d(fmap.view(b*n, c, h, w), self.encoder_downsize, self.encoder_downsize)
         self.fmap2 = fmap2.view(b, n, c, h // self.encoder_downsize, w // self.encoder_downsize) # frames feature map (downsized)
 
-        return coords_phi
+        return coords_phi, self.coords_r_theta
 
     def init_phi(self, b, n, p, device, mode = 'rand'):
         if self.phi_init_mode == 'rand':
-            coords_phi = torch.rand((b, n, p, 1), device=device, dtype=torch.float) * (self.phi_init_max - self.phi_init_min) + self.phi_init_min
+            coords_phi = torch.rand((b, n, p, 1), device=device, dtype=torch.float) * (self.phi_max - self.phi_min) + self.phi_min
         else: 
             coords_phi = torch.zeros((b, n, p, 1), device=device, dtype=torch.float) # init elevation angle with zeros
         return coords_phi
@@ -163,7 +164,7 @@ class Graph(nn.Module):
     def corr(self, poses, coords_phi, coords_eps, device):
         
         b, n, p, _ = self.coords_r_theta.shape
-
+        n_act = poses.shape[1]
         # --- reproject points --- 
 
         # src and tgt framem idxs
@@ -171,8 +172,9 @@ class Graph(nn.Module):
         tgt_frame_idx = self.j 
 
         # src poses, coords and tgt poses
-        poses_flat = poses.view(b*n, 7)
-
+        
+        poses_flat = poses.view(b*n_act, 7)
+ 
         src_poses = poses_flat[src_frame_idx]
         tgt_poses = poses_flat[tgt_frame_idx]
 
@@ -186,11 +188,11 @@ class Graph(nn.Module):
 
         # --- edge validation ---
         theta_max = self.fov_horizontal / 2
-        phi_max = self.fov_vertical / 2
 
         out_of_range = (tgt_cooords[:,0] < (self.r_min - coords_eps)) | (tgt_cooords[:,0] > (self.r_max + coords_eps))
         out_of_range = out_of_range | (torch.abs(tgt_cooords[:,1]) > theta_max + coords_eps)
-        out_of_range = out_of_range | (torch.abs(tgt_cooords[:,2]) > phi_max + coords_eps)
+        out_of_range = out_of_range | (tgt_cooords[:,2] > self.phi_max + coords_eps)
+        out_of_range = out_of_range | (tgt_cooords[:,2] < self.phi_min - coords_eps)
         valid_mask = ~out_of_range
 
         # discard non valid edges 
@@ -259,7 +261,13 @@ class Graph(nn.Module):
         return corr_map, act_patches_c, i_val, j_val, valid_mask
 
 
+    def get_hidden_state(self, valid_mask):
+        return self.hidden_state[valid_mask, :]
 
+    def update_hidden_state(self, h, valid_mask):
+        self.hidden_state[valid_mask, :] = h
+
+        
     def scale_fls2phisical(self, coords):
 
         # range r - measured by sonar

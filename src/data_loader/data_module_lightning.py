@@ -10,17 +10,13 @@ from .dataset import SonarSimDataset
 
 class SonarSimDataModule(pl.LightningDataModule):
 
-    def __init__(self, root_dir, batch_size, num_workers, transforms, train_cfg_pth):
+    def __init__(self, root_dir, batch_size, num_workers, transforms, frames_in_series):
         
         super().__init__()
         self.root_dir = root_dir
         self.batch_size = batch_size 
         self.transforms = transforms
-
-        with open(train_cfg_pth, "r") as f:
-            train_cfg = Box(yaml.safe_load(f))
-
-        self.window_size = train_cfg.FRAMES_IN_SERIES
+        self.window_size = frames_in_series
         self.num_workers = num_workers
 
     def setup(self):

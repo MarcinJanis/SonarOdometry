@@ -7,7 +7,7 @@ from enum import IntEnum
 
 # === Points Transformation === 
 
-
+# carthesian -> polar coord system 
 def transform_cart2polar(pts, eps=1e-8):
     x, y, z = pts[:,0], pts[:,1], pts[:,2] 
     
@@ -26,9 +26,8 @@ def transform_cart2polar(pts, eps=1e-8):
 
     return torch.stack((r, theta, phi), dim=1)
 
-
-
-def transform_polar2car(pts):
+# polar -> carthesian coords system
+def transform_polar2cart(pts):
     r, theta, phi = pts[:,0], pts[:,1], pts[:,2]
     
     r_xy = r * torch.cos(phi)
@@ -37,106 +36,6 @@ def transform_polar2car(pts):
     z = r * torch.sin(phi) 
     return  torch.stack((x, y, z), dim=1)
     
-
-# Transform points between polar and carthesian coords system
-
-class projection_type(IntEnum):
-    POLAR2CARTESIAN = 0
-    CARTESIAN2POLAR = 1
-
-def transorm_points_coords(pts, mode:projection_type):
-    '''
-
-    :pt: numpy array with points
-    if projection_type == POLAR2CARTESIAN:
-        pt[:,0] -> r
-        pt[:,1] -> theta
-        pt[:,2] -> phi
-    
-    if projection_type == CARTESIAN2POLAR:
-        pt[:,0] -> x
-        pt[:,1] -> y
-        pt[:,2] -> z
-
-    :mode: projection_type
-    '''
-    if mode == projection_type.POLAR2CARTESIAN:
-        r, theta, phi = pts[:,0], pts[:,1], pts[:,2]
-        r_xy = r * torch.cos(phi)
-        x = r_xy * torch.cos(theta)
-        y = r_xy * torch.sin(theta)
-        z = r * torch.sin(phi) 
-        return  torch.stack((x, y, z), dim=1)
-    
-    elif mode == projection_type.CARTESIAN2POLAR:
-        x, y, z = pts[:,0], pts[:,1], pts[:,2] 
-
-        # # x = torch.clamp(x, min=1e-5)
-        # x = torch.where(x.abs() < 1e-5, torch.sign(x + 1e-9) * 1e-5, x) # safe (no exploding grad) but to not set grad to 0 for points with small x
-
-        # r_sq_xy = torch.clamp(x**2 + y**2, min=1e-8)
-        # r_sq = torch.clamp(x**2 + y**2 + z**2, min=1e-8)
-
-        # r = torch.sqrt(r_sq)
-        # theta = torch.atan2(y, x)
-        # phi = torch.atan2(z, torch.sqrt(r_sq_xy))
-
-        # return torch.stack((r, theta, phi), dim=1)
-        
-        r_sq_xy = x**2 + y**2
-        r_xy = torch.sqrt(r_sq_xy + 1e-8)
-        
-        r_sq = r_sq_xy + z**2
-        r = torch.sqrt(r_sq + 1e-8)
-
-        # x_s = torch.where(r_sq_xy < 1e-10, x + 1e-5, x)
-        x_s = torch.where(r_sq_xy < 1e-10, x + torch.sign(x + 1e-9) * 1e-5, x)
-        
-        theta = torch.atan2(y, x_s)
-        phi = torch.atan2(z, r_xy)
-
-        return torch.stack((r, theta, phi), dim=1)
-    
-
-# === Create Transform Matrix from quaterions=== 
-def transform_matrix(state):
-
-    # -- -Extrac shift and rotation components for each pose ---
-    x, y, z = state[:, 0], state[:, 1], state[:, 2]
-    qx, qy, qz, qw = state[:, 3], state[:, 4], state[:, 5], state[:, 6]
-
-    # --- Pre-calculation --- 
-    xx = qx * qx
-    yy = qy * qy
-    zz = qz * qz
-    xy = qx * qy
-    xz = qx * qz
-    yz = qy * qz
-    wx = qw * qx
-    wy = qw * qy
-    wz = qw * qz
-
-    # Construct rows 
-    
-    # Row 0: [R00, R01, R02, x]
-    row0 = torch.stack([1 - 2*(yy + zz),  2*(xy - wz),      2*(xz + wy),      x], dim=1)
-    
-    # Row 1: [R10, R11, R12, y]
-    row1 = torch.stack([2*(xy + wz), 1 - 2*(xx + zz),  2*(yz - wx), y], dim=1)
-    
-    # Row 2: [R20, R21, R22, z]
-    row2 = torch.stack([2*(xz - wy), 2*(yz + wx), 1 - 2*(xx + yy),  z], dim=1)
-    
-    # Row 3: [0, 0, 0, 1] 
-    zeros = torch.zeros_like(x)
-    ones = torch.ones_like(x)
-    row3 = torch.stack([zeros, zeros, zeros, ones], dim=1)
-
-    # --- Stack to build transfor matrix ---
-    T = torch.stack([row0, row1, row2, row3], dim=1)
-    
-    return T # shape (N, 4, 4)
-
 
 # === Project points === 
 # Pipe line: 
@@ -148,12 +47,8 @@ def transform_matrix(state):
 
 def project_points(origin_pt, origin_pose, target_pose, use_quaterions=True):
 
-    n_pts, _ = origin_pt.shape 
-
     # --- Project origin point from spehrical to cartesian coords sys. (r, theta, phi) -> (x, y, z, 1).T ---
-    
-    # origin_pt_xyz = transorm_points_coords(origin_pt, projection_type.POLAR2CARTESIAN)
-    origin_pt_xyz = transform_polar2car(origin_pt)
+    origin_pt_xyz = transform_polar2cart(origin_pt)
 
     if use_quaterions:
         # extract quaterions and translations:
@@ -177,34 +72,14 @@ def project_points(origin_pt, origin_pose, target_pose, use_quaterions=True):
         target_pt_xyz = hamilton_product(q_conjugate(target_rot), target_pt_xyz) 
         target_pt_xyz = hamilton_product(target_pt_xyz, target_rot) 
         target_pt_xyz = target_pt_xyz[:, :3]
-    else:
-        # homogenous coordinates:
-        ones = torch.ones((n_pts, 1), device=origin_pt.device, dtype=origin_pt.dtype)
-        origin_pt = torch.cat((origin_pt_xyz, ones), dim=1).unsqueeze(-1) # Shape: (N, 4, 1)
-
-        # --- Transform matrixes ---
-        T_origin = transform_matrix(origin_pose)       # (N, 4, 4)
-        T_target = transform_matrix(target_pose)       # (N, 4, 4)
-        
-        # Inverse target transform matrix
-        T_target_inv = torch.linalg.inv(T_target)      # (N, 4, 4)
-
-        # Relative transform matrxi 
-        T_relative = T_target_inv @ T_origin
-
-        # --- transform ---
-        target_pt= T_relative @ origin_pt
-
-        target_pt_xyz = target_pt[:, :3, 0] 
-
+   
     # --- Cartesian -> Polar ---
-
-    # target_pt = transorm_points_coords(target_pt_xyz, projection_type.CARTESIAN2POLAR)
     target_pt = transform_cart2polar(target_pt_xyz)
 
     return target_pt
 
-# === Transform points from local, source frame to global frame, carthesian coords sys
+# === Transform from local to global ===
+# transtom points from local, source frame (polar) to global frame (carthesian)
 # Pipe line: 
 # 1. Local (source) frame, polar coords sys
 # 2. Local (source) frame, carthesian coords sys
@@ -217,7 +92,7 @@ def transform_to_global(origin_pt, origin_pose):
     # --- Project origin point from spehrical to cartesian coords sys. (r, theta, phi) -> (x, y, z, 1).T ---
     
     # origin_pt_xyz = transorm_points_coords(origin_pt, projection_type.POLAR2CARTESIAN)
-    origin_pt_xyz = transform_polar2car(origin_pt)
+    origin_pt_xyz = transform_polar2cart(origin_pt)
 
     # extract quaterions and translations:
     origin_shift = origin_pose[:, :3]
@@ -234,51 +109,69 @@ def transform_to_global(origin_pt, origin_pose):
 
 # === Movement approximation === 
 
-def approx_movement(self, poses, time, n,  mode = 'linear'):
+def approx_movement(x1, x2, t1, t2, t3, motion_model = 'linear'):
     
-        if n < 2: 
-            return 
+    n = x1.shape[0]
 
-        b = self.time.shape[0]
+    if motion_model == 'linear':
+        
+        # --- translation estimation ---
+        translation1 = x1[:, :3]
+        translation2 = x2[:, :3]
 
-        # --- get time stams ---
-        t0 = time[:, n].view(b, 1)
-        t1 = time[:, n-1].view(b, 1)
-        t2 = time[:, n-2].view(b, 1)
-      
-        # --- get previous position ---
-        x1 = poses[:, n-1, :].view(b, 7)
-        x2 = poses[:, n-2, :].view(b, 7)
+        dt12 = (t2 - t1)
+        dt23 = (t3 - t2)
+        translation_diff = (translation2 - translation1) / dt12 * dt23
+        translation3 = translation2 + translation_diff
 
-        if mode == 'linear':   
-           
-            if (t0 >= t1).all() or (t1 >= t2).all():  # check time intervals 
+        # --- rotation estimation ---
+        q1 = x1[:, 3:]
+        q2 = x2[:, 3:]
 
-                # linear displacement 
-                new_translation = x1[:, 0:3] + (x1[:, 0:3] - x2[:, 0:3])/(t1 - t2)*(t0 - t1)  
+        # find shortest rotation 
+        dot = (q2 * q1).sum(dim=-1, keepdim=True) 
+        q2 = torch.where(dot < 0, -q2, q2)
 
-                # extract quaterions 
-                q1 = x1[3:]
-                q2 = x2[3:]
+        # rotation - quaternions difference in global frame
+        # diff q2 -> q1: diff = q2 * q1^-1
+        q_diff = hamilton_product(q2, q_conjugate(q1))
 
-                # find shortest rotation
-                dot = (q1 * q2).sum(dim=1, keepdim=True) 
-                q1 = torch.where(dot < 0, -q1, q1)
-                
-                # quaterion difference: dq = dq * q2^-1
-                diff = hamilton_product(q1, q_conjugate(q2))
+        
+        w = torch.clamp(q_diff[:, -1:], min=-1.0, max=1.0)
+        
+        # extract rotation angle 
+        q_diff_angle = 2 * torch.arccos(w)
+        new_rot_angle = q_diff_angle / dt12 * dt23
 
-                # add rotation to last pose
-                new_rot = hamilton_product(q1, diff)
+        # extract rotation axis
+        s_squared = torch.clamp(1.0 - w * w, min=0.0)
+        s = torch.sqrt(torch.clamp(s_squared, min=1e-8))
+        q_diff_axis = q_diff[:, :3] / s
+        
+        # compose new quaterion
 
-                new_pose = torch.cat([new_translation, new_rot], dim=1)
-                
-        else: 
-            new_pose = x1
+        q_step_vect = q_diff_axis * torch.sin(new_rot_angle / 2.0)
+        q_step_scal = torch.cos(new_rot_angle / 2.0)
+        q_step = torch.cat([q_step_vect, q_step_scal], dim=-1)
 
-        new_pose = new_pose.unsqueeze(1) # (b, 7) -> (b, 1, 7)
-        return new_pose
+        # add new quaternion to last pose 
+        q3 = hamilton_product(q_step, q2)
+        q3 = q3 / torch.norm(q3, dim=-1, keepdim=True)
 
+        # --- connect translation and rotation --- 
+        x3 = torch.cat([translation3, q3], dim=1)
+    else:
+        x3 = x2
+
+    return x3
+
+def depth_to_elev_angle(depth, r):
+
+    depth_r_ratio = torch.clamp(depth/r, -1, 1)
+    # Note: Assumption, that there is flat surrounding!
+    gt_elevation = torch.asin(depth_r_ratio)  
+
+    return gt_elevation
 
 
 
@@ -344,6 +237,10 @@ def hamilton_product(q1, q2):
     
     return torch.stack((x, y, z, w), dim=-1)
 
+
+#    if s < 0.001: 
+#             q_diff_axis = torch.tensor([1, 0, 0], device = device, dtype = q_diff.dtype)
+#         else:
 
 # # -------------- 
 # # Test of points projection. 

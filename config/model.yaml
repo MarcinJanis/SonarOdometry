@@ -33,7 +33,7 @@ PATCHIFIER_METHOD: 'harris' # harris method with debug and visualisation functio
 
 # === Graph configuration === #
 
-INIT_FRAMES: 8 # Frames to initate graph 
+INIT_FRAMES: 5 # Frames to initate graph 
 
 BUFF_SIZE: 10 # Ring buffer size, amount of last frames that are kept
 
@@ -42,17 +42,13 @@ TIME_WINDOW: 3 # Amount of previous frames that are taken into new edges creatio
 CORR_NEIGHBOUR: 5
 
 MOTION_APPRO_MODEL: 'linear' # None
-
 ELEVATION_INIT_MODE: 'rand' # 'zeros' or None
-
-ELEVATION_ANGLE_INIT_MIN: -90
-ELEVATION_ANGLE_INIT_MAX: 0
 
 # === Update operation === #
 
 UPDATE_ITERATION: 5
-BUNDLE_ADJUSTMENT_ITERATION: 5
-BUNDLE_ADJUSTMENT_MIN_ERR: 10e-3
+BUNDLE_ADJUSTMENT_ITERATION: 2
+
 
 
   
