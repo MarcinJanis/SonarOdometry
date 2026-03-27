@@ -49,7 +49,7 @@ class DataGenerator():
 
         if return_visu:
             frame_np = frame.cpu().numpy() * 255
-            return t, frame, frame_np, pose
+            return t, frame, pose, frame_np
         else:
             return t, frame, pose
             

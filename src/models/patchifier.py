@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+from torchvision.transforms import GaussianBlur
 
 from .encoders import Encoder
 
@@ -39,7 +39,7 @@ class Patchifier(nn.Module):
         assert self.patches_per_frame <= self.grid_size_h*self.grid_size_w , f'[Error]: Patchifier module.\n number of patches can\'t be greater than number of cells in grid.'
 
     def _harris_response(self, frame, ksize=7, padding=3):
-
+     
         # connect batch size and frames in series dimension
         b, n, c, h, w = frame.shape
         frame = frame.view(b*n, c, h, w)
@@ -62,6 +62,45 @@ class Patchifier(nn.Module):
 
         return response
 
+    def _hessian_det(self, frame, ksize=7, sigma=(0.5, 0.5):
+     
+        # connect batch size and frames in series dimension
+        b, n, c, h, w = frame.shape
+        frame = frame.view(b*n, c, h, w)
+
+        # Gaussian Blur
+        blur = GaussianBlur(kernel_size=ksize, sigma=sigma)
+        frame = blur(frame)
+        
+        # Gradients x and y
+        dx = F.pad(frame[:,:,:,1:] - frame[:,:,:,:-1], (0,1,0,0), mode='reflect')
+        dy = F.pad(frame[:,:,1:,:] - frame[:,:,:-1,:], (0,0,0,1), mode='reflect')
+
+        # Second derivative 
+        d2x = F.pad(dx[:,:,:,1:] - dx[:,:,:,:-1], (0,1,0,0), mode='reflect')
+        d2y = F.pad(dy[:,:,1:,:] - dy[:,:,:-1,:], (0,0,0,1), mode='reflect')
+        dxy = F.pad(dx[:,:,1:,:] - dx[:,:,:-1,], (0,0,0,1), mode='reflect')
+        
+        hessian_det = d2x * d2y - dxy**2
+
+        return hessian_det
+
+    
+    def _DoG(self, frame, kernel_size = 5, sigma1 = (0.1, 2.0), sigma2 = (0.2, 1.0)):
+
+        b, n, c, h, w = frame.shape
+        frame = frame.view(b*n, c, h, w)
+        
+        blur1 = GaussianBlur(kernel_size=kernel_size, sigma=sigma1)
+        blur2 = GaussianBlur(kernel_size=kernel_size, sigma=sigma2)
+
+        img1 = blur1(frame)
+        img2 = blur2(frame)
+        
+        dog = torch.clip(img1-img2, min=0.0 max=255.0)
+                         
+        return dog
+                         
     def _get_best_coords(self, g):
 
         device = g.device
@@ -223,10 +262,16 @@ class Patchifier(nn.Module):
 
         b, n, c1, h, w = fmap.shape
         c2 = imap.shape[2]
-        
+
+        # get strongest structures from frame
         if mode == 'harris':
-            # get strongest structures from frame
             g = self._harris_response(frame, ksize=7, padding=3) # g.shape = [b*n, c, h, w]
+        elif mode == 'DoG':
+            g =  self._DoG(frame, kernel_size=5, sigma1=(0.1, 2.0), sigma2=(0.2, 1.0)) # g.shape = [b*n, c, h, w]
+        elif mode == 'hessian'
+            g = self._hessian_det(frame, ksize=7, sigma=(0.5, 0.5) # g.shape = [b*n, c, h, w]
+        else: 
+            g = frame.view(b*n, c1, h, w)  # g.shape = [b*n, c, h, w]
             
             # get coords
             coords = self._get_best_coords(g) # coords.shape = [b*n, self.patches_per_frame, 2], coords are in orginal frame coords system
