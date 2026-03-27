@@ -61,7 +61,31 @@ class Patchifier(nn.Module):
         response = determinant / (trace + 1e-8)
 
         return response
+
+    def _hessian_det(self, frame, ksize=7, sigma=(0.5, 0.5):
+     
+        # connect batch size and frames in series dimension
+        b, n, c, h, w = frame.shape
+        frame = frame.view(b*n, c, h, w)
+
+        # Gaussian Blur
+        blur = GaussianBlur(kernel_size=ksize, sigma=sigma)
+        frame = blur(frame)
         
+        # Gradients x and y
+        dx = F.pad(frame[:,:,:,1:] - frame[:,:,:,:-1], (0,1,0,0), mode='reflect')
+        dy = F.pad(frame[:,:,1:,:] - frame[:,:,:-1,:], (0,0,0,1), mode='reflect')
+
+        # Second derivative 
+        d2x = F.pad(dx[:,:,:,1:] - dx[:,:,:,:-1], (0,1,0,0), mode='reflect')
+        d2y = F.pad(dy[:,:,1:,:] - dy[:,:,:-1,:], (0,0,0,1), mode='reflect')
+        dxy = F.pad(dx[:,:,1:,:] - dx[:,:,:-1,], (0,0,0,1), mode='reflect')
+        
+        hessian_det = d2x * d2y - dxy**2
+
+        return hessian_det
+
+    
     def _DoG(self, frame, kernel_size = 5, sigma1 = (0.1, 2.0), sigma2 = (0.2, 1.0)):
 
         b, n, c, h, w = frame.shape
@@ -244,6 +268,8 @@ class Patchifier(nn.Module):
             g = self._harris_response(frame, ksize=7, padding=3) # g.shape = [b*n, c, h, w]
         elif mode == 'DoG':
             g =  self._DoG(frame, kernel_size=5, sigma1=(0.1, 2.0), sigma2=(0.2, 1.0)) # g.shape = [b*n, c, h, w]
+        elif mode == 'hessian'
+            g = self._hessian_det(frame, ksize=7, sigma=(0.5, 0.5) # g.shape = [b*n, c, h, w]
         else: 
             g = frame.view(b*n, c1, h, w)  # g.shape = [b*n, c, h, w]
             
