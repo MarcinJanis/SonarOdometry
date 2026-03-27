@@ -11,6 +11,28 @@
 
 
 
+Inference mode DPSO:
+
+
+- zwracać ma pozycję estymowaną, pierwszy raz
+- opcjonalnie zwraca
+
+- niech jako opcjnalne wyjście wyliczy i zwraca:
+słownik: numer patcha globalny, listę klatek na których się patch pojawia (id globalne), współrzędne na każdejz klatek po estymacji/poprawkach.
+czyliL i, j oraz patch_coords tylko w posegregowanej ładniejszej formie. Można dorzucić też pewność/wagę.
+
+- opcjonalne zapisywanie do pliku: pozycji estymowanej pierwzy raz, pozycji usuwnaej z bufora. 
+- opcjonalne zapisywanie do pliku punktów 3d wyestymowanych wtórnie.
+
+
+
+
+
+
+
+
+
+
 
 ## Ideas:
 
