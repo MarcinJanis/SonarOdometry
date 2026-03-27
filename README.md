@@ -38,7 +38,7 @@ ___
 
 Custom dataset was created using [Stonefish](https://github.com/patrykcieslak/stonefish/) marine robotics simulator. 
 
-> Note: Dataset contains sonar data without noise. It was adding during training, using code located in: `./.......`.
+> Note: Dataset contains sonar data without noise. It was adding during training, using code located in: `./src/data_loader/transforms.py`.
 
 
 Dataset is available [HERE](https://drive.google.com/drive/folders/1BgosYlaRkQkSa43Jpgb6hoGK88n3bXLL?usp=sharing).
