@@ -11,7 +11,7 @@ class Graph(nn.Module):
     def __init__(self, model_cfg, sonar_cfg, batch_size, frames_in_series):
         super().__init__()
         
-         # --- import sonar configuration ---
+        # --- import sonar configuration ---
         self.r_min = sonar_cfg.range.min # min range
         self.r_max = sonar_cfg.range.max # max range
 

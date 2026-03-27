@@ -117,109 +117,109 @@ def img_cart2polar(I, r_min, r_max, theta_max, out_shape = None, bg = 0):
 # =============================================================== #
 
 
-class fast_polar_cart_transform:
-  def __init__(self, r_min, r_max, theta_max, input_shape, out_shape = None, bg = 0):
+# class fast_polar_cart_transform:
+#   def __init__(self, r_min, r_max, theta_max, input_shape, out_shape = None, bg = 0):
 
-    self.bg = bg
+#     self.bg = bg
 
-    self.input_shape = input_shape
+#     self.input_shape = input_shape
     
-    if out_shape is None: 
-      self.out_shape = (h, 2*h)
-    else:
-      self.out_shape = out_shape
+#     if out_shape is None: 
+#       self.out_shape = (h, 2*h)
+#     else:
+#       self.out_shape = out_shape
 
-    self.r_min = r_min
-    self.r_max = r_max
-    self.theta_max = theta_max 
+#     self.r_min = r_min
+#     self.r_max = r_max
+#     self.theta_max = theta_max 
     
 
-    def create_polar2cart_remap():
+#     def create_polar2cart_remap():
           
-      h, w = self.input_shape
+#       h, w = self.input_shape
       
-      if out_shape is None: 
-        out_shape = (h, 2*h)
+#       if out_shape is None: 
+#         out_shape = (h, 2*h)
         
-      # inverse mapping 
-      # for (x, y) on target img, find coords of (theta, r) on orginal img
-      x, y = np.meshgrid(np.arange(out_shape[1]), np.arange(out_shape[0]))
+#       # inverse mapping 
+#       # for (x, y) on target img, find coords of (theta, r) on orginal img
+#       x, y = np.meshgrid(np.arange(out_shape[1]), np.arange(out_shape[0]))
     
-      # recenter
-      # x (0, w) and y (0, h) -> x (- w/2 , w/2) and y (h, 0) - correct orientation 
-      x = x - out_shape[1]/2
-      y = out_shape[0] - y
+#       # recenter
+#       # x (0, w) and y (0, h) -> x (- w/2 , w/2) and y (h, 0) - correct orientation 
+#       x = x - out_shape[1]/2
+#       y = out_shape[0] - y
       
-      # rescale to real-world values
-      scale = (r_max - r_min) / out_shape[0]
-      x_r = x * scale 
-      y_r = y * scale + r_min
+#       # rescale to real-world values
+#       scale = (r_max - r_min) / out_shape[0]
+#       x_r = x * scale 
+#       y_r = y * scale + r_min
     
-      # create mapping
-      # (x, y) -> (theta, r)
-      r = np.sqrt(x_r**2 + y_r**2)
-      y_r_clamp = np.maximum(y_r, 1e-5) 
-      theta = np.arctan2(x_r, y_r_clamp)
+#       # create mapping
+#       # (x, y) -> (theta, r)
+#       r = np.sqrt(x_r**2 + y_r**2)
+#       y_r_clamp = np.maximum(y_r, 1e-5) 
+#       theta = np.arctan2(x_r, y_r_clamp)
     
-      # rescale to orginal 0 - 1 range
-      r = (r - r_min) / (r_max - r_min) * h
-      theta = (theta / theta_max) * w 
+#       # rescale to orginal 0 - 1 range
+#       r = (r - r_min) / (r_max - r_min) * h
+#       theta = (theta / theta_max) * w 
     
-      # recenter
-      r = h - r
-      theta = theta + w / 2
+#       # recenter
+#       r = h - r
+#       theta = theta + w / 2
 
-      # save remap
-      self.x_map = theta.astype(np.float32)
-      self.y_map = r.astype(np.float32
+#       # save remap
+#       self.x_map = theta.astype(np.float32)
+#       self.y_map = r.astype(np.float32
 
-    def create_cart2polar_remapping():
+#     def create_cart2polar_remapping():
       
-      h, w = self.input_shape
+#       h, w = self.input_shape
       
-      if out_shape is None: 
-        out_shape = (h, h//2)
+#       if out_shape is None: 
+#         out_shape = (h, h//2)
         
-      # inverse mapping 
-      # for (theta, r) on target img, find coords (x, y) on orginal img
+#       # inverse mapping 
+#       # for (theta, r) on target img, find coords (x, y) on orginal img
       
-      theta, r = np.meshgrid(np.arange(out_shape[1]), np.arange(out_shape[0]))
+#       theta, r = np.meshgrid(np.arange(out_shape[1]), np.arange(out_shape[0]))
     
-      # recenter
-      # x (0, w) and y (0, h) -> x (- w/2 , w/2) and y (h, 0) - correct orientation 
-      theta = theta - out_shape[1]/2
-      r = out_shape[0] - r
+#       # recenter
+#       # x (0, w) and y (0, h) -> x (- w/2 , w/2) and y (h, 0) - correct orientation 
+#       theta = theta - out_shape[1]/2
+#       r = out_shape[0] - r
       
-      # rescale to real-world values
+#       # rescale to real-world values
     
-      theta = theta / out_shape[1] * theta_max
-      r = r / out_shape[0] * (r_max - r_min)  + r_min
+#       theta = theta / out_shape[1] * theta_max
+#       r = r / out_shape[0] * (r_max - r_min)  + r_min
     
-      # create mapping
-      # (theta, r) - > (x, y)
-      x = r * np.sin(theta)
-      y = r * np.cos(theta)
+#       # create mapping
+#       # (theta, r) - > (x, y)
+#       x = r * np.sin(theta)
+#       y = r * np.cos(theta)
     
-      # rescale to input image size 
-      scale = h / (r_max - r_min) 
-      x = x * scale 
-      y = (y - r_min) * scale
+#       # rescale to input image size 
+#       scale = h / (r_max - r_min) 
+#       x = x * scale 
+#       y = (y - r_min) * scale
       
-      # recenter
-      x = x + w / 2
-      y = h - y
+#       # recenter
+#       x = x + w / 2
+#       y = h - y
 
-      # save remap
-      self.x_map = x.astype(np.float32)
-      self.y_map = y.astype(np.float32)
+#       # save remap
+#       self.x_map = x.astype(np.float32)
+#       self.y_map = y.astype(np.float32)
 
       
 
                             
-    def __call__(self, img):
+    # def __call__(self, img):
       
-      out_img = cv2.remap(img, self.x_map, self.y_map, 
-                      interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=self.bg)
+    #   out_img = cv2.remap(img, self.x_map, self.y_map, 
+    #                   interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=self.bg)
       
-      return out_img
+    #   return out_img
     
