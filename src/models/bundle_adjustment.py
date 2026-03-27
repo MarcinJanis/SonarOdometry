@@ -167,14 +167,14 @@ class BundleAdjustment(nn.Module):
             for i in range(max_iter):
             
                 loss = optimizer.step(input = None, weight=self.weights)
-
-                if abs(prev_loss - loss.item()) < early_stop_tol:
+                loss_diff = prev_loss - loss.item()
+                if abs(loss_diff) < early_stop_tol:
                         print(f'[Bundle Adjustment Module] Early stopping')
                         break
                     
                 prev_loss = loss.item()
         
-        return self.poses.tensor().view(self.b, self.n_act, 7), self.elevation_angle.view(self.b, self.n, self.p, 1)
+        return self.poses.tensor().view(self.b, self.n_act, 7), self.elevation_angle.view(self.b, self.n, self.p, 1), loss_diff
     
     def scale_proj_err(self, proj_err):
         err_r = proj_err[:, :, 0] / (self.sonar_param.range.max - self.sonar_param.range.min) * self.sonar_param.resolution.bins

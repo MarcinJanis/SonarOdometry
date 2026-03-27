@@ -12,11 +12,12 @@ def rot_err(q_pred, q_target):
     
 def pose_err(pred, target):
     b, n, _ = pred.shape
+    target_act = target[:, :n, :]
     pred = pred.view(b*n, -1)
-    target = target.view(b*n, -1)
+    target_act = target_act.view(b*n, -1)
 
-    x_pred, x_target = pred[:, :3], target[:, :3]
-    q_pred, q_target = target[:, 3:7], target[:, 3:7]
+    x_pred, x_target = pred[:, :3], target_act[:, :3]
+    q_pred, q_target = pred[:, 3:7], target_act[:, 3:7]
 
     dist = dist_err(x_pred, x_target)
     rot = rot_err(q_pred, q_target)

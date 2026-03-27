@@ -82,6 +82,8 @@ class DPSO_train(nn.Module):
         
         for i in range(frames_max): # iterate over all frames
 
+            if debug_logger: print(f'Processing: frame {i}/{frames_max-1}')
+
             if i >= self.init_frames: # if init is done, append graph with new edges
 
                 x1, x2 = poses[:, i-2, :], poses[:, i-1, :]
@@ -89,7 +91,6 @@ class DPSO_train(nn.Module):
                 new_pose = approx_movement(x1, x2, t1, t2, t3, 
                                            motion_model=self.motion_appro_model)
                  
-                if debug_logger: print(f'  New pose added: {new_pose}')
                 poses = torch.cat([poses, new_pose.unsqueeze(1)], dim=1)
 
                 self.PatchGraph.create_new_edges(i, self.device)
@@ -102,7 +103,6 @@ class DPSO_train(nn.Module):
 
             # --- optimization loop --- 
             for k in range(self.update_iter): 
-                if debug_logger: print(f'Processing: frame {i}/{frames_max}')
                 # --- get correlation --- 
             
                 corr, ctx, i_val, j_val, valid_mask = self.PatchGraph.corr(poses, coords_phi, coords_eps=1e-2, device=self.device) # tu chyba też trzeba bedzie podać i !!!!
@@ -113,7 +113,6 @@ class DPSO_train(nn.Module):
 
                 # check if any active edge exist
                 val_edges = patches_idx.shape[0]
-                if debug_logger: print(f'   > valid edges: {val_edges}')
 
                 if val_edges == 0:
 
@@ -139,7 +138,8 @@ class DPSO_train(nn.Module):
                 BA.init_ba(src_frames_idx, tgt_frames_idx, patches_idx, delta, weights)
 
                 try:
-                    opt_poses, opt_phi = BA.run(max_iter=self.ba_iter, 
+                    loss_diff = 0.0
+                    opt_poses, opt_phi, loss_diff = BA.run(max_iter=self.ba_iter, 
                                                 early_stop_tol=1e-3, 
                                                 trust_region=2.0)
                     poses = opt_poses
@@ -148,6 +148,8 @@ class DPSO_train(nn.Module):
                 except Exception as e: 
                     
                     print(f'[Warning] Bundle Adjustment failed (frame: {i}, updater iteration: {k}).\n{e}')
+            
+                if debug_logger: print(f'   - optim iter: {k}, valid edges: {val_edges}, BA loss diff: {loss_diff}')
             
             # --- calc patch coords with gt poses and predicted poses --- 
             b, n, p, _ = coords_r_theta.shape

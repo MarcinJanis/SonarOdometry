@@ -57,7 +57,6 @@ class DataGenerator():
     def get_len(self):
         return len(self.time)
         
-
     def read_estim_trajectory(self, csv_pth, label):
         self.predict_traj[label] = pd.read_csv(csv_pth, usecols=['x', 'y', 'z', 'qx', 'qy', 'qz', 'qw']) # pose_no,t,x,y,z,qx,qy,qz,qw
 

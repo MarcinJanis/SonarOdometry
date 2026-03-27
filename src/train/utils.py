@@ -2,7 +2,6 @@ import torch
 import torch.nn.functional as F
 
 
-
 def dist_err(x_pred, x_target):
     Lx = torch.linalg.norm(x_target-x_pred, dim=1)
     return Lx
@@ -12,12 +11,14 @@ def rot_err(q_pred, q_target):
     return 2*torch.arccos(torch.clamp(q_dist, max = 1))
     
 def pose_err(pred, target):
+    
     b, n, _ = pred.shape
+    target_act = target[:, :n, :]
     pred = pred.view(b*n, -1)
-    target = target.view(b*n, -1)
+    target_act = target_act.view(b*n, -1)
 
-    x_pred, x_target = pred[:, :3], target[:, :3]
-    q_pred, q_target = target[:, 3:7], target[:, 3:7]
+    x_pred, x_target = pred[:, :3], target_act[:, :3]
+    q_pred, q_target = pred[:, 3:7], target_act[:, 3:7]
 
     dist = dist_err(x_pred, x_target)
     rot = rot_err(q_pred, q_target)
