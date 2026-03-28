@@ -62,7 +62,7 @@ class Patchifier(nn.Module):
 
         return response
 
-    def _hessian_det(self, frame, ksize=7, sigma=(0.5, 0.5):
+    def _hessian_det(self, frame, ksize=7, sigma=(0.5, 0.5)):
      
         # connect batch size and frames in series dimension
         b, n, c, h, w = frame.shape
@@ -97,7 +97,7 @@ class Patchifier(nn.Module):
         img1 = blur1(frame)
         img2 = blur2(frame)
         
-        dog = torch.clip(img1-img2, min=0.0 max=255.0)
+        dog = torch.clip(img1-img2, min=0.0, max=255.0)
                          
         return dog
                          
@@ -268,22 +268,20 @@ class Patchifier(nn.Module):
             g = self._harris_response(frame, ksize=7, padding=3) # g.shape = [b*n, c, h, w]
         elif mode == 'DoG':
             g =  self._DoG(frame, kernel_size=5, sigma1=(0.1, 2.0), sigma2=(0.2, 1.0)) # g.shape = [b*n, c, h, w]
-        elif mode == 'hessian'
-            g = self._hessian_det(frame, ksize=7, sigma=(0.5, 0.5) # g.shape = [b*n, c, h, w]
+        elif mode == 'hessian':
+            g = self._hessian_det(frame, ksize=7, sigma=(0.5, 0.5)) # g.shape = [b*n, c, h, w]
         else: 
             g = frame.view(b*n, c1, h, w)  # g.shape = [b*n, c, h, w]
             
-            # get coords
-            coords = self._get_best_coords(g) # coords.shape = [b*n, self.patches_per_frame, 2], coords are in orginal frame coords system
-            patches_f, patches_c = self._get_patches(coords, fmap.view(b*n, c1 ,h, w), imap.view(b*n, c2 ,h, w)) #patches.shape = [b*n, self.patches_per_frame, c, self.patch_size, self.patch_size]
+        # get coords
+        coords = self._get_best_coords(g) # coords.shape = [b*n, self.patches_per_frame, 2], coords are in orginal frame coords system
+        patches_f, patches_c = self._get_patches(coords, fmap.view(b*n, c1 ,h, w), imap.view(b*n, c2 ,h, w)) #patches.shape = [b*n, self.patches_per_frame, c, self.patch_size, self.patch_size]
 
-            # append dimesion for sepearate batch dimension
-      
-            patches_f = patches_f.view(b, n, self.patches_per_frame, c1, self.patch_size * self.patch_size)
-            patches_c = patches_c.view(b, n, self.patches_per_frame, c2)
-            coords = coords.view(b, n, self.patches_per_frame, 2)
+        # append dimesion for sepearate batch dimension
+    
+        patches_f = patches_f.view(b, n, self.patches_per_frame, c1, self.patch_size * self.patch_size)
+        patches_c = patches_c.view(b, n, self.patches_per_frame, c2)
+        coords = coords.view(b, n, self.patches_per_frame, 2)
 
         return coords, patches_f, patches_c, fmap
-        
-
         

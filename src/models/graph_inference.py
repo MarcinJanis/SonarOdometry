@@ -81,7 +81,7 @@ class Graph(nn.Module):
 
         
     def _add_patches(self, patch_coords, patches_f, patches_c):
-        local_n = self._g2l_frame_idx(self.n)
+        local_n = self.g2l_frame_idx(self.n)
 
         # pop old patches data if buffer full
         patch_coords_poped, idx_poped = None, None
@@ -99,7 +99,7 @@ class Graph(nn.Module):
 
     def _add_frame(self, fmap):
         b, n, c, h, w = fmap.shape
-        local_n = self._g2l_frame_idx(self.n)
+        local_n = self.g2l_frame_idx(self.n)
 
         fmap_downsize = F.avg_pool2d(fmap.view(b*n, c, h, w), self.encoder_downsize, self.encoder_downsize)
 
@@ -108,7 +108,7 @@ class Graph(nn.Module):
         
         
     def _add_pose(self, pose, time):
-        local_n = self._g2l_frame_idx(self.n)
+        local_n = self.g2l_frame_idx(self.n)
 
         # pop old data if buffer full
         pose_poped, time_poped, idx_poped = None, None, None
@@ -123,19 +123,15 @@ class Graph(nn.Module):
         return idx_poped, pose_poped, time_poped
        
 
-       
-
-
     # global to local frame idx
-    def _g2l_frame_idx(self, idx):
+    def g2l_frame_idx(self, idx):
         return idx % self.buff_size
+    
     # global to local patch idx
-    def _g2l_patch_idx(self, idx):
-        frame_idx = idx // self.patches_per_frame
+    def g2l_patch_idx(self, idx):
+        frame_idx = (idx // self.patches_per_frame) % self.buff_size
         patch_number = idx % self.patches_per_frame
         return frame_idx, patch_number
-
-
 
     def extract_features(self, frames, pose, time):
 
@@ -190,20 +186,33 @@ class Graph(nn.Module):
         self.j = torch.cat([self.j, new_j], dim=0)
         self.hidden_state = torch.cat([self.hidden_state, new_hidden_state], dim=0)
 
-        edges_lim = max(0, self.i.shape[0] - self.max_edges_num) 
-        if edges_lim > 0:
-            self.i = self.i[edges_lim:]
-            self.j = self.j[edges_lim:] 
-            self.hidden_state = self.hidden_state[edges_lim:]
+        # delete obsolete edges
+        # print(f'edges1\ni: {self.i}\nj: {self.j}')
+        edges_to_keep = (self.j >= (self.n - self.buff_size)) # delete edges that points to obsolete frames
+        # edges_to_keep = ~edges_to_del
+
+        self.i = self.i[edges_to_keep]
+        self.j = self.j[edges_to_keep] 
+        # print(f'edges2\ni: {self.i}\nj: {self.j}')
+        self.hidden_state = self.hidden_state[edges_to_keep]
+        
+        # edges_lim = max(0, self.i.shape[0] - self.max_edges_num) 
+        # if edges_lim > 0:
+        #     self.i = self.i[edges_lim:]
+        #     self.j = self.j[edges_lim:] 
+        #     self.hidden_state = self.hidden_state[edges_lim:]
 
     def corr(self, coords_eps, device):
 
         # --- reproject points --- 
 
         # src and tgt framem idxs
-        src_frame_idx, src_patch_idx = self._g2l_patch_idx(self.i)
-        tgt_frame_idx = self._g2l_frame_idx(self.j)
+        # print('i',self.i)
+        src_frame_idx, src_patch_idx = self.g2l_patch_idx(self.i)
 
+        tgt_frame_idx = self.g2l_frame_idx(self.j)
+        # print('src_frame_idx',src_frame_idx)
+        # print('src_patch_idx',src_patch_idx)
         src_poses = self.poses[src_frame_idx, :]
         tgt_poses = self.poses[tgt_frame_idx, :]
 
@@ -258,7 +267,7 @@ class Graph(nn.Module):
 
         # get features patches from fmaps
 
-        j_val_local = self._g2l_frame_idx(j_val)
+        j_val_local = self.g2l_frame_idx(j_val)
 
         fmap1_expand = self.fmap1[j_val_local, :, :, :]
         fmap2_expand = self.fmap2[j_val_local, :, :]
@@ -273,7 +282,7 @@ class Graph(nn.Module):
         target_patches_fmap2 = target_patches_fmap2.view(valid_edges_num, self.fmap_c, self.patch_size*self.patch_size, self.corr_neighbour*self.corr_neighbour)
 
         # get patches features 
-        i_val_frame_local, i_val_patch_local = self._g2l_patch_idx(i_val)
+        i_val_frame_local, i_val_patch_local = self.g2l_patch_idx(i_val)
         act_patches_f = self.patches_f[i_val_frame_local, i_val_patch_local, :, :]
         act_patches_c = self.patches_c[i_val_frame_local, i_val_patch_local, :]
         
@@ -285,9 +294,14 @@ class Graph(nn.Module):
 
         return corr_map, act_patches_c, i_val, j_val, valid_mask
 
-    def get_last_poses(self, n=2):
-        x = [self.poses[self.n - i, :] for i in range(n) ]
-        t = [self.posetimes[self.n - i] for i in range(n) ]
+    def get_last_poses(self, num=2):
+        local_n = self.g2l_frame_idx(self.n)
+        if num == 1:
+            x = self.poses[local_n, :].unsqueeze(0)
+            t = self.time[local_n].unsqueeze(0)
+        else:
+            x = [self.poses[local_n - i, :].unsqueeze(0) for i in range(num) ]
+            t = [self.time[local_n - i].unsqueeze(0) for i in range(num) ]
         return x, t
 
     def get_poses(self):
@@ -303,7 +317,7 @@ class Graph(nn.Module):
         self.poses[:, :] = poses
 
     def update_patch_coords(self, phi):
-        self.patch_coords[:, :, 2] = phi
+        self.patch_coords[:, :, 2] = phi.squeeze(-1)
     
     def get_hidden_state(self, valid_mask):
         return self.hidden_state[valid_mask, :]

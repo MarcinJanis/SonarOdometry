@@ -38,6 +38,7 @@ class DPSO_train(nn.Module):
         # self.ba_min_err = float(model_config.BUNDLE_ADJUSTMENT_MIN_ERR)
         self.motion_appro_model = model_config.MOTION_APPRO_MODEL
         self.patches_per_frame = model_config.PATCHES_PER_FRAME
+        self.freeze_poses_num = model_config.FREEZE_POSES
 
         self.init_frames = init_frames
         self.batch_size = batch_size
@@ -129,11 +130,17 @@ class DPSO_train(nn.Module):
                 self.PatchGraph.update_hidden_state(h, valid_mask)
 
                 # --- Bundle adjustement ---
+                if freeze_poses:
+                    b, n, _ = poses.shape
+                    ba_freeze_poses = b*n
+                else:
+                    ba_freeze_poses = self.freeze_poses_num
+
                 BA = BundleAdjustment(poses, 
                                       coords_r_theta, 
                                       coords_phi, 
                                       self.sonar_param, 
-                                      freeze_poses=freeze_poses)
+                                      freeze_poses=ba_freeze_poses)
                 
                 BA.init_ba(src_frames_idx, tgt_frames_idx, patches_idx, delta, weights)
 

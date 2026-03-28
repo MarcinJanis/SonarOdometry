@@ -2,8 +2,6 @@
 #       Model configuration file            #
 # ========================================= #
 
-DEBUG: False
-
 # === Encoder configuration === #
 
 FLS_INPUT_HEIGHT: 800 # input image height
@@ -33,9 +31,9 @@ PATCHIFIER_METHOD: 'harris' # harris method with debug and visualisation functio
 
 # === Graph configuration === #
 
-INIT_FRAMES: 5 # Frames to initate graph 
+INIT_FRAMES: 5 # Frames to initate graph (for traning only, in ionference INIT_FRAMES = TIME_WINDOW)
 
-BUFF_SIZE: 10 # Ring buffer size, amount of last frames that are kept
+BUFF_SIZE: 10 # Ring buffer size, amount of last frames that are kept (for inference only)
 
 TIME_WINDOW: 3 # Amount of previous frames that are taken into new edges creation
 
@@ -44,10 +42,13 @@ CORR_NEIGHBOUR: 5
 MOTION_APPRO_MODEL: 'linear' # None
 ELEVATION_INIT_MODE: 'rand' # 'zeros' or None
 
-# === Update operation === #
+# === Update operation and bundle adjustment === #
 
 UPDATE_ITERATION: 5
+OPTICFLOW_WARMUP_ITER: 2
+
 BUNDLE_ADJUSTMENT_ITERATION: 2
+FREEZE_POSES: 2 
 
 
 

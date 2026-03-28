@@ -212,4 +212,5 @@ __marimo__/
 
 dataset/
 SonarOdometryDataset/
+training/test_output/
 DONOTUPLOAD.md

@@ -7,6 +7,7 @@ import math
 from .patchifier import Patchifier
 from .utils import project_points
 
+
 class Graph(nn.Module):
     def __init__(self, model_cfg, sonar_cfg, batch_size, frames_in_series):
         super().__init__()

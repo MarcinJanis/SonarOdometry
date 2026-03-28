@@ -8,7 +8,7 @@ import pypose as pp
 
 
 class BundleAdjustment(nn.Module):
-    def __init__(self, poses, patch_coords_r_theta, patch_coords_phi, sonar_param, freeze_poses = False):
+    def __init__(self, poses, patch_coords_r_theta, patch_coords_phi, sonar_param, freeze_poses):
         super().__init__()
         
         # self.buff_size = poses.shape[1] # get buff size
@@ -39,11 +39,20 @@ class BundleAdjustment(nn.Module):
         # --- define parameters to optimize ---
         poses_se3 = pp.SE3(poses)
         
-        if freeze_poses:
-            self.poses = poses_se3
+        
+
+        if freeze_poses >= self.n_act:
+            self.poses_anchor = poses_se3
+            self.split_poses = False
+        elif freeze_poses == 0:
+            self.poses_anchor = pp.Parameter(poses_se3) # confusing name but dont wnat to make more complex logic which is not necesery
+            self.split_poses = False
         else:
-            self.poses = pp.Parameter(poses_se3)
+            self.poses_anchor = poses_se3[:, :freeze_poses, :]
+            self.poses_optim = pp.Parameter(poses_se3[:, freeze_poses:, :])
+            self.split_poses = True
             
+
         self.elevation_angle = nn.Parameter(patch_coords_phi) # pp.Parameter(patch_coords_phi)
 
         # --- define constants parameters --- 
@@ -83,8 +92,14 @@ class BundleAdjustment(nn.Module):
 
         # get frozen poses (source and target), with no gradient to save unoptimized values as reference to optimization 
         with torch.no_grad():
-            source_poses = self.poses[:, self.source_poses_idx, :].clone()
-            target_poses = self.poses[:, self.target_poses_idx, :].clone()
+            
+            if self.split_poses:
+                poses = torch.cat([self.poses_anchor, self.poses_optim], dim=1)
+            else:
+                poses = self.poses_anchor
+
+            source_poses = poses[:, self.source_poses_idx, :].clone()
+            target_poses = poses[:, self.target_poses_idx, :].clone()
             
             patch_coords = self.patch_coords[:, self.patch_idx, :]
         
@@ -100,7 +115,7 @@ class BundleAdjustment(nn.Module):
         self.target_coords = target_coords[:, :, :2] + self.scale_delta(delta)
         
         # --- save initial state ---
-        self.init_poses = pp.SE3(self.poses.tensor().clone().detach())
+        self.init_poses = pp.SE3(poses.tensor().clone().detach())
         self.init_elevation_angle = self.elevation_angle.clone().detach()
 
         # --- compose weights matrix --- 
@@ -127,8 +142,13 @@ class BundleAdjustment(nn.Module):
     def forward(self, dummy_input=None):
 
         # --- get poses and coords ---
-        source_poses = self.poses[:, self.source_poses_idx, :]
-        target_poses = self.poses[:, self.target_poses_idx, :]
+        if self.split_poses:
+            poses = torch.cat([self.poses_anchor, self.poses_optim], dim=1)
+        else:
+            poses = self.poses_anchor
+        # print(f'poses = {poses.shape}')
+        source_poses = poses[:, self.source_poses_idx, :]
+        target_poses = poses[:, self.target_poses_idx, :]
 
         patch_coords = self.patch_coords[:, self.patch_idx % self.edge_num, :]
         elevation_angle = self.elevation_angle[:, self.patch_idx % self.edge_num, :]
@@ -145,7 +165,7 @@ class BundleAdjustment(nn.Module):
         # --- pose diff err --- 
         
         # residual_pose = (self.init_poses.Inv() @ self.poses).Log().tensor() # numerical err in quaternions
-        residual_pose = self.poses.tensor() - self.init_poses.tensor() # Safe option
+        residual_pose = poses.tensor() - self.init_poses.tensor() # Safe option
 
         residual_pose = residual_pose.view(1, -1)
         # --- elev ang err --- 
@@ -163,6 +183,8 @@ class BundleAdjustment(nn.Module):
         optimizer = pp.optim.LM(self, strategy=strategy)
 
         prev_loss = float('inf')
+        loss_diff = 0.0
+
         with torch.enable_grad():
             for i in range(max_iter):
             
@@ -173,8 +195,15 @@ class BundleAdjustment(nn.Module):
                         break
                     
                 prev_loss = loss.item()
-        
-        return self.poses.tensor().view(self.b, self.n_act, 7), self.elevation_angle.view(self.b, self.n, self.p, 1), loss_diff
+
+        if self.split_poses:
+            pose_final = torch.cat([self.poses_anchor, self.poses_optim], dim=1).tensor().view(self.b, self.n_act, 7)
+        else:
+            pose_final = self.poses_anchor.tensor().view(self.b, self.n_act, 7)
+
+        elevation_final = self.elevation_angle.view(self.b, self.n, self.p, 1)
+        return pose_final, elevation_final, loss_diff
+    
     
     def scale_proj_err(self, proj_err):
         err_r = proj_err[:, :, 0] / (self.sonar_param.range.max - self.sonar_param.range.min) * self.sonar_param.resolution.bins

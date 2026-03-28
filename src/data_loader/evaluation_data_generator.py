@@ -114,7 +114,7 @@ class DataGenerator():
         if show['pts']:
             x = self.pts3d.iloc[start_idx:end_idx].values[:, ax1]
             y = self.pts3d.iloc[start_idx:end_idx].values[:, ax2]
-            z = self.pts3d.iloc[start_idx:end_idx].values[:, ax3]
+            z = self.pts3d.iloc[start_idx:end_idx].values[:, ax3].astype(float).flatten()
             ax.scatter(x, y, c=z, cmap='gray_r', s=pt_size)
             pass
 
