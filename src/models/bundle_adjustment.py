@@ -40,7 +40,7 @@ class BundleAdjustment(nn.Module):
         poses_se3 = pp.SE3(poses)
         
         
-
+        self.freeze_poses = freeze_poses
         if freeze_poses >= self.n_act:
             self.poses_anchor = poses_se3
             self.split_poses = False
@@ -126,19 +126,23 @@ class BundleAdjustment(nn.Module):
         # prior/anchor 
         prior_weight = 1e-4
 
-        weights_anchor_pose = torch.full((self.pose_num * 7,), prior_weight, device=weights.device, dtype=weights.dtype)
 
-        weights_anchor_elev = torch.full((self.edge_num * 1,), prior_weight, device=weights.device, dtype=weights.dtype)
+        # before: 
+        # weights_anchor_pose = torch.full((self.pose_num * 7,), prior_weight,  device=weights.device, dtype=weights.dtype)
+        # weights_anchor_elev = torch.full((self.pose_num * 7,), prior_weight,  device=weights.device, dtype=weights.dtype)
+
+        weights_anchor_pose = torch.zeros((self.pose_num * 7,), device=weights.device, dtype=weights.dtype)
+        
+        if self.freeze_poses > 0 and self.freeze_poses < self.n_act:
+            weights_anchor_pose[:self.freeze_poses * 7] = prior_weight
+        elif self.freeze_poses == 0:
+            weights_anchor_pose[:] = prior_weight
+
+        weights_anchor_elev = torch.zeros((self.edge_num * 1,), device=weights.device, dtype=weights.dtype)
         
         weights = torch.cat([weights_param, weights_anchor_pose, weights_anchor_elev])
         self.weights = torch.diag(weights)
         
-        # # --- set proper form o f weights 
-        # self.weights = torch.diag(weights.flatten())
-
-    # ===================================================================
-    
-    # ====================================================================
     def forward(self, dummy_input=None):
 
         # --- get poses and coords ---

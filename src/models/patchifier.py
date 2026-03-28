@@ -243,7 +243,7 @@ class Patchifier(nn.Module):
             # draw points
             for i in range(coords_np.shape[0]):
                 y, x = coords_np[i,:]     
-                print(f'pt: {i}: x={x}, y={y}')
+                # print(f'pt: {i}: x={x}, y={y}')
                 cv2.circle(frame_np, (x, y), 2, (0, 255, 0), 4)
 
             harris_response = self._harris_response(single_frame.unsqueeze(0).unsqueeze(0))

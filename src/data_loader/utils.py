@@ -24,7 +24,7 @@ import cv2
 
 def img_polar2cart(I, r_min, r_max, theta_max, out_shape = None, bg = 0):
 
-  h, w = I.shape
+  h, w, c = I.shape
   
   if out_shape is None: 
     out_shape = (h, 2*h)
