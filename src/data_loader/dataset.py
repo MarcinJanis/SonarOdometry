@@ -83,6 +83,9 @@ class SonarSimDataset(Dataset):
         # norm 
         series = series / 255.0
 
+        if not self.transform is None:
+            series = self.transform(series)
+
         return series, time, trajectory, depth
 
     def print_info(self):

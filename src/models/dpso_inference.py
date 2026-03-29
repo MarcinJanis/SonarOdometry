@@ -15,7 +15,7 @@ from .update import Update
 from .graph_inference import Graph
 from .bundle_adjustment import BundleAdjustment
 from .logger import DataLogger 
-from .utils import project_points, approx_movement, depth_to_elev_angle
+from .utils import approx_movement, transform_to_global
 
 class DPSO(nn.Module):
 
@@ -62,6 +62,13 @@ class DPSO(nn.Module):
 
     def reset(self):
         self.PatchGraph.reset()
+
+    def close(self):
+        if self.save_to_file:
+            self.prim_traj_logger.close()
+            self.sec_traj_logger.close()
+            self.pts_logger.close()
+            
 
     def init_step(self, frame, timestamp, init_pose):
 
@@ -161,15 +168,17 @@ class DPSO(nn.Module):
             self.prim_traj_logger.log(prim_traj_data)
 
             frame_idx, pose_poped, time_poped, patch_idx, patch_coords_poped = data_poped
-            
+        
+            # transform poped points from local frame to global frame
             if frame_idx is not None: 
-                
+        
                 sec_traj_data = [frame_idx, time_poped.item()] + pose_poped.detach().cpu().tolist()
                 self.sec_traj_logger.log(sec_traj_data)
 
             if patch_idx is not None:
-
-                pts_data = patch_coords_poped.detach().cpu().tolist()
+                patch_coords_glob_poped = transform_to_global(patch_coords_poped, 
+                                                              pose_poped.unsqueeze(0).expand(patch_coords_poped.shape[0], 7))
+                pts_data = patch_coords_glob_poped.detach().cpu().tolist()
                 for i in range(len(patch_idx)):
                     pts_row = [int(patch_idx[i])] + pts_data[i]
                     self.pts_logger.log(pts_row)

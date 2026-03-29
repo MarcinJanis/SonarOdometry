@@ -13,13 +13,19 @@ class DataLogger:
 
         # create headers 
         file_exists = os.path.isfile(self.file_pth)
-        if not file_exists:
+        is_empty = not file_exists or os.path.getsize(self.file_pth) == 0
+        if is_empty:
             self.writer.writerow(header)
             self.file.flush()
+   
+        
 
         # buffers
         self.buff = []  
         self.buff_size = buff_size
+
+    def __del__(self):
+        self.close()    
 
     def log(self, data):
         self.buff.append(data)

@@ -12,6 +12,9 @@ import torchvision.io as io
 
 import matplotlib.pyplot as plt
 import matplotlib.style as style
+
+from .metrics import align_traj
+
 style.use('fast')
 
 class DataGenerator():
@@ -42,6 +45,9 @@ class DataGenerator():
         frame = frame / 255.0
         frame = frame.unsqueeze(0).unsqueeze(0).to(self.device)
 
+        if not self.transforms is None:
+            frame = self.transforms(frame)
+
         # get other data
         t = torch.tensor(self.time.iloc[idx].values, dtype = torch.float, device = self.device)
         pose = torch.tensor(self.pose.iloc[idx].values, dtype = torch.float, device = self.device)
@@ -63,9 +69,12 @@ class DataGenerator():
     def read_pts(self, csv_pth):
         self.pts3d = pd.read_csv(csv_pth, usecols=['x', 'y', 'z'])
 
-    def generate_trajectory_map_2d(self, plane = 'xy', show = {'gt':True,'traj':True,'pts':True}, start = 0, end = 1, colors = ('red', 'green', 'blue', 'orange'), traj_width = 4, pt_size = 3, save_to_file = None):
+    def generate_trajectory_map_2d(self, plane = 'xy', show = {'gt':True,'traj':True,'pts':True, 'align':True}, start = 0, end = 1, colors = ('red', 'green', 'blue', 'orange'), traj_width = 2, pt_size = 3, markers='x', save_to_file = None):
         # show_traj = (gt, primary, secondary)
-        n_max = self.get_len()
+        
+        traj_len = [len(traj) for traj in self.predict_traj.values()]
+        traj_len.append(self.get_len())
+        n_max = min(traj_len)
 
         start_idx = int(start*n_max)
         end_idx = int(end*n_max)
@@ -107,9 +116,18 @@ class DataGenerator():
                 traj1_y = predict_traj[k].iloc[start_idx:end_idx].values[:, ax2]
                 traj1_lbl = predict_traj_lbl[k]
 
-                ax.plot(traj1_x, traj1_y, color=colors[k], linewidth=traj_width, alpha=1, label=traj1_lbl)
+                ax.plot(traj1_x, traj1_y, color=colors[k], linewidth=traj_width, alpha=1, marker = markers, label=traj1_lbl)
                 ax.scatter(traj1_x[0], traj1_y[0], color='black', zorder=5)
                 ax.scatter(traj1_x[-1], traj1_y[-1], color='black', zorder=5)
+            
+            if show['align']:
+                for k in range(len(predict_traj)):
+                    traj = predict_traj[k].iloc[start_idx:end_idx].values
+                    gt = self.pose.iloc[start_idx:end_idx].values
+                    traj_lbl = predict_traj_lbl[k]
+                    traj_aligned = align_traj(traj, gt)
+                    traj_aligned_x, traj_aligned_y = traj_aligned[:, ax1], traj_aligned[:, ax2]
+                    ax.plot(traj_aligned_x, traj_aligned_y, color=colors[k], linewidth=traj_width, alpha=1, linestyle='--', marker = markers, label=f'{traj_lbl} aligned')
 
         if show['pts']:
             x = self.pts3d.iloc[start_idx:end_idx].values[:, ax1]
@@ -138,9 +156,11 @@ class DataGenerator():
                 transparent=False       
             )
 
-    def generate_trajectory_map_3d(self, show = {'gt':True,'traj':True,'pts':True}, start = 0, end = 1, colors = ('red', 'green', 'blue', 'orange'), traj_width = 4, pt_size = 3, save_to_file = None):
+    def generate_trajectory_map_3d(self, show = {'gt':True,'traj':True,'pts':True, 'align':True}, start = 0, end = 1, colors = ('red', 'green', 'blue', 'orange'), traj_width = 1, markers ='x' , pt_size = 3, save_to_file = None):
         
-        n_max = self.get_len()
+        traj_len = [len(traj) for traj in self.predict_traj.values()]
+        traj_len.append(self.get_len())
+        n_max = min(traj_len)
 
         start_idx = int(start * n_max)
         end_idx = int(end * n_max)
@@ -170,10 +190,19 @@ class DataGenerator():
                 traj_z = predict_traj[k].iloc[start_idx:end_idx].values[:, 2]
  
 
-                ax.plot(traj_x, traj_y, traj_z, color=colors[k], label=predict_traj_lbl[k], linewidth=traj_width,  alpha=0.7)
+                ax.plot(traj_x, traj_y, traj_z, color=colors[k], label=predict_traj_lbl[k], linestyle='-', marker = markers, linewidth=traj_width,  alpha=0.7)
                 ax.scatter(traj_x[0], traj_y[0], traj_z[0], color=colors[k], s=50, label='Start')
                 ax.scatter(traj_x[-1], traj_y[-1], traj_z[-1], color=colors[k], s=50, label='End')
 
+            if show['align']:
+                for k in range(len(predict_traj)):
+                    traj = predict_traj[k].iloc[start_idx:end_idx].values
+                    gt = self.pose.iloc[start_idx:end_idx].values
+                    traj_lbl = predict_traj_lbl[k]
+                    traj_aligned = align_traj(traj, gt, init_pt_only=True)
+                    traj_aligned_x, traj_aligned_y, traj_aligned_z = traj_aligned[:, 0], traj_aligned[:, 1], traj_aligned[:, 2]
+                    ax.plot(traj_aligned_x, traj_aligned_y, traj_aligned_z, color=colors[k], label=f'{traj_lbl} aligned', linestyle='--', linewidth=traj_width,  alpha=0.7)
+        
         # --- 3D Points ---
         if show['pts'] and self.pts3d is not None:
             px = self.pts3d.iloc[start_idx:end_idx]['x'].values
@@ -194,3 +223,15 @@ class DataGenerator():
 
     def generate_time_series():
         pass
+
+    def print_metrics(self, metrics_dict):
+        # metrics_dict = {'name':function}
+        print("="*50)
+
+        for metric_name, fcn in metrics_dict.items():
+            print(f'--- {metric_name} ---')
+            for series_name, pred_pose in self.predict_traj.items():
+                val = fcn(pred_pose, self.pose)
+                print(f'{series_name}: {val}')
+                
+        print("="*50)

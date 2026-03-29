@@ -20,6 +20,21 @@ class DPSO_LightningModule(pl.LightningModule):
 
         self.init_poses_noise  = init_poses_noise # noise for initial poses
 
+    def configure_optimizers(self):
+        optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
+        # shcelduler 
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.1)
+        
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "interval": "epoch", # lub "step" - jak często aktualizować
+                "frequency": 1,      # co ile interwałów (np. co każdą epokę)
+                "monitor": "val_loss", # wymagane np. dla ReduceLROnPlateau
+            },
+        }
+    
     def training_step(self, batch, batch_idx):
 
         # freeze poses 
