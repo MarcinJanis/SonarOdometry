@@ -34,7 +34,7 @@ def rot_err(q_pred, q_target):
     return 2*torch.arccos(torch.clamp(q_dist, max = 1 - 1e-7))
     
 
-def ATE(pred, target):
+def pose_err(pred, target):
     b, n, _ = pred.shape
     target_act = target[:, :n, :]
     pred = pred.view(b*n, -1)

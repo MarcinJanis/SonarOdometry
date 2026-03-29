@@ -1,7 +1,7 @@
 import numpy as np
 import torch
-import pypose as pp
-
+import torch.nn.functional as F
+# import pypose as pp
 from scipy.spatial.transform import Rotation as R
 
 def align_traj(pred, target, init_pt_only = False):
@@ -11,6 +11,7 @@ def align_traj(pred, target, init_pt_only = False):
 
     q_pred = pred[:, 3:]
     q_target = target[:, 3:]
+
     # center trajectory
     if init_pt_only:
         centroid_pred = np.mean(trans_pred[:2, :], axis=0)
@@ -47,15 +48,6 @@ def align_traj(pred, target, init_pt_only = False):
     pred_aligned = np.concatenate([trans_pred_aligned, q_pred_aligned], axis=1)
     return pred_aligned
 
-import torch
-import torch.nn.functional as F
-
-
-
-
-
-
-
 
 def dist_err(x_pred, x_target):
     '''
@@ -74,7 +66,6 @@ def rot_err(q_pred, q_target):
     - calculatation of qw quaternion component. 
     - extraction $\theta$ from quaternion construction: w = cos($0.5*\theta$)
     '''
-    # 
     # find shortest rotation 
     dot = (q_pred * q_target).sum(dim=-1, keepdim=True) 
     q_dist = torch.abs(dot)
@@ -83,7 +74,7 @@ def rot_err(q_pred, q_target):
     return 2*torch.arccos(torch.clamp(q_dist, max = 1 - 1e-7))
     
   
-def ATE_mean(pred, target):
+def pose_err(pred, target):
 
     b, n, _ = pred.shape
     target_act = target[:, :n, :]
@@ -99,13 +90,14 @@ def ATE_mean(pred, target):
     return torch.mean(dist, dim=-1), torch.mean(rot, dim=-1)
 
     
-
-def eval_metics(pred, target):
+def eval_metics(pred, target, align=True, align_init_pt_only=True):
 
     n_pred = pred.shape[0]
-    n_target = pred.shape[0]
-
+    n_target = target.shape[0]
     n = min(n_pred, n_target)
+
+    if align:
+        pred = align_traj(pred, target, init_pt_only = align_init_pt_only)
 
     x_pred, x_target = pred[:n, :3], target[:n, :3]
     q_pred, q_target = pred[:n, 3:7], target[:n, 3:7]
@@ -113,17 +105,29 @@ def eval_metics(pred, target):
     dist = dist_err(x_pred, x_target)
     rot = rot_err(q_pred, q_target)
     
-    rsme_ate = torch.sqrt(torch.sum(dist**2) / n)
-    rsme_rot_err = torch.sqrt(torch.sum(rot**2) / n)
+    rmse_ate = torch.sqrt(torch.sum(dist**2) / n)
+    rmse_rot = torch.sqrt(torch.sum(rot**2) / n)
 
-    mean_ate = torch.mean(dist, dim=-1)
-    mean_rot = torch.mean(rot, dim=-1)
-    #TODO: RPE
+ 
     metrics = {
-        'RSME_ATE': rsme_ate,
-        'RSME_ROT_ERR':
-
-    } 
+        # Global metrics
+        'RMSE_ATE': rmse_ate.item(),
+        'RMSE_ROT': rmse_rot.item(),
+        
+        # Translation stats (ATE)
+        'MEAN_TRANS_ERR': torch.mean(dist).item(),
+        'MEDIAN_TRANS_ERR': torch.median(dist).item(),
+        'STD_TRANS_ERR': torch.std(dist).item(),
+        'MIN_TRANS_ERR': torch.min(dist).item(),
+        'MAX_TRANS_ERR': torch.max(dist).item(),
+        
+        # Rotation stats
+        'MEAN_ROT_ERR': torch.mean(rot).item(),
+        'MEDIAN_ROT_ERR': torch.median(rot).item(),
+        'STD_ROT_ERR': torch.std(rot).item(),
+        'MIN_ROT_ERR': torch.min(rot).item(),
+        'MAX_ROT_ERR': torch.max(rot).item()
+    }
 
     return metrics
    
