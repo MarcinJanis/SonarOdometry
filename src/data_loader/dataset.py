@@ -9,7 +9,8 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 import torchvision.io as io
-
+import torchvision.transforms as T
+import torchvision.transforms.functional as F_t
 
 class SonarSimDataset(Dataset):
     def __init__(self, root_dir, window_size, transform=None, revert_sequence_p = 0.0):
@@ -76,7 +77,8 @@ class SonarSimDataset(Dataset):
             img_pth = os.path.join(self.root_dir, seq_name, 'fls', f'{start_idx + i}.png')
             # img_np = cv2.imread(img_pth, 0)
             # tensor = torch.tensor(img_np)
-            tensor = io.read_image(img_pth)
+            tensor = io.read_image(img_pth, mode=io.ImageReadMode.GRAY)
+            tensor = F_t.resize(tensor, size=(200, 192), antialias=True)
             imgs.append(tensor)
 
         series = torch.stack(imgs).float()

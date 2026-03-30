@@ -18,11 +18,9 @@ from .utils import project_points, approx_movement, depth_to_elev_angle
 
 class DPSO_train(nn.Module):
 
-    def __init__(self, model_cfg, sonar_cfg, batch_size, frames_in_series, init_frames, device):
+    def __init__(self, model_cfg, sonar_cfg, batch_size, frames_in_series, init_frames):
         super(DPSO_train, self).__init__()
 
-        self.device = device
-            
         # --- read config files --- 
         with open(model_cfg, "r") as f:
             model_config = Box(yaml.safe_load(f))
@@ -53,6 +51,8 @@ class DPSO_train(nn.Module):
 
     def forward(self, frames, timestamp, poses_gt, depth_gt, freeze_poses=False, init_poses_noise = 0.0, debug_logger=False):
         
+        device = frames.device
+        
         self.PatchGraph.reset()
 
         batch_size, frames_max = frames.shape[:2]
@@ -60,7 +60,7 @@ class DPSO_train(nn.Module):
         # --- graph init --- 
 
         # global features extractor on whole sequence
-        coords_phi, coords_r_theta  = self.PatchGraph.extract_features(frames, self.device) 
+        coords_phi, coords_r_theta  = self.PatchGraph.extract_features(frames, device) 
         
         # init poses and time  stamps
         if freeze_poses:
@@ -76,7 +76,7 @@ class DPSO_train(nn.Module):
         time = timestamp
 
         # init edges
-        self.PatchGraph.init_edges(self.init_frames, self.device)
+        self.PatchGraph.init_edges(self.init_frames, device)
 
         # iteration over sequence
         output_iter = [] 
@@ -94,7 +94,7 @@ class DPSO_train(nn.Module):
                  
                 poses = torch.cat([poses, new_pose.unsqueeze(1)], dim=1)
 
-                self.PatchGraph.create_new_edges(i, self.device)
+                self.PatchGraph.create_new_edges(i, device)
 
             # detach potimized parameters from graph for BA 
             poses = poses.detach()
@@ -106,7 +106,7 @@ class DPSO_train(nn.Module):
             for k in range(self.update_iter): 
                 # --- get correlation --- 
             
-                corr, ctx, i_val, j_val, valid_mask = self.PatchGraph.corr(poses, coords_phi, coords_eps=1e-2, device=self.device) # tu chyba też trzeba bedzie podać i !!!!
+                corr, ctx, i_val, j_val, valid_mask = self.PatchGraph.corr(poses, coords_phi, coords_eps=1e-2, device=device) # tu chyba też trzeba bedzie podać i !!!!
 
                 patches_idx = i_val
                 src_frames_idx = i_val // self.patches_per_frame
@@ -124,7 +124,7 @@ class DPSO_train(nn.Module):
 
                 # --- Update operator --- 
                 h = self.PatchGraph.get_hidden_state(valid_mask)
-                h, correction = self.UpdateOperator(h, None, corr, ctx, src_frames_idx, tgt_frames_idx, patches_idx, self.device)
+                h, correction = self.UpdateOperator(h, None, corr, ctx, src_frames_idx, tgt_frames_idx, patches_idx, device)
                 delta, weights = correction
 
                 self.PatchGraph.update_hidden_state(h, valid_mask)
@@ -141,7 +141,7 @@ class DPSO_train(nn.Module):
                                       coords_phi, 
                                       self.sonar_param, 
                                       freeze_poses=ba_freeze_poses)
-                
+                BA.to(device)
                 BA.init_ba(src_frames_idx, tgt_frames_idx, patches_idx, delta, weights)
 
                 try:

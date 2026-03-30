@@ -1,8 +1,8 @@
 # Sonar configuration
 rate: 2.0 # data sampling frequency [Hz]
 resolution: 
-  beams: 768 # horizontal resolution - number of acustic beams
-  bins: 800 # distance (vertical) resolution
+  beams: 192 #768 # horizontal resolution - number of acustic beams
+  bins: 200 #800 # distance (vertical) resolution
 fov:
   horizontal: 2.2678 # 130 # [rad]
   vertical: 0.3489 # [rad]
