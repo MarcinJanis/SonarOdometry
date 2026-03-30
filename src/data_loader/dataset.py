@@ -88,7 +88,7 @@ class SonarSimDataset(Dataset):
         if torch.rand(1) < self.revert_sequence_p:
             series = torch.flip(series, dims=[0])
             trajectory = torch.flip(trajectory, dims=[0])
-            depth = torch.flip(depth, dim=[0])
+            depth = torch.flip(depth, dims=[0])
             
         if not self.transform is None:
             series = self.transform(series)

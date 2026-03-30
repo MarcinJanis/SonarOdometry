@@ -33,12 +33,18 @@ class BundleAdjustment(nn.Module):
         self.edge_num = self.b*self.n*self.p
 
         poses = poses.view(1, self.pose_num, 7)
+        
+        # quaterion normalization
+        trans = poses[:, :, :3]
+        quat = F.normalize(poses[:, :, 3:7], p=2, dim=-1)
+        poses = torch.cat([trans, quat], dim=-1)
+
         patch_coords_r_theta = patch_coords_r_theta.view(1, self.edge_num, 2)
         patch_coords_phi = patch_coords_phi.view(1, self.edge_num, 1)
 
         # --- define parameters to optimize ---
-        poses_se3 = pp.SE3(poses)
         
+        poses_se3 = pp.SE3(poses)
         
         self.freeze_poses = freeze_poses
         if freeze_poses >= self.n_act:
@@ -168,8 +174,8 @@ class BundleAdjustment(nn.Module):
         residual_proj = residual_proj.view(1, -1)
         # --- pose diff err --- 
         
-        # residual_pose = (self.init_poses.Inv() @ self.poses).Log().tensor() # numerical err in quaternions
-        residual_pose = poses.tensor() - self.init_poses.tensor() # Safe option
+        residual_pose = (self.init_poses.Inv() @ poses).Log().tensor() # numerical err in quaternions
+        # residual_pose = poses.tensor() - self.init_poses.tensor() # Safe option
 
         residual_pose = residual_pose.view(1, -1)
         # --- elev ang err --- 

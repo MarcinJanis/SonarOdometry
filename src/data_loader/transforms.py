@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from torch.distributions import Gamma
 from torchvision.transforms import v2
 
+import math
 # === PARAMETERS === 
 
 # Parameters determined by analysis of Aracati2017 data set. 
@@ -26,8 +27,8 @@ class SpeckleNoise(nn.Module):
         # self.upsample_factor = upsample_factor
         
     def forward(self, x):
-        b, n, c, h, w = x.shape
-        x = x.view(b*n, c, h, w)
+        n, c, h, w = x.shape
+        # x = x.view(n, c, h, w)
 
         concentration = torch.tensor([self.concentration], device=x.device, dtype=x.dtype)
         rate = torch.tensor([self.rate], device=x.device, dtype=x.dtype)
@@ -39,7 +40,7 @@ class SpeckleNoise(nn.Module):
         else:
             upsample_factor = 4
 
-        speckle_noise = gamma_dist.sample((b*n, c, h//upsample_factor,  w//upsample_factor)).squeeze(-1)
+        speckle_noise = gamma_dist.sample((n, c, h//upsample_factor,  w//upsample_factor)).squeeze(-1)
         
         speckle_noise_upsample = F.interpolate(
             speckle_noise,
@@ -52,11 +53,9 @@ class SpeckleNoise(nn.Module):
         # speckle_noise_filtered = F.conv2d(speckle_noise, avg_kernel, padding=1)
 
         x = torch.clamp(x * speckle_noise_upsample, min=0.0, max=1.0)
-        x = x.view(b, n, c, h, w)
+        x = x.view(n, c, h, w)
         return x
-    import torch
-import torch.nn as nn
-import math
+
 
 class RayArtifacts(nn.Module):
     def __init__(self, a_min, a_max, w_min, w_max, num_rays=5, probability=1.0):
@@ -73,7 +72,7 @@ class RayArtifacts(nn.Module):
         if torch.rand(1).item() > self.probability:
             return x
 
-        b, n, c, h, w = x.shape
+        n, c, h, w = x.shape
         device = x.device
         dtype = x.dtype
 
@@ -85,7 +84,7 @@ class RayArtifacts(nn.Module):
         rays_matrix = amplitude.unsqueeze(1) * torch.sin(omega.unsqueeze(1).to(dtype) * xaxis)
         
         rays_1d = rays_matrix.sum(dim=0)
-        rays_exp = rays_1d.view(1, 1, 1, 1, w).expand(b, n, c, h, w)
+        rays_exp = rays_1d.view(1, 1, 1, w).expand(n, c, h, w)
 
         return torch.clamp(x + rays_exp, 0.0, 1.0)
 
