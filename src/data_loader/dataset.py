@@ -12,12 +12,13 @@ import torchvision.io as io
 
 
 class SonarSimDataset(Dataset):
-    def __init__(self, root_dir, window_size, transform=None):
+    def __init__(self, root_dir, window_size, transform=None, revert_sequence_p = None):
 
         self.root_dir = root_dir 
         self.window_size = window_size
         self.transform = transform
-
+        self.revert_sequence_p = revert_sequence_p # propability of reverting sequence
+        
         self.time = {} # time vector
         self.traj_gt = {} # trajectory 
         self.depth = {}
@@ -83,9 +84,15 @@ class SonarSimDataset(Dataset):
         # norm 
         series = series / 255.0
 
+        # revert sequence
+        if torch.rand(1) < self.revert_sequence_p:
+            series = torch.flip(series, dim=0)
+            trajectory = torch.flip(trajectory, dim=0)
+            depth = torch.flip(depth, dim=0)
+            
         if not self.transform is None:
             series = self.transform(series)
-
+            
         return series, time, trajectory, depth
 
     def print_info(self):
