@@ -137,7 +137,7 @@ class BundleAdjustment(nn.Module):
         # weights_anchor_pose = torch.full((self.pose_num * 7,), prior_weight,  device=weights.device, dtype=weights.dtype)
         # weights_anchor_elev = torch.full((self.pose_num * 7,), prior_weight,  device=weights.device, dtype=weights.dtype)
 
-        weights_anchor_pose = torch.zeros((self.pose_num * 7,), device=weights.device, dtype=weights.dtype)
+        weights_anchor_pose = torch.zeros((self.pose_num * 6,), device=weights.device, dtype=weights.dtype)
         
         if self.freeze_poses > 0 and self.freeze_poses < self.n_act:
             weights_anchor_pose[:self.freeze_poses * 7] = prior_weight
@@ -196,9 +196,10 @@ class BundleAdjustment(nn.Module):
         loss_diff = 0.0
 
         with torch.enable_grad():
-            for i in range(max_iter):
-            
+            for i in range(max_iter):   
+                # print('Do tego miesjca nie wyrzuciło błedu wtf')
                 loss = optimizer.step(input = None, weight=self.weights)
+                # print('TU juz wyrzucilo (tego nie bezie widac)')
                 loss_diff = prev_loss - loss.item()
                 if abs(loss_diff) < early_stop_tol:
                         print(f'[Bundle Adjustment Module] Early stopping')

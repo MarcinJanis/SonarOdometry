@@ -135,7 +135,7 @@ class DPSO(nn.Module):
                                         coords_phi.unsqueeze(0), 
                                         self.sonar_param, 
                                         freeze_poses=self.freeze_poses_num)
-                    
+                    BA.to(self.device)
                     BA.init_ba(src_frames_local_idx, 
                             tgt_frames_local_idx, 
                             patches_idx, 

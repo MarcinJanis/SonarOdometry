@@ -54,7 +54,7 @@ class DPSO_LightningModule(pl.LightningModule):
         pred = self.model(fls_series, time, trajectory_gt, depth_gt, 
                           freeze_poses=freeze_poses, 
                           init_poses_noise = self.init_poses_noise, 
-                          debug_logger=False)
+                          debug_logger=True)
 
         for k, (pred_poses, pred_coords, gt_coords) in enumerate(pred):
             

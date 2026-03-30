@@ -5,8 +5,8 @@
 # === Encoder configuration === #
 # DO NOT CHANGE 
 
-FLS_INPUT_HEIGHT: 800 # input image height
-FLS_INPUT_WIDTH: 768 # input image weidth
+FLS_INPUT_HEIGHT: 200 #800 # input image height
+FLS_INPUT_WIDTH: 192 #768 # input image weidth
 
 FEATURES_OUTPUT_CH: 128 # or 256; features map output channels
 CONTEXT_OUTPUT_CH: 384
