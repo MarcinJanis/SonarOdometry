@@ -12,7 +12,7 @@ import torchvision.io as io
 
 
 class SonarSimDataset(Dataset):
-    def __init__(self, root_dir, window_size, transform=None, revert_sequence_p = None):
+    def __init__(self, root_dir, window_size, transform=None, revert_sequence_p = 0.0):
 
         self.root_dir = root_dir 
         self.window_size = window_size
@@ -86,9 +86,9 @@ class SonarSimDataset(Dataset):
 
         # revert sequence
         if torch.rand(1) < self.revert_sequence_p:
-            series = torch.flip(series, dim=0)
-            trajectory = torch.flip(trajectory, dim=0)
-            depth = torch.flip(depth, dim=0)
+            series = torch.flip(series, dims=[0])
+            trajectory = torch.flip(trajectory, dims=[0])
+            depth = torch.flip(depth, dim=[0])
             
         if not self.transform is None:
             series = self.transform(series)
