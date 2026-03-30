@@ -246,21 +246,28 @@ class Graph(nn.Module):
 
         # --- get correlation for valid edges --- 
 
-        # get grid to sample pixels from feature map 
+        # --- get correlation of projected patches and target frame ---
+
+                
         search_size = self.corr_neighbour + self.patch_size - 1
 
+        # ofsets to search for each target coords
         r_range = torch.arange(-(search_size // 2), search_size // 2 + 1, device=device).float()
         dy, dx = torch.meshgrid(r_range, r_range, indexing="ij")
         offsets = torch.stack([dx, dy], dim=-1)
 
+        # add offsets to target coords
         center_coords_lv1 = tgt_coords_val_fls[:, [1, 0]].view(valid_edges_num, 1, 1, 2) 
 
+        # create normal size sampling grid 
         grid1 = center_coords_lv1 + offsets.unsqueeze(0)
         norm_factor1 = torch.tensor([(self.fls_w - 1) / 2.0, (self.fls_h - 1) / 2.0], device=device)
         grid1 = (grid1 / norm_factor1) - 1.0
 
+        # downsample target coords with offsets
         center_coords_lv2 = center_coords_lv1 / self.encoder_downsize
 
+        # create downsample sampling grid
         grid2 = center_coords_lv2 + offsets.unsqueeze(0)
         norm_factor2 = torch.tensor([(self.fls_w // self.encoder_downsize - 1) / 2.0, (self.fls_h // self.encoder_downsize - 1) / 2.0], device=device)
         grid2 = (grid2 / norm_factor2) - 1.0
@@ -270,29 +277,52 @@ class Graph(nn.Module):
         j_val_local = self.g2l_frame_idx(j_val)
 
         fmap1_expand = self.fmap1[j_val_local, :, :, :]
-        fmap2_expand = self.fmap2[j_val_local, :, :]
+        fmap2_expand = self.fmap2[j_val_local, :, :, :]
 
         target_patches_fmap1 = F.grid_sample(fmap1_expand, grid1, mode='bilinear', padding_mode='zeros', align_corners=True)
         target_patches_fmap2 = F.grid_sample(fmap2_expand, grid2, mode='bilinear', padding_mode='zeros', align_corners=True)
 
-        target_patches_fmap1 = F.unfold(target_patches_fmap1, kernel_size=(self.patch_size, self.patch_size), stride=1)
-        target_patches_fmap2 = F.unfold(target_patches_fmap2, kernel_size=(self.patch_size, self.patch_size), stride=1)
-
-        target_patches_fmap1 = target_patches_fmap1.view(valid_edges_num, self.fmap_c, self.patch_size*self.patch_size, self.corr_neighbour*self.corr_neighbour)
-        target_patches_fmap2 = target_patches_fmap2.view(valid_edges_num, self.fmap_c, self.patch_size*self.patch_size, self.corr_neighbour*self.corr_neighbour)
+        target_patches_fmap1 = target_patches_fmap1.view(1, valid_edges_num * self.fmap_c, search_size, search_size)
+        target_patches_fmap2 = target_patches_fmap2.view(1, valid_edges_num * self.fmap_c, search_size, search_size)
 
         # get patches features 
         i_val_frame_local, i_val_patch_local = self.g2l_patch_idx(i_val)
         act_patches_f = self.patches_f[i_val_frame_local, i_val_patch_local, :, :]
         act_patches_c = self.patches_c[i_val_frame_local, i_val_patch_local, :]
         
-        # calc correlation and connect to single tensor 
-        corr_map1 = torch.einsum('ncpr, ncp -> nr', target_patches_fmap1, act_patches_f)
-        corr_map2 = torch.einsum('ncpr, ncp -> nr', target_patches_fmap2, act_patches_f)
+        n, c1, d = act_patches_f.shape
+        patch_features_kernel = act_patches_f.view(n, c1, self.patch_size, self.patch_size) # patches features kernel
 
-        corr_map = torch.cat((corr_map1.reshape(valid_edges_num, -1), corr_map2.reshape(valid_edges_num, -1)), dim=-1) 
+        # perform conv2d with group = valid_edges_num
+        # each of kernels, represnting each patch have acces to features of corresponding fmap features
+        corr_map1 = F.conv2d(target_patches_fmap1, patch_features_kernel, groups=valid_edges_num)
+        corr_map2 = F.conv2d(target_patches_fmap2, patch_features_kernel, groups=valid_edges_num)
+        # output shape: (1, valid_edges_num, corr_neighbour, corr_neighbour)
+
+
+        corr_map = torch.cat((corr_map1.view(valid_edges_num, -1), corr_map2.view(valid_edges_num, -1)), dim=-1) 
 
         return corr_map, act_patches_c, i_val, j_val, valid_mask
+        
+        
+        # target_patches_fmap1 = F.unfold(target_patches_fmap1, kernel_size=(self.patch_size, self.patch_size), stride=1)
+        # target_patches_fmap2 = F.unfold(target_patches_fmap2, kernel_size=(self.patch_size, self.patch_size), stride=1)
+
+        # target_patches_fmap1 = target_patches_fmap1.view(valid_edges_num, self.fmap_c, self.patch_size*self.patch_size, self.corr_neighbour*self.corr_neighbour)
+        # target_patches_fmap2 = target_patches_fmap2.view(valid_edges_num, self.fmap_c, self.patch_size*self.patch_size, self.corr_neighbour*self.corr_neighbour)
+
+        # # get patches features 
+        # i_val_frame_local, i_val_patch_local = self.g2l_patch_idx(i_val)
+        # act_patches_f = self.patches_f[i_val_frame_local, i_val_patch_local, :, :]
+        # act_patches_c = self.patches_c[i_val_frame_local, i_val_patch_local, :]
+        
+        # # calc correlation and connect to single tensor 
+        # corr_map1 = torch.einsum('ncpr, ncp -> nr', target_patches_fmap1, act_patches_f)
+        # corr_map2 = torch.einsum('ncpr, ncp -> nr', target_patches_fmap2, act_patches_f)
+
+        # corr_map = torch.cat((corr_map1.reshape(valid_edges_num, -1), corr_map2.reshape(valid_edges_num, -1)), dim=-1) 
+
+        # return corr_map, act_patches_c, i_val, j_val, valid_mask
 
     def get_last_poses(self, num=2):
         local_n = self.g2l_frame_idx(self.n)
