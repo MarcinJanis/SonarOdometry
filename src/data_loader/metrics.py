@@ -45,8 +45,7 @@ def pose_err(pred, target):
     dist = dist_err(x_pred, x_target)
     rot = rot_err(q_pred, q_target)
     
-    return torch.mean(dist, dim=-1), torch.mean(rot, dim=-1)
-
+    return torch.mean(dist), torch.mean(rot)
 
 
 # === EVALUATION METRICS - numpy ===
@@ -184,3 +183,23 @@ def eval_metrics(pred, target, align=True, align_init_pt_only=True, add_data_ser
         metrics['data_absolute_rotation'] = rot
     return metrics
 
+
+
+# b = 1  # batch size
+# n = 5  # liczba aktywnych póz w danym kroku (np. dotarłeś do klatki nr 4, więc masz 5 póz)
+
+# # Generujemy losowe dane o kształcie [B, N, 7]
+# pred_poses = torch.rand(b, n, 7)
+# target_poses = torch.rand(b, n, 7)
+
+# # Normalizacja kwaternionów (żeby było zgodnie ze sztuką)
+# pred_poses[:, :, 3:7] = torch.nn.functional.normalize(pred_poses[:, :, 3:7], p=2, dim=-1)
+# target_poses[:, :, 3:7] = torch.nn.functional.normalize(target_poses[:, :, 3:7], p=2, dim=-1)
+
+# # Puszczamy przez Twoją funkcję
+# dist_loss, rot_loss = pose_err(pred_poses, target_poses)
+
+# print(f"Kształt wejścia (pred_poses): {pred_poses.shape}")
+# print("-" * 40)
+# print(f"Kształt wyjścia dist_loss:    {dist_loss.shape}")
+# print(f"Kształt wyjścia rot_loss:     {rot_loss.shape}")
