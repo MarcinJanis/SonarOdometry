@@ -138,7 +138,7 @@ def ATE(pred, target):
     return rmse_ate, rmse_rot, dist, rot
 
 
-def eval_metrics(pred, target, align=True, align_init_pt_only=True, file_pth=None):
+def eval_metrics(pred, target, align=True, align_init_pt_only=True, add_data_series=False):
   
     n = min(pred.shape[0], target.shape[0])
     pred = pred[:n, :]
@@ -175,11 +175,12 @@ def eval_metrics(pred, target, align=True, align_init_pt_only=True, file_pth=Non
         'MIN_ROT_ERR': float(np.min(rot)),
         'MAX_ROT_ERR': float(np.max(rot))
 
-        # raw data
-        'data_absolute_translation': dist,
-        'data_relative_translation': vect_rpe, 
-        'data_absolute_rotation': rot
     }
+      
 
+    if add_data_series:
+        metrics['data_absolute_translation'] = dist
+        metrics['data_relative_translation'] = vect_rpe
+        metrics['data_absolute_rotation'] = rot
     return metrics
 
