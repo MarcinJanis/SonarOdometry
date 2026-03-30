@@ -221,17 +221,78 @@ class DataGenerator():
         
         plt.show()
 
-    def generate_time_series():
-        pass
 
-    def print_metrics(self, metrics_dict):
-        # metrics_dict = {'name':function}
-        print("="*50)
+    def evaluate(self):
+        
+        # metrics for all loaded trajectories:
+        predict_traj = list(self.predict_traj.values())
+        target = self.pose.values
 
-        for metric_name, fcn in metrics_dict.items():
-            print(f'--- {metric_name} ---')
-            for series_name, pred_pose in self.predict_traj.items():
-                val = fcn(pred_pose, self.pose)
-                print(f'{series_name}: {val}')
+        # data containers 
+        labels = list(self.predict_traj.keys())
+        
+        # Global metrics
+        ATE = []
+        RPE = []
+        RMSE_ROT = []
+
+        # Translation stats
+        translation_mean = []
+        translation_median = []
+        translation_std = []
+        translation_min = []
+        translation_max = []
+        
+        # Rotation stats
+        rotation_mean = []
+        rotation_median = []
+        rotation_std = []
+        rotation_min = []
+        rotation_max = []
+
+        #
+        
+        
+        for k in range(len(predict_traj)):
+            
+            pred = predict_traj[k].values
+            metrics_dict = eval_metrics(pred, target)
+            
+            # Global metrics
+            ATE.append(metrics_dict['ATE'])
+            RPE.append(metrics_dict['RPE'])
+            RMSE_ROT.append(metrics_dict['RMSE_ROT'])
+            
+            # Translation stats
+            translation_mean.append(metrics_dict['MEAN_TRANS_ERR'])
+            translation_median.append(metrics_dict['MEDIAN_TRANS_ERR'])
+            translation_std.append(metrics_dict['STD_TRANS_ERR'])
+            translation_min.append(metrics_dict['MIN_TRANS_ERR'])
+            translation_max.append(metrics_dict['MAX_TRANS_ERR'])
+            
+            # Rotation stats
+            rotation_mean.append(metrics_dict['MEAN_ROT_ERR'])
+            rotation_median.append(metrics_dict['MEDIAN_ROT_ERR'])
+            rotation_std.append(metrics_dict['STD_ROT_ERR'])
+            rotation_min.append(metrics_dict['MIN_ROT_ERR'])
+            rotation_max.append(metrics_dict['MAX_ROT_ERR'])
+            
+
+         
+            
+            
                 
-        print("="*50)
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
