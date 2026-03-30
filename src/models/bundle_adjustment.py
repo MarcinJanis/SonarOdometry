@@ -147,7 +147,7 @@ class BundleAdjustment(nn.Module):
         weights_anchor_elev = torch.zeros((self.edge_num * 1,), device=weights.device, dtype=weights.dtype)
         
         weights = torch.cat([weights_param, weights_anchor_pose, weights_anchor_elev])
-        self.weights = torch.diag(weights)
+        self.weights = torch.diag(weights, device = weights.device, dtype=weights.dtype)
         
     def forward(self, dummy_input=None):
 
