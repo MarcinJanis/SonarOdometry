@@ -6,20 +6,31 @@ from .metrics import pose_err
 from .metrics import eval_metrics
 
 
+# freeze_poses_step, init_poses_noise, loss_weights
 class DPSO_LightningModule(pl.LightningModule):
-    def __init__(self, model, freeze_poses_step, init_poses_noise, loss_weights, opt_iter_weights):
+    def __init__(self, model, mode, traning_param):
         super().__init__()
-
         self.model = model
 
         self.save_hyperparameters()
 
-        self.freeze_poses_step = freeze_poses_step
+        self.mode = mode
+        self.traning_param = traning_param
 
-        self.loss_w = loss_weights # weights of loss components
-        self.opt_iter_weights = opt_iter_weights # weights of loss for each optim iteration
+        if mode == 'supervised':
+            self.supervised = True
+            self.freeze_poses_steps = traning_param['freeze_poses_steps']
+            self.init_poses_noise = traning_param['init_pose_max_noise']
+            self.loss_w_trans = traning_param['loss_weight_trans']
+            self.loss_w_rot = traning_param['loss_weight_rot']
+            self.loss_w_proj_r = traning_param['loss_weight_proj_r']
+            self.loss_w_proj_theta = traning_param['loss_weight_proj_theta']
+                        
+        else:
+            self.supervised = True
+            self.loss_w_proj_r = traning_param['loss_weight_proj_r']
+            self.loss_w_proj_theta = traning_param['loss_weight_proj_theta']
 
-        self.init_poses_noise  = init_poses_noise # noise for initial poses
 
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.parameters(), lr=1e-3, weight_decay=1e-2)
@@ -38,11 +49,12 @@ class DPSO_LightningModule(pl.LightningModule):
     
     def training_step(self, batch, batch_idx):
 
-        # freeze poses 
-        if self.global_step < self.freeze_poses_step:
-            freeze_poses = True
-        else:
-            freeze_poses = False
+        if self.supervised: 
+            # freeze poses 
+            if self.global_step < self.freeze_poses_steps:
+                freeze_poses = True
+            else:
+                freeze_poses = False
 
         loss_trans = 0.0
         loss_rot = 0.0
@@ -50,65 +62,91 @@ class DPSO_LightningModule(pl.LightningModule):
         loss_r = 0.0
 
         fls_series, time, trajectory_gt, depth_gt = batch
-
+        
         pred = self.model(fls_series, time, trajectory_gt, depth_gt, 
+                          self.supervised,
                           freeze_poses=freeze_poses, 
                           init_poses_noise = self.init_poses_noise, 
                           debug_logger=True)
 
-        for k, (pred_poses, pred_coords, gt_coords, valid) in enumerate(pred):
+        for k, (pred_poses, target_projection, predicted_projection, valid_mask) in enumerate(pred):
             
-            trans_err, rot_err = pose_err(pred_poses, trajectory_gt)
-
-            valid_edges_num = torch.sum(valid) + 1e-6
+            if self.supervised:
+                # pose eror - mean from absolute pose and rotation error
+                trans_err, rot_err = pose_err(pred_poses, trajectory_gt)
+                # accumulate loss components
+                loss_trans += trans_err 
+                loss_rot += rot_err
             
-            patch_proj_err = valid.unsqueeze(-1) * torch.abs(gt_coords - pred_coords)
+            # --- projection error --- 
+            # supervised - between prediction and gt
+            # selfsupervised - between prediction and optimized value by BA
+            valid_edges_num = torch.sum(valid_mask) + 1e-6
+            patch_proj_err = valid_mask.unsqueeze(-1) * torch.abs(target_projection - predicted_projection)
             proj_x_err = torch.sum(patch_proj_err[:, 0], dim=-1) / valid_edges_num
             proj_y_err = torch.sum(patch_proj_err[:, 1], dim=-1) / valid_edges_num
 
-            # accumulate loss
-            loss_trans += trans_err # * self.opt_iter_weights[k]
-            loss_rot += rot_err # * self.opt_iter_weights[k]
-            loss_theta += proj_x_err # * self.opt_iter_weights[k]
-            loss_r += proj_y_err # * self.opt_iter_weights[k]
+            # accumulate loss components
+            loss_theta += proj_x_err 
+            loss_r += proj_y_err 
 
         # compute loss 
-        loss_trans = loss_trans / k
-        loss_rot = loss_rot / k
-        loss_theta = loss_theta / k
-        loss_r = loss_r / k
+        k_total = k + 1
 
-        # log loss components
-        self.log_dict({'loss_trans':loss_trans, 'loss_rot':loss_rot, 'loss_proj_theta':loss_theta, 'loss_proj_r':loss_r}, on_step=True, on_epoch=True, logger=True)
+        loss_theta = loss_theta / k_total
+        loss_r = loss_r / k_total
 
-        # total loss
-        loss = loss_trans*self.loss_w['trans'] + \
-               loss_rot*self.loss_w['rot'] + \
-               loss_theta*self.loss_w['proj_theta'] + \
-               loss_r*self.loss_w['proj_r']
+        if self.supervised: 
+            loss_trans = loss_trans / k_total
+            loss_rot = loss_rot / k_total
 
-        self.log('total_loss', loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+            self.log_dict({'loss_translation':loss_trans, 'loss_rotation':loss_rot, 'loss_projection_theta':loss_theta, 'loss_projection_r':loss_r}, on_step=True, on_epoch=True, logger=True)
 
-        return loss
+            total_loss = self.loss_w_trans * loss_trans + \
+                         self.loss_w_rot * loss_rot + \
+                         self.loss_w_proj_r * loss_r + \
+                         self.loss_w_proj_theta * loss_theta
+            
+        else:
+
+            self.log_dict({'loss_projection_theta':loss_theta, 'loss_projection_r':loss_r}, on_step=True, on_epoch=True, logger=True)
+
+            total_loss = self.loss_w_proj_r * loss_r + \
+                         self.loss_w_proj_theta * loss_theta
+
+        self.log('total_loss', total_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+
+        return total_loss
         
 
     def validation_step(self, batch, batch_idx):
         
         # freeze poses 
-        freeze_poses = False
+        if self.supervised:
+            freeze_poses = False
 
         fls_series, time, trajectory_gt, depth_gt = batch
 
         pred = self.model(fls_series, time, trajectory_gt, depth_gt, 
+                          self.supervised,
                           freeze_poses=freeze_poses, 
                           init_poses_noise = self.init_poses_noise, 
                           debug_logger=False)
 
-        # for k, (pred_poses, pred_coords, gt_coords) in enumerate(pred):
-        pred_poses, pred_coords, gt_coords, valid = pred[-1]
+        pred_poses, target_projection, predicted_projection, valid_mask = pred[-1]
         
-        metrics = eval_metrics(pred_poses.detach().cpu().numpy(), trajectory_gt.detach().cpu().numpy(),
-                                align=False, align_init_pt_only=True, add_data_series=False)
+        valid_edges_num = torch.sum(valid_mask) + 1e-6
+        patch_proj_err = valid_mask.unsqueeze(-1) * torch.abs(target_projection - predicted_projection)
+        proj_x_err = torch.sum(patch_proj_err[:, 0], dim=-1) / valid_edges_num
+        proj_y_err = torch.sum(patch_proj_err[:, 1], dim=-1) / valid_edges_num
+
+
+        metrics = eval_metrics(pred_poses.detach().cpu().numpy(), 
+                               trajectory_gt.detach().cpu().numpy(),
+                               align=False, align_init_pt_only=True, add_data_series=False)
+        
+        metrics['projection_err_theta'] = proj_x_err
+        metrics['projection_err_r'] = proj_y_err
 
         self.log_dict(metrics, on_step=True, on_epoch=True, logger=True)
 

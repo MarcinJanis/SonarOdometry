@@ -2,230 +2,205 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .utils import transform_cart2polar, transform_polar2cart
+from .utils import transform_cart2polar, transform_polar2cart, depth_to_elev_angle
 
 import pypose as pp
 
 
+
 class BundleAdjustment(nn.Module):
-    def __init__(self, poses, patch_coords_r_theta, patch_coords_phi, sonar_param, freeze_poses):
+    def __init__(self, supervised,
+                 init_poses, 
+                 gt_poses, gt_depth,
+                 init_patch_coords_r_theta, 
+                 init_patch_coords_phi, 
+                 source_frame_idx, target_frame_idx, patch_idx,
+                 delta, weights,
+                 sonar_param, freeze_poses):
+        
         super().__init__()
+        self.device = init_poses.device
+        self.supervised = supervised
+        # --- init ---
+        self.freeze_poses = freeze_poses
+
+        # physical to fls units scaling 
+        self.fls2physic_scale_factor = torch.tensor([self.sonar_param.resolution.bins / (self.sonar_param.range.max - self.sonar_param.range.min),
+                                            self.sonar_param.resolution.beams / self.sonar_param.fov.horizontal], device = self.device).view(1, 1, 2)
+
+
+        # remember input shape:
+        self.b, _, self.p, _ = init_patch_coords_r_theta.shape
+        self.act_n = init_poses.shape[1]
+        poses_n = self.b*self.act_n
+        self.edges_n = self.b*self.act_n*self.p
+
+        # get actual number of estimated poses 
+        init_poses = init_poses.view(1, poses_n, 7)
+        init_poses = _quat_norm(init_poses)
+
+        # get acutal number of patch coords
+        patch_coords_r_theta = init_patch_coords_r_theta.view(1, self.edges_n, 2)
+        patch_coords_phi = init_patch_coords_phi.view(1, self.edges_n, 1)
         
-        # self.buff_size = poses.shape[1] # get buff size
-
-        # --- set propper shape --- 
-        if len(patch_coords_r_theta.shape) == 4:
-            
-            b, n, p, _ = patch_coords_r_theta.shape
-            self.b = b
-            self.n = n
-            self.p = p 
-
-        elif len(patch_coords_r_theta.shape) == 3:
-            
-            bn, p, _ = patch_coords_r_theta.shape
-            self.b = 1
-            self.n = bn
-            self.p = p 
-        
-        self.n_act = poses.shape[1]
-        self.pose_num = self.b*self.n_act
-        self.edge_num = self.b*self.n*self.p
-
-        poses = poses.view(1, self.pose_num, 7)
-        
-        # quaterion normalization
-        trans = poses[:, :, :3]
-        quat = F.normalize(poses[:, :, 3:7], p=2, dim=-1)
-        poses = torch.cat([trans, quat], dim=-1)
-
-        patch_coords_r_theta = patch_coords_r_theta.view(1, self.edge_num, 2)
-        patch_coords_phi = patch_coords_phi.view(1, self.edge_num, 1)
 
         # --- define parameters to optimize ---
+        init_poses_se3 = pp.SE3(init_poses)
         
-        poses_se3 = pp.SE3(poses)
-        
-        self.freeze_poses = freeze_poses
-        if freeze_poses >= self.n_act:
-            self.poses_anchor = poses_se3
+        if freeze_poses >= self.act_n:
+            self.poses_anchor = init_poses_se3
             self.split_poses = False
         elif freeze_poses == 0:
-            self.poses_anchor = pp.Parameter(poses_se3) # confusing name but dont wnat to make more complex logic which is not necesery
+            self.poses_anchor = pp.Parameter(init_poses_se3) # confusing name but dont wnat to make more complex logic which is not necesery
             self.split_poses = False
         else:
-            self.poses_anchor = poses_se3[:, :freeze_poses, :]
-            self.poses_optim = pp.Parameter(poses_se3[:, freeze_poses:, :])
+            self.poses_anchor = init_poses_se3[:, :freeze_poses, :]
+            self.poses_optim = pp.Parameter(init_poses_se3[:, freeze_poses:, :])
             self.split_poses = True
             
+        self.elevation_angle = nn.Parameter(patch_coords_phi) 
 
-        self.elevation_angle = nn.Parameter(patch_coords_phi) # pp.Parameter(patch_coords_phi)
-
-        # --- define constants parameters --- 
-        self.patch_coords = patch_coords_r_theta
+        # --- define parameters not optimized --- 
+        self.patch_coords_r_theta = patch_coords_r_theta
         self.sonar_param = sonar_param
 
 
-    def transform(self, source_poses, target_poses, coords):
+        # global idx -> local idx
+        self.source_frame_idx = source_frame_idx % poses_n
+        self.target_frame_idx = target_frame_idx % poses_n
+        self.patch_idx = patch_idx % self.edges_n
 
-        source_poses = source_poses.squeeze(0)
-        target_poses = target_poses.squeeze(0)
-        coords = coords.squeeze(0)
-
-        local_source_coords = transform_polar2cart(coords) # transorm_points_coords(coords, projection_type.POLAR2CARTESIAN)
-
-        global_coords = source_poses @ local_source_coords
-
-        local_target_coords = target_poses.Inv() @ global_coords
-
-        coords = transform_cart2polar(local_target_coords)
-
-        # source_poses = source_poses.unsqueeze(0)
-        # target_poses = target_poses.unsqueeze(0)
-        # coords = coords
-
-        return coords.unsqueeze(0)
-    
-
-
-    def init_ba(self, source_poses_idx, target_poses_idx, patch_idx, delta, weights):
-        
-        self.source_poses_idx = source_poses_idx % self.pose_num
-        self.target_poses_idx = target_poses_idx % self.pose_num
-        self.patch_idx = patch_idx % self.edge_num
-
-        # --- get poses and patch coords ---
-
-        # get frozen poses (source and target), with no gradient to save unoptimized values as reference to optimization 
-        with torch.no_grad():
+        # --- projection base line ---
+        # project points with act pose, add delta
+        with torch.no_grad(): # [no grad required !?]
+            source_poses = init_poses_se3[:, self.source_frame_idx, :].clone() # [clone() or detach() also!?]
+            target_poses = init_poses_se3[:, self.target_frame_idx, :].clone() # [clone() or detach() also!?]
             
-            if self.split_poses:
-                poses = torch.cat([self.poses_anchor, self.poses_optim], dim=1)
-            else:
-                poses = self.poses_anchor
-
-            source_poses = poses[:, self.source_poses_idx, :].clone()
-            target_poses = poses[:, self.target_poses_idx, :].clone()
-            
-            patch_coords = self.patch_coords[:, self.patch_idx, :]
-        
-            elevation_angle = self.elevation_angle[:, self.patch_idx].clone()
-    
-            # --- compose coords --- 
+            patch_coords = self.patch_coords_r_theta[:, self.patch_idx, :] 
+            elevation_angle = self.elevation_angle[:, self.patch_idx].clone() # [clone() or detach() also!?]
             source_coords = torch.cat([patch_coords, elevation_angle], dim = 2)
-        
-            # --- transform points --- 
-            target_coords = self.transform(source_poses, target_poses, source_coords)
+         
+            target_coords = transform(source_poses, target_poses, source_coords)
             
-        # --- add corrections ---
-        self.target_coords = target_coords[:, :, :2] + self.scale_delta(delta)
-        
-        # --- save initial state ---
-        self.init_poses = pp.SE3(poses.tensor().clone().detach())
-        self.init_elevation_angle = self.elevation_angle.clone().detach()
+        # projcted coords (r, theta) - baseline for BA optimization
+        # here with grad tracking!
+        self.coords_baseline = target_coords[:, :, :2] + (delta  / self.fls2physic_scale_factor.squeeze(0))
 
-        # --- compose weights matrix --- 
+        # weights for optimization
+        self.weights = torch.diag(weights.flatten())
+        # [if really needed (NaN occurs), addd to weighs.flatten(), via torch.cat(), small weight, shape: [num_opt_poses+num_opt_elev], with val 0 for elev angl and 1e-4 for poses]
+      
+        # --- gt data for vicarious loss ---
+        if self.supervised:
+            gt_poses = _quat_norm(gt_poses.view(1, poses_n, 7))
+            self.act_poses_gt_se3 = pp.SE3(gt_poses[:, :poses_n, :])
+            depth_gt_expand = gt_depth.view(poses_n)[self.source_frame_idx]
+            self.act_elev_gt = depth_to_elev_angle(depth_gt_expand, patch_coords_r_theta[:, : 0].view(poses_n))
 
-        # weights refered to optimized parameters
-        weights_param = weights.flatten()
-        
-        # prior/anchor 
-        prior_weight = 1e-4
-
-
-        # before: 
-        # weights_anchor_pose = torch.full((self.pose_num * 7,), prior_weight,  device=weights.device, dtype=weights.dtype)
-        # weights_anchor_elev = torch.full((self.pose_num * 7,), prior_weight,  device=weights.device, dtype=weights.dtype)
-
-        weights_anchor_pose = torch.zeros((self.pose_num * 6,), device=weights.device, dtype=weights.dtype)
-        
-        if self.freeze_poses > 0 and self.freeze_poses < self.n_act:
-            weights_anchor_pose[:self.freeze_poses * 7] = prior_weight
-        elif self.freeze_poses == 0:
-            weights_anchor_pose[:] = prior_weight
-
-        weights_anchor_elev = torch.zeros((self.edge_num * 1,), device=weights.device, dtype=weights.dtype)
-        
-        weights = torch.cat([weights_param, weights_anchor_pose, weights_anchor_elev])
-        self.weights = torch.diag(weights)
-        
     def forward(self, dummy_input=None):
 
-        # --- get poses and coords ---
+        # compose pose tensor and coord tensor
         if self.split_poses:
             poses = torch.cat([self.poses_anchor, self.poses_optim], dim=1)
         else:
             poses = self.poses_anchor
-        # print(f'poses = {poses.shape}')
-        source_poses = poses[:, self.source_poses_idx, :]
-        target_poses = poses[:, self.target_poses_idx, :]
 
-        patch_coords = self.patch_coords[:, self.patch_idx % self.edge_num, :]
-        elevation_angle = self.elevation_angle[:, self.patch_idx % self.edge_num, :]
-        
-        proj_coords = torch.cat([patch_coords, elevation_angle], dim = 2)
+        patch_coords = self.patch_coords[:, self.patch_idx, :] 
+        elevation_angle = self.elevation_angle[:, self.patch_idx, :] # pp.SE3 obj
+        source_coords = torch.cat([patch_coords, elevation_angle], dim = 2)
 
-        # --- transfom coords ---
-        proj_coords = self.transform(source_poses, target_poses, proj_coords)
+
+        # expand for all edges
+        source_poses = poses[:, self.source_frame_idx, :]
+        target_poses = poses[:, self.target_frame_idx, :]
+
+        # --- project --- 
+        projected_coords = transform(source_poses, target_poses, source_coords)
 
         # --- projection error ---
-        residual_proj = proj_coords[:, :, :2] - self.target_coords
-        residual_proj = self.scale_proj_err(residual_proj)
-        residual_proj = residual_proj.view(1, -1)
-        # --- pose diff err --- 
-        
-        residual_pose = (self.init_poses.Inv() @ poses).Log().tensor() # numerical err in quaternions
-        # residual_pose = poses.tensor() - self.init_poses.tensor() # Safe option
+        project_err = (projected_coords[:, :, :2] - self.coords_baseline) * self.fls2physic_scale_factor
+        project_err = project_err.view(1, -1)
 
-        residual_pose = residual_pose.view(1, -1)
-        # --- elev ang err --- 
-        residual_elev = self.elevation_angle - self.init_elevation_angle
-        residual_elev = residual_elev.view(1, -1)
-        residual = torch.cat([residual_proj, residual_pose, residual_elev], dim=1)
-
-        return residual 
+        # [if needed - add error from:
+        # - movement of poses
+        # - diffenrece between elev angle]
+       
+        return project_err
 
 
     def run(self, max_iter, early_stop_tol=1e-4, trust_region=2.0):
         
-        # optimizer = pp.optim.LM(self)
-        strategy = pp.optim.strategy.TrustRegion(radius = trust_region) # define limits for optimized - damping, radius [m]
+        strategy = pp.optim.strategy.TrustRegion(radius = trust_region)
+        # define limits for optimized - damping, radius [m]
         optimizer = pp.optim.LM(self, strategy=strategy)
 
-        prev_loss = float('inf')
-        loss_diff = 0.0
+        init_loss = float('inf')
 
+        # --- optimization loop ---
         with torch.enable_grad():
             for i in range(max_iter):   
-                # print('Do tego miesjca nie wyrzuciło błedu wtf')
                 loss = optimizer.step(input = None, weight=self.weights)
-                # print('TU juz wyrzucilo (tego nie bezie widac)')
-                loss_diff = prev_loss - loss.item()
-                if abs(loss_diff) < early_stop_tol:
-                        print(f'[Bundle Adjustment Module] Early stopping')
-                        break
-                    
-                prev_loss = loss.item()
-
+        
+        # compose optimize opeses and coords
         if self.split_poses:
-            pose_final = torch.cat([self.poses_anchor, self.poses_optim], dim=1).tensor().view(self.b, self.n_act, 7)
+            pose_optimized_se3 = torch.cat([self.poses_anchor, self.poses_optim], dim=1)
         else:
-            pose_final = self.poses_anchor.tensor().view(self.b, self.n_act, 7)
+            pose_optimized_se3 = self.poses_anchor
 
-        elevation_final = self.elevation_angle.view(self.b, self.n, self.p, 1)
-        return pose_final, elevation_final, loss_diff
+        pose_optimized = pose_optimized_se3.tensor().detach().view(self.b, self.act_n, 7)
+        elevation_optimized = self.elevation_angle.detach().view(self.b, self.act_n, self.p, 1)
+
+        # --- Differentiable Image Correspondences ---
+        # Vicarious loss function. 
+        # Allow to bypass BA with loss function.
+        # Composed optimization iteration don't have to be unrolled whilel grad tractink - no OOM err
+        # Avoid problems with .detach() on poses and elev angle
+        # Reduce computional gradient graph.
+
+        if self.supervised:
+            # in supervised version, network prediction is compared to gt (DPVO)
+            ref_poses_detached = self.act_poses_gt_se3.detach()
+            ref_elev_detached = self.act_elev_gt.view(1, -1, 1).detach()
+        else:
+            # in self-supervised version, network prediction is optimization results (iMatching)
+            ref_poses_detached = pose_optimized_se3.detach()
+            ref_elev_detached = self.elevation_angle[:, self.patch_idx, :].view(1, -1, 1).detach()
+
+        source_poses = ref_poses_detached[:, self.source_frame_idx, :]
+        target_poses = ref_poses_detached[:, self.target_frame_idx, :]
+
+        patch_coords = self.patch_coords_r_theta[:, self.patch_idx, :] 
+        source_coords = torch.cat([patch_coords, ref_elev_detached], dim=2)
+
+        with torch.no_grad():
+            projected_coords = transform(source_poses, target_poses, source_coords)
+
+        predicted_projection = self.coords_baseline * self.fls2physic_scale_factor
+        target_projection = projected_coords[:, :, :2] * self.fls2physic_scale_factor
     
-    
-    def scale_proj_err(self, proj_err):
-        err_r = proj_err[:, :, 0] / (self.sonar_param.range.max - self.sonar_param.range.min) * self.sonar_param.resolution.bins
-        err_t = proj_err[:, :, 1] / self.sonar_param.fov.horizontal * self.sonar_param.resolution.beams
-
-        return torch.stack((err_r, err_t), dim=-1)
-
-    def scale_delta(self, delta):
-        delta_r = delta[:, 0] / self.sonar_param.resolution.bins * (self.sonar_param.range.max - self.sonar_param.range.min)
-        delta_t = delta[:, 1] / self.sonar_param.resolution.beams * (self.sonar_param.fov.horizontal)
-        return torch.stack((delta_r, delta_t), dim=-1)
+        return pose_optimized, elevation_optimized, predicted_projection, target_projection
 
 
 
+def transform(source_poses, target_poses, coords):
+    # project points from source pose to target pose frame of refernce
+    # function operates on pp.SE3() objects
+
+    source_poses = source_poses.squeeze(0)
+    target_poses = target_poses.squeeze(0)
+    coords = coords.squeeze(0)
+
+    local_source_coords = transform_polar2cart(coords) 
+
+    global_coords = source_poses @ local_source_coords
+
+    local_target_coords = target_poses.Inv() @ global_coords
+
+    coords = transform_cart2polar(local_target_coords)
+
+    return coords.unsqueeze(0)
+
+def _quat_norm(pose):
+    pose[:, :, 3:] = F.normalize(pose[:, :, 3:], p=2, dim=-1)
+    return pose
+       

@@ -94,10 +94,10 @@ class Graph(nn.Module):
                 if sf != tf: 
                     # edges: new patches -> old frames
                     new_i.append(torch.arange(sf * self.patches_per_frame, (sf + 1) * self.patches_per_frame, device=device)) 
-                    new_j.append(torch.full((self.patches_per_frame,), sf-tf, device=device))
+                    new_j.append(torch.full((self.patches_per_frame,), tf, device=device))
                     
                     # edges: old patches -> new frame
-                    new_i.append(torch.arange((sf - tf) * self.patches_per_frame, (sf - tf + 1) * self.patches_per_frame, device=device))
+                    new_i.append(torch.arange((tf) * self.patches_per_frame, (tf + 1) * self.patches_per_frame, device=device))
                     new_j.append(torch.full((self.patches_per_frame,), sf, device=device))
 
         i_base = torch.cat(new_i, dim=0)

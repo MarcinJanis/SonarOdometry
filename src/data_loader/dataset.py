@@ -13,13 +13,13 @@ import torchvision.transforms as T
 import torchvision.transforms.functional as F_t
 
 class SonarSimDataset(Dataset):
-    def __init__(self, root_dir, window_size, transform=None, revert_sequence_p = 0.0):
+    def __init__(self, root_dir, window_size, transform=None, revert_sequence_p = 0.0, fls_resolution=(400, 385)):
 
         self.root_dir = root_dir 
         self.window_size = window_size
         self.transform = transform
         self.revert_sequence_p = revert_sequence_p # propability of reverting sequence
-        
+        self.fls_resolution = fls_resolution
         self.time = {} # time vector
         self.traj_gt = {} # trajectory 
         self.depth = {}
@@ -78,7 +78,7 @@ class SonarSimDataset(Dataset):
             # img_np = cv2.imread(img_pth, 0)
             # tensor = torch.tensor(img_np)
             tensor = io.read_image(img_pth, mode=io.ImageReadMode.GRAY)
-            tensor = F_t.resize(tensor, size=(200, 192), antialias=True)
+            tensor = F_t.resize(tensor, size=self.fls_resolution, antialias=True)
             imgs.append(tensor)
 
         series = torch.stack(imgs).float()

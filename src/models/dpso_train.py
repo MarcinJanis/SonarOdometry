@@ -49,7 +49,7 @@ class DPSO_train(nn.Module):
         self.UpdateOperator = Update(model_config)
 
 
-    def forward(self, frames, timestamp, poses_gt, depth_gt, freeze_poses=False, init_poses_noise = 0.0, debug_logger=False):
+    def forward(self, frames, timestamp, poses_gt, depth_gt, supervised, freeze_poses=False, init_poses_noise = 0.0, debug_logger=False):
         
         device = frames.device
         
@@ -135,60 +135,31 @@ class DPSO_train(nn.Module):
                 else:
                     ba_freeze_poses = self.freeze_poses_num
 
-                BA = BundleAdjustment(poses, 
-                                      coords_r_theta, 
-                                      coords_phi, 
-                                      self.sonar_param, 
-                                      freeze_poses=ba_freeze_poses)
+                BA = BundleAdjustment(poses, supervised,
+                                    poses_gt, depth_gt,
+                                    coords_r_theta, coords_phi, 
+                                    src_frames_idx, tgt_frames_idx, patches_idx,
+                                    delta, weights,
+                                    self.sonar_param, ba_freeze_poses)
                 BA.to(device)
-                BA.init_ba(src_frames_idx, tgt_frames_idx, patches_idx, delta, weights)
 
                 try:
-                    loss_diff = 0.0
-                    opt_poses, opt_phi, loss_diff = BA.run(max_iter=self.ba_iter, 
-                                                early_stop_tol=1e-3, 
-                                                trust_region=2.0)
-                    poses = opt_poses
-                    coords_phi = opt_phi
+                    pose_optimized, elevation_optimized, predicted_projection, target_projection = BA.run(max_iter=self.ba_iter, 
+                                                                                                    early_stop_tol=1e-3, 
+                                                                                                    trust_region=2.0)
+                    poses = pose_optimized
+                    coords_phi = elevation_optimized
 
-                except Exception as e: 
-                    
+                except Exception as e:     
                     print(f'[Warning] Bundle Adjustment failed (frame: {i}, updater iteration: {k}).\n{e}')
             
-                if debug_logger: print(f'   - optim iter: {k}, valid edges: {val_edges}, BA loss diff: {loss_diff}')
-            
-            # --- calc patch coords with gt poses and predicted poses --- 
-            b, n, p, _ = coords_r_theta.shape
+                if debug_logger: print(f'   - optim iter: {k}, valid edges: {val_edges}')
         
-            coords_r_theta_flat = coords_r_theta.view(b*n*p, -1)
-            coords_r_theta_expand = coords_r_theta_flat[patches_idx]
-
-            opt_phi_expand = coords_phi.view(b*n*p)[patches_idx]
-            depth_gt_expand = depth_gt.view(b*n)[src_frames_idx]
-         
-            gt_phi = depth_to_elev_angle(depth_gt_expand, coords_r_theta_expand[:, 0])
-
-            pred_patch_coords = torch.cat([coords_r_theta_expand, opt_phi_expand.unsqueeze(-1)], dim=1)
-            gt_patch_coords = torch.cat([coords_r_theta_expand, gt_phi.unsqueeze(-1)], dim=1)
-
-            # opt and gt poses only up to current frame
-            b, n_act, _ = poses.shape
-            opt_pose_flat = poses.view(b*n_act, -1)
-            gt_pose_flat = poses_gt[:, :n_act, :].view(b*n_act, -1)
-
-            projected_coords_pred = project_points(pred_patch_coords, 
-                                                   opt_pose_flat[src_frames_idx], 
-                                                   opt_pose_flat[tgt_frames_idx])
-            
-            projected_coords_gt = project_points(gt_patch_coords, 
-                                                 gt_pose_flat[src_frames_idx], 
-                                                 gt_pose_flat[tgt_frames_idx])
-
-            pred_fls_coords  = self.PatchGraph.scale_phisical2fls(projected_coords_pred)
-            gt_fls_coords = self.PatchGraph.scale_phisical2fls(projected_coords_gt)
-
-            output_iter.append((poses, gt_fls_coords, pred_fls_coords, valid_mask))
+            output_iter.append((poses, target_projection, predicted_projection, valid_mask))
         
         return output_iter
 
-               
+
+
+
+
