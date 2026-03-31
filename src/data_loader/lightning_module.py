@@ -56,13 +56,15 @@ class DPSO_LightningModule(pl.LightningModule):
                           init_poses_noise = self.init_poses_noise, 
                           debug_logger=True)
 
-        for k, (pred_poses, pred_coords, gt_coords) in enumerate(pred):
+        for k, (pred_poses, pred_coords, gt_coords, valid) in enumerate(pred):
             
             trans_err, rot_err = pose_err(pred_poses, trajectory_gt)
 
-            patch_proj_err = torch.abs(gt_coords - pred_coords)
-            proj_x_err = torch.mean(patch_proj_err[:, 0], dim=-1)
-            proj_y_err = torch.mean(patch_proj_err[:, 1], dim=-1)
+            valid_edges_num = torch.sum(valid) + 1e-6
+            
+            patch_proj_err = valid.unsqueeze(-1) * torch.abs(gt_coords - pred_coords)
+            proj_x_err = torch.sum(patch_proj_err[:, 0], dim=-1) / valid_edges_num
+            proj_y_err = torch.sum(patch_proj_err[:, 1], dim=-1) / valid_edges_num
 
             # accumulate loss
             loss_trans += trans_err # * self.opt_iter_weights[k]
@@ -103,7 +105,7 @@ class DPSO_LightningModule(pl.LightningModule):
                           debug_logger=False)
 
         # for k, (pred_poses, pred_coords, gt_coords) in enumerate(pred):
-        pred_poses, pred_coords, gt_coords = pred[-1]
+        pred_poses, pred_coords, gt_coords, valid = pred[-1]
         
         metrics = eval_metrics(pred_poses.detach().cpu().numpy(), trajectory_gt.detach().cpu().numpy(),
                                 align=False, align_init_pt_only=True, add_data_series=False)

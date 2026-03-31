@@ -96,38 +96,37 @@ class DPSO_train(nn.Module):
 
                 self.PatchGraph.create_new_edges(i, device)
 
-            # detach potimized parameters from graph for BA 
-            poses = poses.detach()
-            poses.requires_grad_(True)
-            coords_phi = coords_phi.detach()
-            coords_phi.requires_grad_(True)
+            # detach hidden state from graph - reset for new frame
+            if not self.PatchGraph.hidden_state is None:
+                self.PatchGraph.hidden_state = self.PatchGraph.hidden_state.detach()
+
 
             # --- optimization loop --- 
             for k in range(self.update_iter): 
-                # --- get correlation --- 
-            
-                corr, ctx, i_val, j_val, valid_mask = self.PatchGraph.corr(poses, coords_phi, coords_eps=1e-2, device=device) # tu chyba też trzeba bedzie podać i !!!!
 
-                patches_idx = i_val
-                src_frames_idx = i_val // self.patches_per_frame
-                tgt_frames_idx = j_val
+                # detach from graph poses and coords_phi 
+                poses = poses.detach()
+                coords_phi = coords_phi.detach()
+
+                # --- get correlation --- 
+                corr, ctx, patches_idx, tgt_frames_idx, valid_mask = self.PatchGraph.corr(poses, coords_phi, coords_eps=1e-2, device=device)
+                src_frames_idx = patches_idx // self.patches_per_frame
+
+                # force zero correlation for non valid edges 
+                corr = corr * valid_mask.view(-1, 1)
 
                 # check if any active edge exist
-                val_edges = patches_idx.shape[0]
-
-                if val_edges == 0:
-
-                    output_iter.append((poses, None, None))
-
+                val_edges = torch.sum(valid_mask)
+                if  val_edges == 0 and debug_logger: 
                     print(f'[Warning] There is no active edges. (frame: {i}, updater iteration: {k})')
-                    continue
+                    # continue
 
                 # --- Update operator --- 
-                h = self.PatchGraph.get_hidden_state(valid_mask)
+                h = self.PatchGraph.get_hidden_state()
                 h, correction = self.UpdateOperator(h, None, corr, ctx, src_frames_idx, tgt_frames_idx, patches_idx, device)
                 delta, weights = correction
 
-                self.PatchGraph.update_hidden_state(h, valid_mask)
+                self.PatchGraph.update_hidden_state(h)
 
                 # --- Bundle adjustement ---
                 if freeze_poses:
@@ -188,7 +187,7 @@ class DPSO_train(nn.Module):
             pred_fls_coords  = self.PatchGraph.scale_phisical2fls(projected_coords_pred)
             gt_fls_coords = self.PatchGraph.scale_phisical2fls(projected_coords_gt)
 
-            output_iter.append((poses, gt_fls_coords, pred_fls_coords))
+            output_iter.append((poses, gt_fls_coords, pred_fls_coords, valid_mask))
         
         return output_iter
 

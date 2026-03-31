@@ -1,4 +1,12 @@
 # TODO:
+<!-- 
+
+!! Problem: 
+- valid mask zmeinic na float, 
+- nie wyrzucac niby krawedzi, przetwarzac wszystkie
+- korelacje albo wagi, idk jeszcze przemnozyc przez valid mask 
+
+
 
 - Dodać F.normalize zaraz przed zwróceniem predykcji póz
   
@@ -6,7 +14,7 @@
   
 - zrobić nowe dataset visualisation, używając modułu do ładowania danych w trybue inferencji, z opcją transformacji do układu kartezjańskiego. Do tego, dodać opcję wizualizwoania key points, zeby zobaczyc, czy jest keypoints śledzą te same miejsca.
 
-- zaimplementować alternatywny sposób wybierania keypoitns. Jest to alternatywna forma "augumentacji", ponieważ zrobi ekstrakcje innych punktów.
+- zaimplementować alternatywny sposób wybierania keypoitns. Jest to alternatywna forma "augumentacji", ponieważ zrobi ekstrakcje innych punktów. -->
 
 
 

@@ -147,7 +147,7 @@ class BundleAdjustment(nn.Module):
         weights_anchor_elev = torch.zeros((self.edge_num * 1,), device=weights.device, dtype=weights.dtype)
         
         weights = torch.cat([weights_param, weights_anchor_pose, weights_anchor_elev])
-        self.weights = torch.diag(weights, device = weights.device, dtype=weights.dtype)
+        self.weights = torch.diag(weights)
         
     def forward(self, dummy_input=None):
 
@@ -186,7 +186,7 @@ class BundleAdjustment(nn.Module):
         return residual 
 
 
-    def run(self, max_iter, early_stop_tol=1e-3, trust_region=2.0):
+    def run(self, max_iter, early_stop_tol=1e-4, trust_region=2.0):
         
         # optimizer = pp.optim.LM(self)
         strategy = pp.optim.strategy.TrustRegion(radius = trust_region) # define limits for optimized - damping, radius [m]
