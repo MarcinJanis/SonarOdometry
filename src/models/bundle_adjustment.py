@@ -23,25 +23,26 @@ class BundleAdjustment(nn.Module):
         self.supervised = supervised
         # --- init ---
         self.freeze_poses = freeze_poses
-
+        
         # physical to fls units scaling 
-        self.fls2physic_scale_factor = torch.tensor([self.sonar_param.resolution.bins / (self.sonar_param.range.max - self.sonar_param.range.min),
-                                            self.sonar_param.resolution.beams / self.sonar_param.fov.horizontal], device = self.device).view(1, 1, 2)
+        self.fls2physic_scale_factor = torch.tensor([sonar_param.resolution.bins / (sonar_param.range.max - sonar_param.range.min),
+                                                     sonar_param.resolution.beams / sonar_param.fov.horizontal], device = self.device).view(1, 1, 2)
 
 
         # remember input shape:
-        self.b, _, self.p, _ = init_patch_coords_r_theta.shape
+        self.b, self.n_total, self.p, _ = init_patch_coords_r_theta.shape
         self.act_n = init_poses.shape[1]
         poses_n = self.b*self.act_n
         self.edges_n = self.b*self.act_n*self.p
+        self.edges_total = self.b*self.n_total*self.p
 
         # get actual number of estimated poses 
         init_poses = init_poses.view(1, poses_n, 7)
         init_poses = _quat_norm(init_poses)
 
         # get acutal number of patch coords
-        patch_coords_r_theta = init_patch_coords_r_theta.view(1, self.edges_n, 2)
-        patch_coords_phi = init_patch_coords_phi.view(1, self.edges_n, 1)
+        patch_coords_r_theta = init_patch_coords_r_theta.view(1, self.edges_total, 2)
+        patch_coords_phi = init_patch_coords_phi.view(1, self.edges_total, 1)
         
 
         # --- define parameters to optimize ---
@@ -98,15 +99,8 @@ class BundleAdjustment(nn.Module):
             depth_gt_cut = gt_depth[:, :self.act_n]
             depth_gt_expand = depth_gt_cut.contiguous().view(poses_n)[self.source_frame_idx]
 
-            r_coords = patch_coords_r_theta[:, :, 0].contiguous().view(self.edges_n)
+            r_coords = self.patch_coords_r_theta[:, self.patch_idx, 0].contiguous().view(-1)
             self.act_elev_gt = depth_to_elev_angle(depth_gt_expand, r_coords)
-
-# Powinno być:
-
-
-
-
-
 
     def forward(self, dummy_input=None):
 
@@ -116,10 +110,9 @@ class BundleAdjustment(nn.Module):
         else:
             poses = self.poses_anchor
 
-        patch_coords = self.patch_coords[:, self.patch_idx, :] 
-        elevation_angle = self.elevation_angle[:, self.patch_idx, :] # pp.SE3 obj
+        patch_coords = self.patch_coords_r_theta[:, self.patch_idx, :]
+        elevation_angle = self.elevation_angle[:, self.patch_idx, :] # pp.Parameter
         source_coords = torch.cat([patch_coords, elevation_angle], dim = 2)
-
 
         # expand for all edges
         source_poses = poses[:, self.source_frame_idx, :]
@@ -159,7 +152,7 @@ class BundleAdjustment(nn.Module):
             pose_optimized_se3 = self.poses_anchor
 
         pose_optimized = pose_optimized_se3.tensor().detach().view(self.b, self.act_n, 7)
-        elevation_optimized = self.elevation_angle.detach().view(self.b, self.act_n, self.p, 1)
+        elevation_optimized = self.elevation_angle.detach().view(self.b, self.n_total, self.p, 1)
 
         # --- Differentiable Image Correspondences ---
         # Vicarious loss function. 

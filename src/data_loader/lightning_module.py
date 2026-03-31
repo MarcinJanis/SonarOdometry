@@ -75,11 +75,14 @@ class DPSO_LightningModule(pl.LightningModule):
 
         fls_series, time, trajectory_gt, depth_gt = batch
         
-        pred = self.model(fls_series, time, trajectory_gt, depth_gt, 
-                          self.supervised,
-                          freeze_poses=freeze_poses, 
-                          init_poses_noise = self.init_poses_noise, 
-                          debug_logger=False)
+        pred = self.model(frames=fls_series, 
+                        timestamp=time, 
+                        poses_gt=trajectory_gt, 
+                        depth_gt=depth_gt, 
+                        supervised=self.supervised, # Jawne przypisanie
+                        freeze_poses=freeze_poses, 
+                        init_poses_noise=self.init_poses_noise, 
+                        debug_logger=False)
 
         for k, (pred_poses, target_projection, predicted_projection, valid_mask) in enumerate(pred):
             
@@ -139,11 +142,14 @@ class DPSO_LightningModule(pl.LightningModule):
 
         fls_series, time, trajectory_gt, depth_gt = batch
 
-        pred = self.model(fls_series, time, trajectory_gt, depth_gt, 
-                          self.supervised,
-                          freeze_poses=freeze_poses, 
-                          init_poses_noise = self.init_poses_noise, 
-                          debug_logger=False)
+        pred = self.model(frames=fls_series, 
+                        timestamp=time, 
+                        poses_gt=trajectory_gt, 
+                        depth_gt=depth_gt, 
+                        supervised=self.supervised, 
+                        freeze_poses=freeze_poses, 
+                        init_poses_noise=self.init_poses_noise, 
+                        debug_logger=False)
 
         pred_poses, target_projection, predicted_projection, valid_mask = pred[-1]
         

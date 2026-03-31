@@ -31,7 +31,7 @@ class SonarSimDataset(Dataset):
             seq_name = dir.name
             seq_path = dir.path
 
-            if seq_name == 'aracati': continue
+            if seq_name == 'aracati' or seq_name == 'train2': continue
 
             csv_path = os.path.join(seq_path, 'sequence.csv')
             fls_path = os.path.join(seq_path, 'fls')
