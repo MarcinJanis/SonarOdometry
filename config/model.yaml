@@ -33,7 +33,7 @@ PATCHIFIER_METHOD: 'harris' # harris method with debug and visualisation functio
 # === Graph configuration === #
 INIT_FRAMES: 3 # Frames to initate graph (for traning only, in ionference INIT_FRAMES = TIME_WINDOW)
 
-BUFF_SIZE: 10 # Ring buffer size, amount of last frames that are kept (for inference only)
+BUFF_SIZE: 10 # Ring buffer size, amount of last frames that are kept
 
 TIME_WINDOW: 3 # Amount of previous frames that are taken into new edges creation
 

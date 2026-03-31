@@ -5,8 +5,19 @@ import lightning.pytorch as pl
 from .metrics import pose_err
 from .metrics import eval_metrics
 
+# supervised_traning_param = {
+#     'freeze_poses_steps':4,
+#     'init_pose_max_noise':2.0,
+#     'loss_weight_trans':1.0,
+#     'loss_weight_rot':1.0,
+#     'loss_weight_proj_r':1.0,
+#     'loss_weight_proj_theta':1.0
+# }
 
-# freeze_poses_step, init_poses_noise, loss_weights
+# selfsupervised_traning_param = {
+#     'loss_weight_proj_r':1.0,
+#     'loss_weight_proj_theta':1.0
+# }
 class DPSO_LightningModule(pl.LightningModule):
     def __init__(self, model, mode, traning_param):
         super().__init__()
@@ -67,7 +78,7 @@ class DPSO_LightningModule(pl.LightningModule):
                           self.supervised,
                           freeze_poses=freeze_poses, 
                           init_poses_noise = self.init_poses_noise, 
-                          debug_logger=True)
+                          debug_logger=False)
 
         for k, (pred_poses, target_projection, predicted_projection, valid_mask) in enumerate(pred):
             
