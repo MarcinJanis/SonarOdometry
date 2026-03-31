@@ -92,10 +92,21 @@ class BundleAdjustment(nn.Module):
       
         # --- gt data for vicarious loss ---
         if self.supervised:
-            gt_poses = _quat_norm(gt_poses.view(1, poses_n, 7))
-            self.act_poses_gt_se3 = pp.SE3(gt_poses[:, :poses_n, :])
-            depth_gt_expand = gt_depth.view(poses_n)[self.source_frame_idx]
-            self.act_elev_gt = depth_to_elev_angle(depth_gt_expand, patch_coords_r_theta[:, : 0].view(poses_n))
+            gt_poses_cut = gt_poses[:, :self.act_n, :]
+            self.act_poses_gt_se3 = pp.SE3(_quat_norm(gt_poses_cut.contiguous().view(1, poses_n, 7)))
+
+            depth_gt_cut = gt_depth[:, :self.act_n]
+            depth_gt_expand = depth_gt_cut.contiguous().view(poses_n)[self.source_frame_idx]
+
+            r_coords = patch_coords_r_theta[:, :, 0].contiguous().view(self.edges_n)
+            self.act_elev_gt = depth_to_elev_angle(depth_gt_expand, r_coords)
+
+# Powinno być:
+
+
+
+
+
 
     def forward(self, dummy_input=None):
 

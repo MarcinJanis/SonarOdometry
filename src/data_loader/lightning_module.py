@@ -38,7 +38,8 @@ class DPSO_LightningModule(pl.LightningModule):
             self.loss_w_proj_theta = traning_param['loss_weight_proj_theta']
                         
         else:
-            self.supervised = True
+            self.supervised = False
+            self.init_poses_noise = traning_param['init_pose_max_noise']
             self.loss_w_proj_r = traning_param['loss_weight_proj_r']
             self.loss_w_proj_theta = traning_param['loss_weight_proj_theta']
 
@@ -94,8 +95,8 @@ class DPSO_LightningModule(pl.LightningModule):
             # selfsupervised - between prediction and optimized value by BA
             valid_edges_num = torch.sum(valid_mask) + 1e-6
             patch_proj_err = valid_mask.unsqueeze(-1) * torch.abs(target_projection - predicted_projection)
-            proj_x_err = torch.sum(patch_proj_err[:, 0], dim=-1) / valid_edges_num
-            proj_y_err = torch.sum(patch_proj_err[:, 1], dim=-1) / valid_edges_num
+            proj_x_err = torch.sum(patch_proj_err[:, :, 0]) / valid_edges_num # theta err 
+            proj_y_err = torch.sum(patch_proj_err[:, :, 1]) / valid_edges_num # r err
 
             # accumulate loss components
             loss_theta += proj_x_err 

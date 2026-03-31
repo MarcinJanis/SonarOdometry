@@ -135,7 +135,7 @@ class DPSO_train(nn.Module):
                 else:
                     ba_freeze_poses = self.freeze_poses_num
 
-                BA = BundleAdjustment(poses, supervised,
+                BA = BundleAdjustment(supervised, poses,
                                     poses_gt, depth_gt,
                                     coords_r_theta, coords_phi, 
                                     src_frames_idx, tgt_frames_idx, patches_idx,
