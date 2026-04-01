@@ -21,6 +21,7 @@ class BundleAdjustment(nn.Module):
         super().__init__()
         self.device = init_poses.device
         self.supervised = supervised
+
         # --- init ---
         self.freeze_poses = freeze_poses
         
@@ -46,6 +47,7 @@ class BundleAdjustment(nn.Module):
         
 
         # --- define parameters to optimize ---
+
         init_poses_se3 = pp.SE3(init_poses)
         
         if freeze_poses >= self.act_n:
@@ -61,10 +63,10 @@ class BundleAdjustment(nn.Module):
             
         self.elevation_angle = nn.Parameter(patch_coords_phi) 
 
+
         # --- define parameters not optimized --- 
         self.patch_coords_r_theta = patch_coords_r_theta
         self.sonar_param = sonar_param
-
 
         # global idx -> local idx
         self.source_frame_idx = source_frame_idx % poses_n
@@ -73,15 +75,15 @@ class BundleAdjustment(nn.Module):
 
         # --- projection base line ---
         # project points with act pose, add delta
-        with torch.no_grad(): # [no grad required !?]
-            source_poses = init_poses_se3[:, self.source_frame_idx, :].clone() # [clone() or detach() also!?]
-            target_poses = init_poses_se3[:, self.target_frame_idx, :].clone() # [clone() or detach() also!?]
-            
-            patch_coords = self.patch_coords_r_theta[:, self.patch_idx, :] 
-            elevation_angle = self.elevation_angle[:, self.patch_idx].clone() # [clone() or detach() also!?]
-            source_coords = torch.cat([patch_coords, elevation_angle], dim = 2)
-         
-            target_coords = transform(source_poses, target_poses, source_coords)
+
+        source_poses = init_poses_se3[:, self.source_frame_idx, :].clone() # [clone() or detach() also!?]
+        target_poses = init_poses_se3[:, self.target_frame_idx, :].clone() # [clone() or detach() also!?]
+        
+        patch_coords = self.patch_coords_r_theta[:, self.patch_idx, :] 
+        elevation_angle = self.elevation_angle[:, self.patch_idx].clone() # [clone() or detach() also!?]
+        source_coords = torch.cat([patch_coords, elevation_angle], dim = 2)
+    
+        target_coords = transform(source_poses, target_poses, source_coords)
             
         # projcted coords (r, theta) - baseline for BA optimization
         # here with grad tracking!
@@ -98,8 +100,8 @@ class BundleAdjustment(nn.Module):
 
             depth_gt_cut = gt_depth[:, :self.act_n]
             depth_gt_expand = depth_gt_cut.contiguous().view(poses_n)[self.source_frame_idx]
-
             r_coords = self.patch_coords_r_theta[:, self.patch_idx, 0].contiguous().view(-1)
+            
             self.act_elev_gt = depth_to_elev_angle(depth_gt_expand, r_coords)
 
     def forward(self, dummy_input=None):
@@ -141,7 +143,7 @@ class BundleAdjustment(nn.Module):
         init_loss = float('inf')
 
         # --- optimization loop ---
-        with torch.enable_grad():
+        with torch.enable_grad(): # allow grad calc even in eval()
             for i in range(max_iter):   
                 loss = optimizer.step(input = None, weight=self.weights)
         
@@ -176,8 +178,7 @@ class BundleAdjustment(nn.Module):
         patch_coords = self.patch_coords_r_theta[:, self.patch_idx, :] 
         source_coords = torch.cat([patch_coords, ref_elev_detached], dim=2)
 
-        with torch.no_grad():
-            projected_coords = transform(source_poses, target_poses, source_coords)
+        projected_coords = transform(source_poses, target_poses, source_coords)
 
         predicted_projection = self.coords_baseline * self.fls2physic_scale_factor
         target_projection = projected_coords[:, :, :2] * self.fls2physic_scale_factor

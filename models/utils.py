@@ -45,38 +45,44 @@ def transform_polar2cart(pts):
 # 4. Local (target) frame, carthesian coords sys
 # 5. Local (target) frame, polar coords sys
 
-def project_points(origin_pt, origin_pose, target_pose, use_quaterions=True):
+def project_points(origin_pt, origin_pose, target_pose, return_polar=True):
 
     # --- Project origin point from spehrical to cartesian coords sys. (r, theta, phi) -> (x, y, z, 1).T ---
     origin_pt_xyz = transform_polar2cart(origin_pt)
 
-    if use_quaterions:
-        # extract quaterions and translations:
-        origin_shift = origin_pose[:, :3]
-        origin_rot = origin_pose[:, 3:7]
+    # extract quaterions and translations:
+    origin_shift = origin_pose[:, :3]
+    origin_rot = origin_pose[:, 3:7]
 
-        target_shift = target_pose[:, :3]
-        target_rot = target_pose[:, 3:7]
+    target_shift = target_pose[:, :3]
+    target_rot = target_pose[:, 3:7]
 
-        # --- origin frame -> global ---
-        # rotation:
-        global_pt_xyz = hamilton_product(origin_rot, origin_pt_xyz) 
-        global_pt_xyz = hamilton_product(global_pt_xyz, q_conjugate(origin_rot))
-        # translation: 
-        global_pt_xyz = global_pt_xyz[:, :3] + origin_shift
+    # --- origin frame -> global ---
+    # rotation:
+    global_pt_xyz = hamilton_product(origin_rot, origin_pt_xyz) 
+    global_pt_xyz = hamilton_product(global_pt_xyz, q_conjugate(origin_rot))
+    # translation: 
+    global_pt_xyz = global_pt_xyz[:, :3] + origin_shift
 
-        # --- global -> target frame ---
-        # translation:
-        target_pt_xyz = global_pt_xyz - target_shift
-        # rotation:
-        target_pt_xyz = hamilton_product(q_conjugate(target_rot), target_pt_xyz) 
-        target_pt_xyz = hamilton_product(target_pt_xyz, target_rot) 
-        target_pt_xyz = target_pt_xyz[:, :3]
-   
-    # --- Cartesian -> Polar ---
-    target_pt = transform_cart2polar(target_pt_xyz)
+    # --- global -> target frame ---
+    # translation:
+    target_pt_xyz = global_pt_xyz - target_shift
+
+    # rotation:
+    target_pt_xyz = hamilton_product(q_conjugate(target_rot), target_pt_xyz) 
+    target_pt_xyz = hamilton_product(target_pt_xyz, target_rot) 
+    target_pt = target_pt_xyz[:, :3]
+    
+    if return_polar:
+        # --- Cartesian -> Polar ---
+        target_pt = transform_cart2polar(target_pt)
 
     return target_pt
+
+
+
+
+
 
 # === Transform from local to global ===
 # transtom points from local, source frame (polar) to global frame (carthesian)
@@ -175,28 +181,6 @@ def depth_to_elev_angle(depth, r):
 
 
 
-# === Pose distance === 
-
-def pose_distance(p1, p2, eps=1e-8):
-    
-    # extract translation and rotation
-    t1 = p1[:, :3]
-    q1 = p1[:, 3:7]
-
-    t2 = p2[:, :3]
-    q2 = p2[:, 3:7]
-
-    # linear distance
-    dt = t2 - t1
-    dist_lin = torch.sqrt(torch.clamp(dt[:,0]**2 + dt[:,1]**2 + dt[:,2]**2, eps))
-
-    # # angular distance
-    # # q1 * dq = q2 => dq = q1^-1 q2
-    # dq = hamilton_product(q_conjugate(q1), q2)
-    # dist_ang = #TODO SE(3), log(), norm (?)
-    # return dist_lin, dist_ang
-
-
 
 # ===    Quaterions algebra   ===
 # Note: It is assumed that real coponent of quaterion is on the last position! 
@@ -207,8 +191,6 @@ def pose_distance(p1, p2, eps=1e-8):
 # (interpretation: same rotation angle but different dircetion)
 def q_conjugate(q):
     return q * torch.tensor([-1, -1, -1, 1], device=q.device, dtype=q.dtype)
-
-
 
 # Hamiltion product - multiplying two quaterions (real nuber + vector of imaginary components).
 # If quaterion passed as an argument has 3 elements, instead of standard 4, it will be assumed that is a point. 
