@@ -45,7 +45,7 @@ def transform_polar2cart(pts):
 # 4. Local (target) frame, carthesian coords sys
 # 5. Local (target) frame, polar coords sys
 
-def project_points(origin_pt, origin_pose, target_pose, return_polar=True):
+def project_points(origin_pt, origin_pose, target_pose):
 
     # --- Project origin point from spehrical to cartesian coords sys. (r, theta, phi) -> (x, y, z, 1).T ---
     origin_pt_xyz = transform_polar2cart(origin_pt)
@@ -73,9 +73,9 @@ def project_points(origin_pt, origin_pose, target_pose, return_polar=True):
     target_pt_xyz = hamilton_product(target_pt_xyz, target_rot) 
     target_pt = target_pt_xyz[:, :3]
     
-    if return_polar:
-        # --- Cartesian -> Polar ---
-        target_pt = transform_cart2polar(target_pt)
+
+    # --- Cartesian -> Polar ---
+    target_pt = transform_cart2polar(target_pt)
 
     return target_pt
 

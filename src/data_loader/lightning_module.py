@@ -67,6 +67,8 @@ class DPSO_LightningModule(pl.LightningModule):
                 freeze_poses = True
             else:
                 freeze_poses = False
+        else:
+            freeze_poses = False
 
         loss_trans = 0.0
         loss_rot = 0.0
@@ -98,8 +100,8 @@ class DPSO_LightningModule(pl.LightningModule):
             # selfsupervised - between prediction and optimized value by BA
             valid_edges_num = torch.sum(valid_mask) + 1e-6
             patch_proj_err = valid_mask.unsqueeze(-1) * torch.abs(target_projection - predicted_projection)
-            proj_x_err = torch.sum(patch_proj_err[:, :, 0]) / valid_edges_num # theta err 
-            proj_y_err = torch.sum(patch_proj_err[:, :, 1]) / valid_edges_num # r err
+            proj_x_err = torch.sum(patch_proj_err[:, 0]) / valid_edges_num # theta err 
+            proj_y_err = torch.sum(patch_proj_err[:, 1]) / valid_edges_num # r err
 
             # accumulate loss components
             loss_theta += proj_x_err 
@@ -117,9 +119,7 @@ class DPSO_LightningModule(pl.LightningModule):
 
             self.log_dict({'loss_translation':loss_trans, 'loss_rotation':loss_rot, 'loss_projection_theta':loss_theta, 'loss_projection_r':loss_r}, on_step=True, on_epoch=True, logger=True)
 
-            total_loss = self.loss_w_trans * loss_trans + \
-                         self.loss_w_rot * loss_rot + \
-                         self.loss_w_proj_r * loss_r + \
+            total_loss = self.loss_w_proj_r * loss_r + \
                          self.loss_w_proj_theta * loss_theta
             
         else:
@@ -137,8 +137,7 @@ class DPSO_LightningModule(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         
         # freeze poses 
-        if self.supervised:
-            freeze_poses = False
+        freeze_poses = False
 
         fls_series, time, trajectory_gt, depth_gt = batch
 

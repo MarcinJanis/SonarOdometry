@@ -5,6 +5,7 @@ import torch.nn.functional as F
 from scipy.spatial.transform import Rotation as R
 
 # === Training metrics - PyTorch === 
+
 def dist_err(x_pred, x_target):
     '''
     Distance betweend two poses, q = (x, y, z).
@@ -31,7 +32,6 @@ def rot_err(q_pred, q_target):
 
     return 2*torch.arccos(torch.clamp(q_dist, max = 1 - 1e-7))
     
-  
 def pose_err(pred, target):
 
     b, n, _ = pred.shape
@@ -78,8 +78,8 @@ def align_traj(pred, target, init_pt_only=False):
     global_rot, _ = R.align_vectors(target_align_base, pred_align_base)
 
     # Translation alignment
-    global_trans = centroid_target - global_rot.apply(centroid_pred)
-    trans_pred_aligned = global_rot.apply(trans_pred) + global_trans
+    global_trans = centroid_target - global_rot.apply(centroid_pred)  
+    trans_pred_aligned = global_rot.apply(trans_pred) + global_trans   
 
     # Rotation alignment for quaternions
     r = R.from_quat(q_pred)
