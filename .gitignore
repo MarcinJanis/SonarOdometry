@@ -212,7 +212,6 @@ __marimo__/
 
 src/obsolete/
 Miniconda3-latest-Linux-x86_64.sh
-dataset/
 SonarOdometryDataset/
 training/test_output/
 DONOTUPLOAD.md

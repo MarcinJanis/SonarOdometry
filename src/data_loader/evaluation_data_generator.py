@@ -28,6 +28,7 @@ class DataGenerator():
 
         self.time = pd.read_csv(self.csv_path, usecols=['timestamp'])
         self.pose = pd.read_csv(self.csv_path, usecols=['pos_x', 'pos_y', 'pos_z', 'quat_x', 'quat_y', 'quat_z', 'quat_w'])
+        self.depth = pd.read_csv(self.csv_path, usecols=['dvl_alt'])
 
         self.transforms = transforms
 
@@ -43,12 +44,14 @@ class DataGenerator():
         frame_pth = os.path.join(self.fls_path, f'{idx}.png')
         frame = io.read_image(frame_pth).float()
         frame = frame / 255.0
-        frame = frame.unsqueeze(0).unsqueeze(0).to(self.device)
+        frame = frame.unsqueeze(0).to(self.device)
 
         if not self.transforms is None:
             frame = self.transforms(frame)
 
-        # get other data
+        frame = frame.unsqueeze(0) # add batch size
+
+        # get other data    
         t = torch.tensor(self.time.iloc[idx].values, dtype = torch.float, device = self.device)
         pose = torch.tensor(self.pose.iloc[idx].values, dtype = torch.float, device = self.device)
         pose[3:7] = F.normalize(pose[3:7], p=2, dim=-1)
@@ -136,7 +139,6 @@ class DataGenerator():
             ax.scatter(x, y, c=z, cmap='gray_r', s=pt_size)
             pass
 
-        
         # general plot setup 
         ax.set_title(f"Trajectory estimation.")
         ax.minorticks_on()
@@ -156,7 +158,7 @@ class DataGenerator():
                 transparent=False       
             )
 
-    def generate_trajectory_map_3d(self, show = {'gt':True,'traj':True,'pts':True, 'align':True}, start = 0, end = 1, colors = ('red', 'green', 'blue', 'orange'), traj_width = 1, markers ='x' , pt_size = 3, save_to_file = None):
+    def generate_trajectory_map_3d(self, show = {'gt':True,'traj':True,'pts':True, 'align':True}, start = 0, end = 1, colors = ('red', 'green', 'blue', 'orange'), traj_width = 1, markers ='x' , pt_size = 3, seabed_visu = None, save_to_file = None):
         
         traj_len = [len(traj) for traj in self.predict_traj.values()]
         traj_len.append(self.get_len())
@@ -167,13 +169,33 @@ class DataGenerator():
 
         fig = plt.figure(figsize=(12, 12))
         ax = fig.add_subplot(111, projection='3d')
+        # --- Seabed map ---
+        if not seabed_visu is None:
+            seabed_heightmap = cv2.imread(seabed_visu['heightmap_pth'], 0)
+            scalex = seabed_visu['scalex']
+            scaley = seabed_visu['scaley']
+            max_height = seabed_visu['max_height']
+            max_depth = seabed_visu['max_depth']
+
+            seabed_heightmap = seabed_heightmap.T
+            h, w = seabed_heightmap.shape
+            # create meshgrid
+            x = np.arange(w)
+            y = np.arange(h)
+            xmap, ymap = np.meshgrid(x, y)
+            # recenter, rescale
+            xmap = (xmap - (w / 2)) * scalex
+            ymap = (ymap - (h / 2)) * scaley
+            seabed = seabed_heightmap / 2**8 * max_height - max_depth
+
+            ax.plot_surface(xmap, ymap, seabed, cmap='terrain', linewidth=0, antialiased=True, alpha=0.6)
 
         # --- Ground Truth ---
         if show['gt']:
             gt_x = self.pose.iloc[start_idx:end_idx]['pos_x'].values
             gt_y = self.pose.iloc[start_idx:end_idx]['pos_y'].values
             gt_z = self.pose.iloc[start_idx:end_idx]['pos_z'].values
-            
+            gt_z = -gt_z # reverse axis 
             ax.plot(gt_x, gt_y, gt_z, color='black', label='Ground Truth', linewidth=traj_width,  alpha=0.7)
             
             ax.scatter(gt_x[0], gt_y[0], gt_z[0], color='black', s=50, label='Start')
@@ -188,7 +210,7 @@ class DataGenerator():
                 traj_x = predict_traj[k].iloc[start_idx:end_idx].values[:, 0]
                 traj_y = predict_traj[k].iloc[start_idx:end_idx].values[:, 1]
                 traj_z = predict_traj[k].iloc[start_idx:end_idx].values[:, 2]
- 
+                traj_z = -traj_z # reverse axis 
 
                 ax.plot(traj_x, traj_y, traj_z, color=colors[k], label=predict_traj_lbl[k], linestyle='-', marker = markers, linewidth=traj_width,  alpha=0.7)
                 ax.scatter(traj_x[0], traj_y[0], traj_z[0], color=colors[k], s=50, label='Start')
@@ -208,11 +230,12 @@ class DataGenerator():
             px = self.pts3d.iloc[start_idx:end_idx]['x'].values
             py = self.pts3d.iloc[start_idx:end_idx]['y'].values
             pz = self.pts3d.iloc[start_idx:end_idx]['z'].values
-            
+            pz = - pz
+
             # Mapping color to depth (Z) exactly like we discussed for 2D
             ax.scatter(px, py, pz, c=pz, cmap='viridis', s=pt_size, alpha=0.5)
 
-        
+       
         ax.set_xlabel('X [m]')
         ax.set_ylabel('Y [m]')
         ax.set_zlabel('Z [m]')
@@ -221,61 +244,113 @@ class DataGenerator():
         
         plt.show()
 
+    def generate_timeseries(self, data_type = 'dataset_depth', title = 'Time series', start = 0, end = 1, color = 'red', traj_width = 2, pt_size = 3, markers='x', save_to_file = None):
+        
+        traj_len = [len(traj) for traj in self.predict_traj.values()]
+        traj_len.append(self.get_len())
+        n_max = min(traj_len)
 
-    def evaluate(self):
-        
-        # metrics for all loaded trajectories:
-        predict_traj = list(self.predict_traj.values())
-        target = self.pose.values
+        start_idx = int(start * n_max)
+        end_idx = int(end * n_max)
 
-        # data containers 
-        labels = list(self.predict_traj.keys())
-        
-        # Global metrics
-        ATE = []
-        RPE = []
-        RMSE_ROT = []
+        time = self.time.iloc[start_idx:end_idx].values
 
-        # Translation stats
-        translation_mean = []
-        translation_median = []
-        translation_std = []
-        translation_min = []
-        translation_max = []
         
-        # Rotation stats
-        rotation_mean = []
-        rotation_median = []
-        rotation_std = []
-        rotation_min = []
-        rotation_max = []
 
-        #
+        if data_type == 'dataset_depth':
+            data = self.depth.iloc[start_idx:end_idx].values
+        elif data_type == 'z':
+            data = self.pose.iloc[start_idx:end_idx].values[:, 2]
+
+        if data_type == 'seabed_profile': 
+            data_dvl_depth = self.depth.iloc[start_idx:end_idx].values.flatten()
+            dats_pose_depth = self.pose.iloc[start_idx:end_idx].values[:, 2]
+            data = -(data_dvl_depth + dats_pose_depth)
+
+        else:
+            print(f'Wring data type')
+
+        
+        fig, ax = plt.subplots(figsize=(20, 20))
+
+        ax.plot(time, data, color=color, linewidth=traj_width, alpha=1, linestyle='-')
+
+        if data_type == 'seabed_profile': 
+            ax.plot(time, np.ones(time.shape)*np.mean(data), color='green', linewidth=traj_width, alpha=1, linestyle='-')
+
+        # general plot setup 
+        ax.set_title(title)
+        ax.minorticks_on()
+        ax.grid(which='major', linestyle='-', linewidth='0.5', color='black', alpha=0.7)
+        ax.grid(which='minor', linestyle=':', linewidth='0.3', color='black', alpha=0.5)
+        ax.legend()
+
+        plt.show()
+
+        # save to file
+        if not save_to_file is None:
+            plt.savefig(
+                save_to_file, 
+                dpi=300,                
+                bbox_inches='tight',    
+                pad_inches=0.1,        
+                transparent=False       
+            )
+
+    # def evaluate(self):
+        
+    #     # metrics for all loaded trajectories:
+    #     predict_traj = list(self.predict_traj.values())
+    #     target = self.pose.values
+
+    #     # data containers 
+    #     labels = list(self.predict_traj.keys())
+        
+    #     # Global metrics
+    #     ATE = []
+    #     RPE = []
+    #     RMSE_ROT = []
+
+    #     # Translation stats
+    #     translation_mean = []
+    #     translation_median = []
+    #     translation_std = []
+    #     translation_min = []
+    #     translation_max = []
+        
+    #     # Rotation stats
+    #     rotation_mean = []
+    #     rotation_median = []
+    #     rotation_std = []
+    #     rotation_min = []
+    #     rotation_max = []
+
+    #     #
         
         
-        for k in range(len(predict_traj)):
+    #     for k in range(len(predict_traj)):
             
-            pred = predict_traj[k].values
-            metrics_dict = eval_metrics(pred, target)
+    #         pred = predict_traj[k].values
+    #         metrics_dict = eval_metrics(pred, target)
             
-            # Global metrics
-            ATE.append(metrics_dict['ATE'])
-            RPE.append(metrics_dict['RPE'])
-            RMSE_ROT.append(metrics_dict['RMSE_ROT'])
+    #         # Global metrics
+    #         ATE.append(metrics_dict['ATE'])
+    #         RPE.append(metrics_dict['RPE'])
+    #         RMSE_ROT.append(metrics_dict['RMSE_ROT'])
             
-            # Translation stats
-            translation_mean.append(metrics_dict['MEAN_TRANS_ERR'])
-            translation_median.append(metrics_dict['MEDIAN_TRANS_ERR'])
-            translation_std.append(metrics_dict['STD_TRANS_ERR'])
-            translation_min.append(metrics_dict['MIN_TRANS_ERR'])
-            translation_max.append(metrics_dict['MAX_TRANS_ERR'])
+    #         # Translation stats
+    #         translation_mean.append(metrics_dict['MEAN_TRANS_ERR'])
+    #         translation_median.append(metrics_dict['MEDIAN_TRANS_ERR'])
+    #         translation_std.append(metrics_dict['STD_TRANS_ERR'])
+    #         translation_min.append(metrics_dict['MIN_TRANS_ERR'])
+    #         translation_max.append(metrics_dict['MAX_TRANS_ERR'])
             
-            # Rotation stats
-            rotation_mean.append(metrics_dict['MEAN_ROT_ERR'])
-            rotation_median.append(metrics_dict['MEDIAN_ROT_ERR'])
-            rotation_std.append(metrics_dict['STD_ROT_ERR'])
-            rotation_min.append(metrics_dict['MIN_ROT_ERR'])
-            rotation_max.append(metrics_dict['MAX_ROT_ERR'])
+    #         # Rotation stats
+    #         rotation_mean.append(metrics_dict['MEAN_ROT_ERR'])
+    #         rotation_median.append(metrics_dict['MEDIAN_ROT_ERR'])
+    #         rotation_std.append(metrics_dict['STD_ROT_ERR'])
+    #         rotation_min.append(metrics_dict['MIN_ROT_ERR'])
+    #         rotation_max.append(metrics_dict['MAX_ROT_ERR'])
             
 
          
