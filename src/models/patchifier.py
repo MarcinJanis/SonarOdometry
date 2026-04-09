@@ -8,6 +8,40 @@ from .encoders import Encoder
 import numpy as np 
 import cv2
 
+# ============================================
+# kornia 
+# import kornia.feature as kf # Import Kornia
+# if mode == 'kornia_shi_tomasi':
+#     # To bezpośredni i dokładniejszy matematycznie odpowiednik Twojego kodu!
+#     # Zwraca tensor: [b*n, 1, h, w]
+#     g = kf.responses.shi_tomasi_response(frame_flat)
+
+# elif mode == 'kornia_harris':
+#     # Zwraca tensor: [b*n, 1, h, w]
+#     # k=0.04 to standardowa wartość dla Harrisa
+#     g = kf.responses.harris_response(frame_flat, k=0.04)
+
+# elif mode == 'kornia_hessian':
+#     # Zwraca tensor: [b*n, 1, h, w]
+#     # UWAGA: sigmas to tensor, musi być na tym samym urządzeniu co obraz!
+#     sigmas = torch.tensor([1.0], device=device)
+#     g = kf.responses.hessian_response(frame_flat, sigmas=sigmas)
+
+# elif mode == 'kornia_dog':
+#     # Różnica Gaussów z Korni (nie zawsze bezpośrednio eksponowana jako response)
+#     # Jeśli wersja Korni nie ma `dog_response`, robimy to w 2 linijkach w pełni stabilnie:
+#     import kornia.filters as filters
+#     img1 = filters.gaussian_blur2d(frame_flat, (5, 5), (0.1, 0.1))
+#     img2 = filters.gaussian_blur2d(frame_flat, (5, 5), (2.0, 2.0))
+#             g = torch.abs(img1 - img2)
+
+#         else: 
+#             # Fallback - weź oryginalny fmap (skompresowany do 1 kanału dla siatki)
+#             # Zakładam, że Twoja siatka woli 1 kanał do szukania maxa
+#             g = torch.mean(fmap, dim=2, keepdim=True).view(b*n, 1, h, w)
+
+# ============================================
+
 class Patchifier(nn.Module):
 
     def __init__(self, cfg):
