@@ -339,9 +339,16 @@ class Graph(nn.Module):
         fmap2_cpy = self.fmap2.view(b*n, c, h//self.encoder_downsize, w//self.encoder_downsize)
         
         # create empty tensors for correlation neighbour for each edge
-        corr_neighbur_fmap1 = torch.zeros((valid_edges_num, c, search_size, search_size), device=device, dtype=fmap1_cpy.dtype)
-        corr_neighbur_fmap2 = torch.zeros((valid_edges_num, c, search_size, search_size), device=device, dtype=fmap2_cpy.dtype)
-
+        
+        # =====================================================old version=====================================================
+        # corr_neighbur_fmap1 = torch.zeros((valid_edges_num, c, search_size, search_size), device=device, dtype=fmap1_cpy.dtype)
+        # corr_neighbur_fmap2 = torch.zeros((valid_edges_num, c, search_size, search_size), device=device, dtype=fmap2_cpy.dtype)
+        # =====================================================new version=====================================================
+        corr_neighbur_fmap1_list = []
+        corr_neighbur_fmap2_list = []
+        orginal_indices = []
+        # ====================================================end of changes block=============================================
+        
         # group edges for groups that contains edges with the same target frame (same self.j)
         unique_tgt_frame = torch.unique(self.j)
         
@@ -352,7 +359,12 @@ class Graph(nn.Module):
             tgt_frame = unique_tgt_frame[k]
             edge_mask = (self.j == tgt_frame) 
             edges_act = torch.sum(edge_mask)
-  
+
+            # =====================================================old version=====================================================
+            # =====================================================new version=====================================================
+            orginal_indices.append(torch.nonzero(edge_mask).squeeze(-1))
+            # ====================================================end of changes block=============================================
+            
             # get actual feature map and set batch size as 1 
             fmap1_tgt = fmap1_cpy[tgt_frame].unsqueeze(0) 
             fmap2_tgt = fmap2_cpy[tgt_frame].unsqueeze(0) 
@@ -373,9 +385,26 @@ class Graph(nn.Module):
             
             # Pase to target tensor
             # Restore orginal shape
-            corr_neighbur_fmap1[edge_mask] = sampled_patch1.view(edges_act, c, search_size, search_size)
-            corr_neighbur_fmap2[edge_mask] = sampled_patch2.view(edges_act, c, search_size, search_size)
+            # =====================================================old version=====================================================
+            # corr_neighbur_fmap1[edge_mask] = sampled_patch1.view(edges_act, c, search_size, search_size)
+            # corr_neighbur_fmap2[edge_mask] = sampled_patch2.view(edges_act, c, search_size, search_size)
+            # =====================================================new version====================================================
+            corr_neighbur_fmap1_list.append(sampled_patch1.view(edges_act, c, search_size, search_size))
+            corr_neighbur_fmap2_list.append(sampled_patch2.view(edges_act, c, search_size, search_size))
+            # ====================================================end of changes block=============================================
         
+       
+        
+        # =====================================================old version=====================================================
+        # =====================================================new version=====================================================
+        corr_neighbur_fmap1_unsorted = torch.cat(corr_neighbur_fmap1_list, dim=0)
+        corr_neighbur_fmap2_unsorted = torch.cat(corr_neighbur_fmap2_list, dim=0)
+        orginal_indices = torch.cat(orginal_indicesm, dim=0)
+        # sort to keep orginal order 
+        corr_neighbur_fmap1 = corr_neighbur_fmap1_unsorted[orginal_indices]
+        corr_neighbur_fmap2 = corr_neighbur_fmap2_unsorted[orginal_indices]
+        
+        # ====================================================end of changes block=============================================
         # Set shape for 2D convolution operation (B, C, H, W)
         # Setting B = 1, C = edges_number * channels
         corr_neighbur_fmap1 = corr_neighbur_fmap1.view(1, valid_edges_num*c, search_size, search_size)
