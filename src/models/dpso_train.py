@@ -84,6 +84,7 @@ class DPSO_train(nn.Module):
         for i in range(frames_max): 
             if debug_logger: print(f'=== Processing: frame {i+1}/{frames_max} ===')
 
+            # --- Graph Append ---
             # if init is done, append graph with new edges
             if i >= self.init_frames: 
 
@@ -100,86 +101,86 @@ class DPSO_train(nn.Module):
             poses = poses.detach()
             coords_phi = coords_phi.detach()
 
-            # --- optimization loop --- 
-            for k in range(self.update_iter): 
+            # --- Optimization --- 
+            # for k in range(self.update_iter): 
 
-                # --- Correlation --- 
-                corr, ctx, patches_idx, tgt_frames_idx, valid_mask = self.PatchGraph.corr(poses, coords_phi, coords_eps=1e-2, device=device)
-                src_frames_idx = patches_idx // self.patches_per_frame
+            # --- Correlation --- 
+            corr, ctx, patches_idx, tgt_frames_idx, valid_mask = self.PatchGraph.corr(poses, coords_phi, coords_eps=1e-2, device=device)
+            src_frames_idx = patches_idx // self.patches_per_frame
 
-                # force zero correlation for non valid edges 
-                corr = corr * valid_mask.view(-1, 1)
+            # force zero correlation for non valid edges 
+            corr = corr * valid_mask.view(-1, 1)
 
-                # check if any active edge exist
-                val_edges = torch.sum(valid_mask)
-                if debug_logger: print(f'   - optim iter: {k}, valid edges: {val_edges}')
+            # check if any active edge exist
+            val_edges = torch.sum(valid_mask)
+            if debug_logger: print(f'   - optim iter: {k}, valid edges: {val_edges}')
 
-                # --- Update operator --- 
-                h = self.PatchGraph.get_hidden_state()
-                h, correction = self.UpdateOperator(h, None, corr, ctx, src_frames_idx, tgt_frames_idx, patches_idx, device)
+            # --- Update operator --- 
+            h = self.PatchGraph.get_hidden_state()
+            h, correction = self.UpdateOperator(h, None, corr, ctx, src_frames_idx, tgt_frames_idx, patches_idx, device)
+            
+            delta, weights = correction
+
+            self.PatchGraph.update_hidden_state(h)
+
+            # --- Bundle Adjustement ---
+            if freeze_poses:
+                b, n, _ = poses.shape
+                ba_freeze_poses = b*n
+            else:
+                ba_freeze_poses = self.freeze_poses_num
+
+            BA = BundleAdjustment(supervised, poses,
+                                poses_gt, depth_gt,
+                                coords_r_theta, coords_phi, 
+                                src_frames_idx, tgt_frames_idx, patches_idx,
+                                delta.detach(), weights.detach(), # detach tensors before BA!
+                                self.sonar_param, ba_freeze_poses)
+            BA.to(device)
+
+            try:
+                with torch.no_grad():
+                    poses_optimized, elevation_optimized = BA.run(max_iter=self.ba_iter, 
+                                                                    trust_region=20.0)
+                    # - fedback after BA - 
+                poses = poses_optimized
+                coords_phi = elevation_optimized
+
+            except Exception as e:     
+                print(f'[Warning] Bundle Adjustment failed (frame: {i}, updater iteration: {k}).\n{e}')
+                poses_optimized = poses
+                elevation_optimized = coords_phi
                 
-                delta, weights = correction
+            
 
-                self.PatchGraph.update_hidden_state(h)
+            # --- Reprojection error ---
+            physic2fls_scale_factor = torch.tensor([self.sonar_param.resolution.bins / (self.sonar_param.range.max - self.sonar_param.range.min),
+                                                    self.sonar_param.resolution.beams / self.sonar_param.fov.horizontal], device = device).view(1, 2)
+            
+            b, n, p, _ = coords_r_theta.shape
+            coords_r_theta_expand = coords_r_theta.view(b*n*p, 2)[patches_idx]
 
-                # --- Bundle Adjustement ---
-                if freeze_poses:
-                    b, n, _ = poses.shape
-                    ba_freeze_poses = b*n
-                else:
-                    ba_freeze_poses = self.freeze_poses_num
-
-                BA = BundleAdjustment(supervised, poses,
-                                    poses_gt, depth_gt,
-                                    coords_r_theta, coords_phi, 
-                                    src_frames_idx, tgt_frames_idx, patches_idx,
-                                    delta.detach(), weights.detach(), # detach tensors before BA!
-                                    self.sonar_param, ba_freeze_poses)
-                BA.to(device)
-
-                try:
-                    with torch.no_grad():
-                        poses_optimized, elevation_optimized = BA.run(max_iter=self.ba_iter, 
-                                                                        trust_region=20.0)
-                        # - fedback after BA - 
-                    poses = poses_optimized
-                    coords_phi = elevation_optimized
-
-                except Exception as e:     
-                    print(f'[Warning] Bundle Adjustment failed (frame: {i}, updater iteration: {k}).\n{e}')
-                    poses_optimized = poses
-                    elevation_optimized = coords_phi
-                    
+            if supervised:
+                ref_poses = poses_gt
+                depth_gt_expand = depth_gt.view(b*n)[src_frames_idx]
+                r_expand = coords_r_theta_expand[:, 0]
+                ref_phi =  depth_to_elev_angle(depth_gt_expand, r_expand)
+                ref_phi = ref_phi.unsqueeze(1)
+            else:
+                ref_poses = poses_optimized
+                ref_phi = elevation_optimized.view(b*n*p, 1)[patches_idx]
                 
+            
+            origin_points = torch.cat([coords_r_theta_expand, ref_phi], dim=1).detach() # detach(), bec its reference val to loss!
 
-                # --- Reprojection error ---
-                physic2fls_scale_factor = torch.tensor([self.sonar_param.resolution.bins / (self.sonar_param.range.max - self.sonar_param.range.min),
-                                                        self.sonar_param.resolution.beams / self.sonar_param.fov.horizontal], device = device).view(1, 2)
-                
-                b, n, p, _ = coords_r_theta.shape
-                coords_r_theta_expand = coords_r_theta.view(b*n*p, 2)[patches_idx]
+            b, n_act, _ = ref_poses.shape
+            origin_poses = ref_poses.view(b*n_act, 7)[src_frames_idx, :]
+            target_poses = ref_poses.view(b*n_act, 7)[tgt_frames_idx, :]
 
-                if supervised:
-                    ref_poses = poses_gt
-                    depth_gt_expand = depth_gt.view(b*n)[src_frames_idx]
-                    r_expand = coords_r_theta_expand[:, 0]
-                    ref_phi =  depth_to_elev_angle(depth_gt_expand, r_expand)
-                    ref_phi = ref_phi.unsqueeze(1)
-                else:
-                    ref_poses = poses_optimized
-                    ref_phi = elevation_optimized.view(b*n*p, 1)[patches_idx]
-                    
-                
-                origin_points = torch.cat([coords_r_theta_expand, ref_phi], dim=1).detach() # detach(), bec its reference val to loss!
-
-                b, n_act, _ = ref_poses.shape
-                origin_poses = ref_poses.view(b*n_act, 7)[src_frames_idx, :]
-                target_poses = ref_poses.view(b*n_act, 7)[tgt_frames_idx, :]
-
-                ref_projection = project_points(origin_points, origin_poses, target_poses)        
-                
-                ref_projection = ref_projection[:, :2] * physic2fls_scale_factor
-                pred_projection = coords_r_theta_expand * physic2fls_scale_factor + delta 
+            ref_projection = project_points(origin_points, origin_poses, target_poses)        
+            
+            ref_projection = ref_projection[:, :2] * physic2fls_scale_factor
+            pred_projection = coords_r_theta_expand * physic2fls_scale_factor + delta 
 
             output_iter.append((poses, ref_projection, pred_projection, valid_mask))
         
