@@ -102,26 +102,32 @@ class Patchifier(nn.Module):
         b, n, c, h, w = frame.shape
         frame = frame.view(b*n, c, h, w)
 
-        # Gaussian Blur
-        blur = GaussianBlur(kernel_size=ksize, sigma=sigma)
-        frame = blur(frame)
+        sigmas = torch.tensor([1.0], device=device)
+        response = kf.responses.hessian_response(frame_flat, sigmas=sigmas)
+        return response
+        # # Gaussian Blur
+        # blur = GaussianBlur(kernel_size=ksize, sigma=sigma)
+        # frame = blur(frame)
         
-        # Gradients x and y
-        dx = F.pad(frame[:,:,:,1:] - frame[:,:,:,:-1], (0,1,0,0), mode='reflect')
-        dy = F.pad(frame[:,:,1:,:] - frame[:,:,:-1,:], (0,0,0,1), mode='reflect')
+        # # Gradients x and y
+        # dx = F.pad(frame[:,:,:,1:] - frame[:,:,:,:-1], (0,1,0,0), mode='reflect')
+        # dy = F.pad(frame[:,:,1:,:] - frame[:,:,:-1,:], (0,0,0,1), mode='reflect')
 
-        # Second derivative 
-        d2x = F.pad(dx[:,:,:,1:] - dx[:,:,:,:-1], (0,1,0,0), mode='reflect')
-        d2y = F.pad(dy[:,:,1:,:] - dy[:,:,:-1,:], (0,0,0,1), mode='reflect')
-        dxy = F.pad(dx[:,:,1:,:] - dx[:,:,:-1,], (0,0,0,1), mode='reflect')
+        # # Second derivative 
+        # d2x = F.pad(dx[:,:,:,1:] - dx[:,:,:,:-1], (0,1,0,0), mode='reflect')
+        # d2y = F.pad(dy[:,:,1:,:] - dy[:,:,:-1,:], (0,0,0,1), mode='reflect')
+        # dxy = F.pad(dx[:,:,1:,:] - dx[:,:,:-1,], (0,0,0,1), mode='reflect')
         
-        hessian_det = d2x * d2y - dxy**2
+        # hessian_det = d2x * d2y - dxy**2
 
-        return hessian_det
+        # return hessian_det
 
     
-    def _DoG(self, frame, kernel_size = 5, sigma1 = (0.1, 2.0), sigma2 = (0.2, 1.0)):
-
+    def _DoG(self, frame, kernel_size = 5, sigma1 = (0.5, 0.5), sigma2 = (3.0, 3.0)):
+        # sigma1 (np. 0.5 - 0.8): Ma być na tyle mała, żeby zlikwidować ostry, pojedynczy "śnieg" (speckle), ale nie zamazać ostrych krawędzi kamieni czy ścian.
+        # sigma2 (np. 1.5 - 2.5): Ma odpowiadać mniej więcej wielkości Twojego patcha. 
+        # Jeśli wycinasz patche 5x5 pikseli, sigma2 powinna mocno rozmyć wszystko, co jest rzędu 5 pikseli.
+        
         b, n, c, h, w = frame.shape
         frame = frame.view(b*n, c, h, w)
         
@@ -131,9 +137,9 @@ class Patchifier(nn.Module):
         img1 = blur1(frame)
         img2 = blur2(frame)
         
-        dog = torch.clip(img1-img2, min=0.0, max=255.0)
+        response = torch.abs(img1-img2)
                          
-        return dog
+        return response
                          
     def _get_best_coords(self, g):
 
