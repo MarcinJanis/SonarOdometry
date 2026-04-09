@@ -5,8 +5,8 @@
 # === Encoder configuration === #
 # DO NOT CHANGE 
 
-FLS_INPUT_HEIGHT: 200 #800 # input image height
-FLS_INPUT_WIDTH: 192 #768 # input image weidth
+FLS_INPUT_HEIGHT: 500 # orginal img 800 # input image height
+FLS_INPUT_WIDTH: 480 # orginal img 768 # input image weidth
 
 FEATURES_OUTPUT_CH: 128 # or 256; features map output channels
 CONTEXT_OUTPUT_CH: 384
@@ -31,11 +31,11 @@ PATCHES_GRID_SIZE: # Size of grid that divides sonar img in equals part to extra
 PATCHIFIER_METHOD: 'harris' # harris method with debug and visualisation functionallities
 
 # === Graph configuration === #
-INIT_FRAMES: 3 # Frames to initate graph (for traning only, in ionference INIT_FRAMES = TIME_WINDOW)
+INIT_FRAMES: 6 # Frames to initate graph (for traning only, in ionference INIT_FRAMES = TIME_WINDOW)
 
-BUFF_SIZE: 10 # Ring buffer size, amount of last frames that are kept
+BUFF_SIZE: 20 # Ring buffer size, amount of last frames that are kept (for traning set BUFF_SIZE > frames in sequence)
 
-TIME_WINDOW: 3 # Amount of previous frames that are taken into new edges creation
+TIME_WINDOW: 6 # Amount of previous frames that are taken into new edges creation
 
 CORR_NEIGHBOUR: 5
 
@@ -44,9 +44,9 @@ MOTION_APPRO_MODEL: 'linear' # None
 ELEVATION_INIT_MODE: 'rand' # 'zeros' or None
 
 # === Update operation and bundle adjustment === #
-UPDATE_ITERATION: 4
+UPDATE_ITERATION: 1 # for traning not used
 
-OPTICFLOW_WARMUP_ITER: 0
+OPTICFLOW_WARMUP_ITER: 0 # not used 
 
 BUNDLE_ADJUSTMENT_ITERATION: 2
 

@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torchvision.transforms import GaussianBlur
 
-import kornia.feature as kf 
+# import kornia.feature as kf 
 
 from .encoders import Encoder
 
@@ -64,15 +64,16 @@ class Patchifier(nn.Module):
 
         return response
 
-    def _hessian_det(self, frame, ksize=7, sigma=(0.5, 0.5)):
+    # def _hessian_det(self, frame, ksize=7, sigma=(0.5, 0.5)):
      
-        # connect batch size and frames in series dimension
-        b, n, c, h, w = frame.shape
-        frame = frame.view(b*n, c, h, w)
+    #     # connect batch size and frames in series dimension
+    #     b, n, c, h, w = frame.shape
+    #     frame = frame.view(b*n, c, h, w)
 
-        sigmas = torch.tensor([1.0], device=device)
-        response = kf.responses.hessian_response(frame_flat, sigmas=sigmas)
-        return response
+    #     sigmas = torch.tensor([1.0], device=frame.device)
+    #     response = kf.responses.hessian_response(frame, sigmas=sigmas)
+    #     return response
+    
         # # Gaussian Blur
         # blur = GaussianBlur(kernel_size=ksize, sigma=sigma)
         # frame = blur(frame)
@@ -216,7 +217,7 @@ class Patchifier(nn.Module):
         
         return patches_f, patches_c
 
-    def get_visu(self, frames, coords, batch=0, frame_num=0):
+    def get_visu(self, frames, coords, mode = 'harris', batch=0, frame_num=0):
          
             single_frame = frames[batch, frame_num, ...]
             single_coord = coords[batch, frame_num, ...]
@@ -254,11 +255,20 @@ class Patchifier(nn.Module):
                 # print(f'pt: {i}: x={x}, y={y}')
                 cv2.circle(frame_np, (x, y), 2, (0, 255, 0), 4)
 
-            harris_response = self._harris_response(single_frame.unsqueeze(0).unsqueeze(0))
-            harris_response = harris_response.clone().detach().squeeze(0).squeeze(0)
-            harris_response = (harris_response*255).cpu().numpy().astype(np.uint8)
+            single_frame_squeeze = single_frame.unsqueeze(0).unsqueeze(0)
+            if mode == 'harris':
+                response = self._harris_response(single_frame_squeeze, ksize=7, padding=3) # g.shape = [b*n, c, h, w]
+            elif mode == 'DoG':
+                response =  self._DoG(single_frame_squeeze, kernel_size=5, sigma1=(0.5, 0.5), sigma2=(3.0, 3.0)) # g.shape = [b*n, c, h, w]
+            elif mode == 'hessian':
+                response = self._hessian_det(single_frame_squeeze, ksize=7, sigma=(0.5, 0.5)) # g.shape = [b*n, c, h, w]
+            else: 
+                response = single_frame_squeeze  # g.shape = [b*n, c, h, w]
+                
+            response = response.clone().detach().squeeze(0).squeeze(0)
+            response = (response*255).cpu().numpy().astype(np.uint8)
             
-            return frame_np, harris_response
+            return frame_np, response
             
             
 
@@ -275,7 +285,7 @@ class Patchifier(nn.Module):
         if mode == 'harris':
             g = self._harris_response(frame, ksize=7, padding=3) # g.shape = [b*n, c, h, w]
         elif mode == 'DoG':
-            g =  self._DoG(frame, kernel_size=5, sigma1=(0.1, 2.0), sigma2=(0.2, 1.0)) # g.shape = [b*n, c, h, w]
+            g =  self._DoG(frame, kernel_size=5, sigma1=(0.5, 0.5), sigma2=(3.0, 3.0)) # g.shape = [b*n, c, h, w]
         elif mode == 'hessian':
             g = self._hessian_det(frame, ksize=7, sigma=(0.5, 0.5)) # g.shape = [b*n, c, h, w]
         else: 
