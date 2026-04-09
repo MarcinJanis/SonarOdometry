@@ -73,7 +73,7 @@ class DPSO_train(nn.Module):
             poses = poses + noise
             poses[:, :, 3:] = F.normalize(poses[:, :, 3:], p=2, dim=-1)
 
-        time = timestamp
+        
 
         # init edges
         self.PatchGraph.init_edges(self.init_frames, device)
@@ -83,13 +83,17 @@ class DPSO_train(nn.Module):
         
         for i in range(frames_max): 
             if debug_logger: print(f'=== Processing: frame {i+1}/{frames_max} ===')
+            
+            # START POMIARU CZASU
+            torch.cuda.synchronize()
+            t0 = time.time()
 
             # --- Graph Append ---
             # if init is done, append graph with new edges
             if i >= self.init_frames: 
 
                 x1, x2 = poses[:, i-2, :], poses[:, i-1, :]
-                t1, t2, t3 = time[:, i-2], time[:, i-1], time[:, i]
+                t1, t2, t3 = timestamp[:, i-2], timestamp[:, i-1], timestamp[:, i]
                 new_pose = approx_movement(x1, x2, t1, t2, t3, 
                                            motion_model=self.motion_appro_model)
                  
@@ -100,6 +104,9 @@ class DPSO_train(nn.Module):
             # detach from torch graph for each frame in sequence
             poses = poses.detach()
             coords_phi = coords_phi.detach()
+
+            torch.cuda.synchronize()
+            t1 = time.time()
 
             # --- Optimization --- 
             # for k in range(self.update_iter): 
@@ -113,7 +120,10 @@ class DPSO_train(nn.Module):
 
             # check if any active edge exist
             val_edges = torch.sum(valid_mask)
-            if debug_logger: print(f'   - optim iter: {k}, valid edges: {val_edges}')
+            # if debug_logger: print(f'   - optim iter: {k}, valid edges: {val_edges}')
+            
+            torch.cuda.synchronize()
+            t2 = time.time()
 
             # --- Update operator --- 
             h = self.PatchGraph.get_hidden_state()
@@ -122,6 +132,9 @@ class DPSO_train(nn.Module):
             delta, weights = correction
 
             self.PatchGraph.update_hidden_state(h)
+            
+            torch.cuda.synchronize()
+            t3 = time.time()
 
             # --- Bundle Adjustement ---
             if freeze_poses:
@@ -138,20 +151,21 @@ class DPSO_train(nn.Module):
                                 self.sonar_param, ba_freeze_poses)
             BA.to(device)
 
-            try:
-                with torch.no_grad():
-                    poses_optimized, elevation_optimized = BA.run(max_iter=self.ba_iter, 
-                                                                    trust_region=20.0)
-                    # - fedback after BA - 
-                poses = poses_optimized
-                coords_phi = elevation_optimized
+            # try:
+            with torch.no_grad():
+                poses_optimized, elevation_optimized = BA.run(max_iter=self.ba_iter, 
+                                                                trust_region=20.0)
+                # - fedback after BA - 
+            poses = poses_optimized
+            coords_phi = elevation_optimized
 
-            except Exception as e:     
-                print(f'[Warning] Bundle Adjustment failed (frame: {i}, updater iteration: {k}).\n{e}')
-                poses_optimized = poses
-                elevation_optimized = coords_phi
+            # except Exception as e:     
+            #     # print(f'[Warning] Bundle Adjustment failed (frame: {i}, updater iteration: {k}).\n{e}')
+            #     poses_optimized = poses
+            #     elevation_optimized = coords_phi
                 
-            
+            torch.cuda.synchronize()
+            t4 = time.time()
 
             # --- Reprojection error ---
             physic2fls_scale_factor = torch.tensor([self.sonar_param.resolution.bins / (self.sonar_param.range.max - self.sonar_param.range.min),
@@ -183,7 +197,11 @@ class DPSO_train(nn.Module):
             pred_projection = coords_r_theta_expand * physic2fls_scale_factor + delta 
 
             output_iter.append((poses, ref_projection, pred_projection, valid_mask))
+            
+            torch.cuda.synchronize()
+            t5 = time.time()
+            
+            # WYNIK POMIARU
+            print(f"Frame {i:02d} | Graph: {t1-t0:.4f}s | Corr: {t2-t1:.4f}s | Update: {t3-t2:.4f}s | BA: {t4-t3:.4f}s | Reproj: {t5-t4:.4f}s | TOTAL: {t5-t0:.4f}s")
         
         return output_iter
-
-
