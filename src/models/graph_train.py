@@ -399,11 +399,11 @@ class Graph(nn.Module):
         # =====================================================new version=====================================================
         corr_neighbur_fmap1_unsorted = torch.cat(corr_neighbur_fmap1_list, dim=0)
         corr_neighbur_fmap2_unsorted = torch.cat(corr_neighbur_fmap2_list, dim=0)
-        orginal_indices = torch.cat(orginal_indicesm, dim=0)
+        cat_indices = torch.cat(orginal_indices, dim=0)
+        reverse_order = torch.argsort(cat_indices)
         # sort to keep orginal order 
-        corr_neighbur_fmap1 = corr_neighbur_fmap1_unsorted[orginal_indices]
-        corr_neighbur_fmap2 = corr_neighbur_fmap2_unsorted[orginal_indices]
-        
+        corr_neighbur_fmap1 = corr_neighbur_fmap1_unsorted[reverse_order]
+        corr_neighbur_fmap2 = corr_neighbur_fmap2_unsorted[reverse_order]
         # ====================================================end of changes block=============================================
         # Set shape for 2D convolution operation (B, C, H, W)
         # Setting B = 1, C = edges_number * channels
