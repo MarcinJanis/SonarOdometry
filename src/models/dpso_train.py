@@ -40,7 +40,7 @@ class DPSO_train(nn.Module):
         self.ba_patience = model_config.BUNDLE_ADJUSTMENT.PATIENCE
 
         self.freeze_poses_num = model_config.FREEZE_POSES.FREEZE_POSES
-
+        
         self.motion_appro_model = model_config.MOTION_APPRO_MODEL
         self.patches_per_frame = model_config.PATCHES_PER_FRAME
         
