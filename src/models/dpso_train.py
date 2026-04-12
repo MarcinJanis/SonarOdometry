@@ -31,13 +31,19 @@ class DPSO_train(nn.Module):
         self.sonar_param = sonar_config
 
         # --- get config parameters --- 
-        self.update_iter = model_config.UPDATE_ITERATION
-        self.ba_iter = model_config.BUNDLE_ADJUSTMENT_ITERATION
-        # self.ba_min_err = float(model_config.BUNDLE_ADJUSTMENT_MIN_ERR)
+
+        # self.update_iter = model_config.UPDATE_ITERATION
+        self.ba_iter = model_config.BUNDLE_ADJUSTMENT.MAX_ITERATION
+        self.ba_lr_trans = model_config.BUNDLE_ADJUSTMENT.STEP_TRANSLATION
+        self.ba_lr_rot = model_config.BUNDLE_ADJUSTMENT.STEP_ROTATION
+        self.ba_lr_elev = model_config.BUNDLE_ADJUSTMENT.STEP_ELEV
+        self.ba_patience = model_config.BUNDLE_ADJUSTMENT.PATIENCE
+
+        self.freeze_poses_num = model_config.FREEZE_POSES.FREEZE_POSES
+
         self.motion_appro_model = model_config.MOTION_APPRO_MODEL
         self.patches_per_frame = model_config.PATCHES_PER_FRAME
-        self.freeze_poses_num = model_config.FREEZE_POSES
-
+        
         self.init_frames = init_frames
         self.batch_size = batch_size
         self.frames_in_series = frames_in_series
@@ -73,8 +79,6 @@ class DPSO_train(nn.Module):
             poses = poses + noise
             poses[:, :, 3:] = F.normalize(poses[:, :, 3:], p=2, dim=-1)
 
-        
-
         # init edges
         self.PatchGraph.init_edges(self.init_frames, device)
 
@@ -84,7 +88,7 @@ class DPSO_train(nn.Module):
         for i in range(frames_max): 
             if debug_logger: print(f'=== Processing: frame {i+1}/{frames_max} ===')
             
-            # START POMIARU CZASU
+            # time measurement
             torch.cuda.synchronize()
             t0 = time.time()
 
@@ -109,8 +113,7 @@ class DPSO_train(nn.Module):
             t1 = time.time()
 
             # --- Optimization --- 
-            # for k in range(self.update_iter): 
-
+            
             # --- Correlation --- 
             corr, ctx, patches_idx, tgt_frames_idx, valid_mask = self.PatchGraph.corr(poses, coords_phi, coords_eps=1e-2, device=device)
             src_frames_idx = patches_idx // self.patches_per_frame
@@ -143,27 +146,26 @@ class DPSO_train(nn.Module):
             else:
                 ba_freeze_poses = self.freeze_poses_num
 
-            BA = BundleAdjustment(supervised, poses,
-                                poses_gt, depth_gt,
-                                coords_r_theta, coords_phi, 
-                                src_frames_idx, tgt_frames_idx, patches_idx,
-                                delta.detach(), weights.detach(), # detach tensors before BA!
+            # detach all tensors passed to BA
+            BA = BundleAdjustment(supervised, poses.detach(),
+                                coords_r_theta.detach(), coords_phi.detach(), 
+                                src_frames_idx.detach(), tgt_frames_idx.detach(), patches_idx.detach(),
+                                delta.detach(), weights.detach(),
                                 self.sonar_param, ba_freeze_poses)
             BA.to(device)
 
             # try:
             with torch.no_grad():
-                poses_optimized, elevation_optimized = BA.run(max_iter=self.ba_iter, 
-                                                                trust_region=20.0)
-                # - fedback after BA - 
+                poses_optimized, elevation_optimized = BA.run(max_iter= self.ba_iter, 
+                                                              patience = self.ba_patience, 
+                                                              min_delta = 1e-4,
+                                                              lr_elev=self.ba_lr_elev, lr_rot=self.ba_lr_rot, lr_trans = self.ba_lr_trans,
+                                                              disp_stats=False)
+
+            # feedback after BA
             poses = poses_optimized
             coords_phi = elevation_optimized
 
-            # except Exception as e:     
-            #     # print(f'[Warning] Bundle Adjustment failed (frame: {i}, updater iteration: {k}).\n{e}')
-            #     poses_optimized = poses
-            #     elevation_optimized = coords_phi
-                
             torch.cuda.synchronize()
             t4 = time.time()
 
@@ -201,7 +203,7 @@ class DPSO_train(nn.Module):
             torch.cuda.synchronize()
             t5 = time.time()
             
-            # WYNIK POMIARU
+            # Time measurement results
             print(f"Frame {i:02d} | Graph: {t1-t0:.4f}s | Corr: {t2-t1:.4f}s | Update: {t3-t2:.4f}s | BA: {t4-t3:.4f}s | Reproj: {t5-t4:.4f}s | TOTAL: {t5-t0:.4f}s")
         
         return output_iter

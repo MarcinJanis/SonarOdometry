@@ -2,55 +2,82 @@
 #       Model configuration file            #
 # ========================================= #
 
-# === Encoder configuration === #
-# DO NOT CHANGE 
+# === Encoder configuration = DO NOT CHANGE === #
 
-FLS_INPUT_HEIGHT: 500 # orginal img 800 # input image height
-FLS_INPUT_WIDTH: 480 # orginal img 768 # input image weidth
+FLS_INPUT_HEIGHT: 500 # orginal img: 800 
+# input image height
+FLS_INPUT_WIDTH: 480 # orginal img: 768 
+# input image weidth
 
-FEATURES_OUTPUT_CH: 128 # or 256; features map output channels
+FEATURES_OUTPUT_CH: 128 # or 256;
+# features map output channels
 CONTEXT_OUTPUT_CH: 384
+# context map output channeles 
 
-FEATURES_MAP_FIRST_DIM: 32 # or 64; first dimension upsize in encoder's residual block
-CONTEXT_MAP_FIRST_DIM: 32
+FEATURES_MAP_FIRST_DIM: 32 # or 64
+CONTEXT_MAP_FIRST_DIM: 32 # or 64
+# first dimension upsize in encoder's residual block
 
 ENCODER_DOWNSIZE: 4 
+# Downsize of feature map, made by encoder
 
-ENCODER_NORM_METHOD: 'instance' # 'batch', 'group' None
+ENCODER_NORM_METHOD: 'instance' # 'batch', 'group', None
 
 # === Patchifier configuration === #
 
-PATCHES_PER_FRAME: 32 # 48, 64, 96 - Amount of patches extracted from single frame 
+PATCHES_PER_FRAME: 32 # 48, 64, 96 
+# Amount of patches extracted from single frame 
 
-PATCH_SIZE: 3 # Patch size, extracted from features map 
+PATCH_SIZE: 3 
+# Patch size, extracted from features map 
 
-PATCHES_GRID_SIZE: # Size of grid that divides sonar img in equals part to extract patches evenly
+PATCHES_GRID_SIZE: 
   x: 30
   y: 30 
+# Size of grid that divides sonar img in equals part to extract patches evenly
 
-PATCHIFIER_METHOD: 'harris' # harris method with debug and visualisation functionallities
+PATCHIFIER_METHOD: 'harris' 
+# key points detection method 
+
 
 # === Graph configuration === #
-INIT_FRAMES: 6 # Frames to initate graph (for traning only, in ionference INIT_FRAMES = TIME_WINDOW)
+# 
 
-BUFF_SIZE: 20 # Ring buffer size, amount of last frames that are kept (for traning set BUFF_SIZE > frames in sequence)
+INIT_FRAMES: 6 
+# Number of frames to initate graph 
+# for traning only, in ionference INIT_FRAMES = TIME_WINDOW
 
-TIME_WINDOW: 6 # Amount of previous frames that are taken into new edges creation
+BUFF_SIZE: 20 
+# Ring buffer size, number of frames which data are kept in memory  
+# for traning set BUFF_SIZE > frames in sequence
+
+TIME_WINDOW: 6 
+# Number of previous frames for which edges are created with new frame
 
 CORR_NEIGHBOUR: 5
+# nieghbour of projected point that is taken to calculate correlation
 
 MOTION_APPRO_MODEL: 'linear' # None
+# Model of new pose approximation
 
 ELEVATION_INIT_MODE: 'rand' # 'zeros' or None
+# Model of new elevation angle approximation
 
 # === Update operation and bundle adjustment === #
-UPDATE_ITERATION: 1 # for traning not used
 
-OPTICFLOW_WARMUP_ITER: 0 # not used 
+UPDATE_ITERATION: 1 
+# number of iteration of optimization loop 
+# for inference mode only, not used in train 
 
-BUNDLE_ADJUSTMENT_ITERATION: 2
+BUNDLE_ADJUSTMENT:
+  MAX_ITERATION: 20 # max iteration of bundle adjustment
+  PATIENCE: 5 # early stopping patience
+  STEP_TRANSLATION: 0.01 # inital lr for optimization for translation
+  STEP_ROTATION: 0.001 # inital lr for optimization for rotation
+  STEP_ELEV: 0.01  # inital lr for optimization for elevation angle
+  FREEZE_POSES: 2 # number of poses to not change while optimization, min 1.
 
-FREEZE_POSES: 2 
+
 
 
 
