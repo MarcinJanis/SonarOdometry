@@ -88,7 +88,7 @@ class DPSO_LightningModule(pl.LightningModule):
 
         for k, (pred_poses, target_projection, predicted_projection, valid_mask) in enumerate(pred):
             
-            if self.supervised:
+            if self.supervised: # is supervised, compute ATE, as reference metric but not add to to loss fcn
                 # pose eror - mean from absolute pose and rotation error
                 trans_err, rot_err = pose_err(pred_poses, trajectory_gt)
                 # accumulate loss components
@@ -99,10 +99,22 @@ class DPSO_LightningModule(pl.LightningModule):
             # supervised - between prediction and gt
             # selfsupervised - between prediction and optimized value by BA
             valid_edges_num = torch.sum(valid_mask) + 1e-6
-            patch_proj_err = valid_mask.unsqueeze(-1) * torch.abs(target_projection - predicted_projection)
+
+            # === Smooth L1 Loss with valid mask ===
+            err_raw = F.smooth_l1_loss(predicted_projection, target_projection, reduction='none', beta=1.0)
+            # beta - err value when L2 is used instead of L1 for specific edge
+            # L1 has constant gradient (1 or -1), so outliers and huge error error don't destroy loss fcn
+            # L2 has gradient proportional to it's value so allows to find minimum for small loss value
+            
+            # === Mean absolute error with valid mask ===
+            # err_raw = torch.abs(target_projection - predicted_projection)
+            
+            # ==== 
+            patch_proj_err = valid_mask.unsqueeze(-1) * err_raw
             proj_x_err = torch.sum(patch_proj_err[:, 0]) / valid_edges_num # theta err 
             proj_y_err = torch.sum(patch_proj_err[:, 1]) / valid_edges_num # r err
 
+            
             # accumulate loss components
             loss_theta += proj_x_err 
             loss_r += proj_y_err 
