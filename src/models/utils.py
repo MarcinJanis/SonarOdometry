@@ -7,15 +7,68 @@ import pypose as pp
 
 
 # === Extrinsics calib ===
-T = (sonar_cfg.position.x, sonar_cfg.position.y, sonar_cfg.position.z)
-R = (sonar_cfg.position.roll, sonar_cfg.position.pitch, sonar_cfg.position.yaw)
+# T = (sonar_cfg.position.x, sonar_cfg.position.y, sonar_cfg.position.z)
+# R = (sonar_cfg.position.roll, sonar_cfg.position.pitch, sonar_cfg.position.yaw)
 
 class extrinsics_calib:
-    def __init__(T, R):
-        self.so3 = 
-    b, n, _ = poses.shape
-    Q = 
+    def __init__(T, R, device):
+        
+        self.T = torch.tensor(T, dtype=torch.float32, device=device)
+        self.R = torch.tensor(R, dtype=torch.float32, device=device)
     
+        q = pp.euler2SO3(self.R).tensor()
+        
+        pose_tensor = torch.cat([self.T, q], dim=-1)
+        self.se3_s2r = pp.SE3(pose_tensor) # Sonar -> Robot
+        self.se3_r2s = self.se3_s2r.Inv()  # Robot -> Sonar
+
+        self.z_translation = self.T[-1]
+        
+    def pose(self, x, inverse = False):
+        xse3 = pp.SE3(x)
+        if inverse:
+            out = xse3 @ self.se3
+        else:
+            out = xse3 @ self.se3inv
+        return out
+
+    def depth(self, x, inverse = False):
+        if inverse:
+            out = x + self.z_translation
+        else:
+            out = x - self.z_translation
+        return out
+
+    def points(self, x, inverse = False):
+        if inverse:
+            out = self.se3 @ x
+        else:
+            out = self.se3inv @ x
+        return out
+        
+        
+    
+
+    
+        
+    
+
+# 1. Dane wejściowe (na GPU)
+translation = torch.tensor([1.0, 0.0, 0.0], device='cuda') # Przesunięcie o 1m w osi X
+rpy = torch.tensor([0.0, 0.2, 0.0], device='cuda')        # Pitch 0.2 rad
+
+# 2. Tworzymy kwaternion z RPY (korzystając z pp.SO3)
+quaternion = pp.euler2SO3(rpy).tensor() # Zwraca [x, y, z, w]
+
+# 3. Składamy w pełną pozę SE3: [x, y, z, qx, qy, qz, qw]
+# Kształt: (7,)
+pose_robot_to_sonar = pp.SE3(torch.cat([translation, quaternion], dim=-1))
+
+# 4. Aplikacja na punkty (np. chmura punktów z ramki robota do ramki sonaru)
+points_robot = torch.randn(100, 3, device='cuda')
+points_in_sonar_frame = pose_robot_to_sonar @ points_robot
+
+
 
 # === Points Transformation === 
 
