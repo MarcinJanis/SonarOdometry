@@ -20,12 +20,11 @@ class Graph(nn.Module):
         self.fls_w = sonar_cfg.resolution.beams # horizontal resolution of input fls image
 
         self.fov_vertical = sonar_cfg.fov.vertical # vertical fov [rad]
-        
-        self.phi_max =  sonar_cfg.position.pitch + self.fov_vertical / 2 # max available elevation angle
-        self.phi_min =  sonar_cfg.position.pitch - self.fov_vertical / 2 # min available elevation angle
-        
         self.fov_horizontal = sonar_cfg.fov.horizontal # horizontal fov [rad]
-
+        
+        # self.phi_max =  self.fov_vertical / 2 # max available elevation angle
+        # self.phi_min =  - self.fov_vertical / 2 # min available elevation angle
+        
         # --- import sys configuration ---
         self.patches_per_frame = model_cfg.PATCHES_PER_FRAME # amount of patches generated per each frames
         self.patch_size = model_cfg.PATCH_SIZE # size of each patch, patch shape: (c, p, p)
@@ -80,7 +79,7 @@ class Graph(nn.Module):
 
     def init_phi(self, b, n, p, device, mode = 'rand'):
         if self.phi_init_mode == 'rand':
-            coords_phi = torch.rand((b, n, p, 1), device=device, dtype=torch.float) * (self.phi_max - self.phi_min) + self.phi_min
+            coords_phi = (torch.rand((b, n, p, 1), device=device, dtype=torch.float) - 0.5) * self.fov_vertical # (self.phi_max - self.phi_min) + self.phi_min
         else: 
             coords_phi = torch.zeros((b, n, p, 1), device=device, dtype=torch.float) # init elevation angle with zeros
         return coords_phi
@@ -294,11 +293,11 @@ class Graph(nn.Module):
 
         # --- edge validation ---
         theta_max = self.fov_horizontal / 2
+        phi_max = self.fov_vertical / 2
 
         out_of_range = (tgt_cooords[:,0] < (self.r_min - coords_eps)) | (tgt_cooords[:,0] > (self.r_max + coords_eps))
         out_of_range = out_of_range | (torch.abs(tgt_cooords[:,1]) > theta_max + coords_eps)
-        out_of_range = out_of_range | (tgt_cooords[:,2] > self.phi_max + coords_eps)
-        out_of_range = out_of_range | (tgt_cooords[:,2] < self.phi_min - coords_eps)
+        out_of_range = out_of_range | (torch.abs(tgt_cooords[:,2]) > phi_max + coords_eps)
         valid_mask = ~out_of_range
 
         valid_edges_num = self.i.shape[0] # all adges at this moment are treated as valid 
