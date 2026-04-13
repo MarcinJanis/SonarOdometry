@@ -14,7 +14,7 @@ from .update import Update
 from .graph_train import Graph
 from .bundle_adjustment import BundleAdjustment
 
-from .utils import project_points, approx_movement, depth_to_elev_angle
+from .utils import project_points, approx_movement, depth_to_elev_angle, ExtrinsicsCalib
 
 class DPSO_train(nn.Module):
 
@@ -53,9 +53,8 @@ class DPSO_train(nn.Module):
         # --- init components --- 
         self.PatchGraph = Graph(model_config, sonar_config, batch_size, frames_in_series)
         self.UpdateOperator = Update(model_config)
-        self.calib = extrinsics_calib(T = [sonar_config.position.x, sonar_config.position.y, sonar_config.position.z],
-                                      R = [sonar_config.position.roll, sonar_config.position.pitch, sonar_config.position.yaw],
-                                      device =  )
+        self.calib = ExtrinsicsCalib(T = [sonar_config.position.x, sonar_config.position.y, sonar_config.position.z],
+                                     R = [sonar_config.position.roll, sonar_config.position.pitch, sonar_config.position.yaw])
 
     def forward(self, frames, timestamp, poses_gt, depth_gt, supervised, freeze_poses=False, init_poses_noise = 0.0, debug_logger=False):
         
@@ -65,6 +64,11 @@ class DPSO_train(nn.Module):
 
         batch_size, frames_max = frames.shape[:2]
 
+        # --- Extrinsic calibration --- 
+        # gt -> sonar frame
+        poses_gt = self.calib.pose(poses_gt)
+        depth_gt = self.calb.depth(depth_gt)
+        
         # --- Graph Init --- 
 
         # global features extractor on whole sequence
