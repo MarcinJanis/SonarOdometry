@@ -21,8 +21,8 @@ class Graph(nn.Module):
 
         self.fov_vertical = sonar_cfg.fov.vertical # vertical fov [rad]
         
-        self.phi_max =  - sonar_cfg.position.pitch # max available elevation angle
-        self.phi_min =  - sonar_cfg.position.pitch - self.fov_vertical # min available elevation angle
+        self.phi_max =  sonar_cfg.position.pitch + self.fov_vertical / 2 # max available elevation angle
+        self.phi_min =  sonar_cfg.position.pitch - self.fov_vertical / 2 # min available elevation angle
         
         self.fov_horizontal = sonar_cfg.fov.horizontal # horizontal fov [rad]
 
