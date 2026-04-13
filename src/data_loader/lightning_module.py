@@ -53,10 +53,10 @@ class DPSO_LightningModule(pl.LightningModule):
         # Scheduluer, który reaguje na to, co faktycznie dzieje się z siecią
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer, 
-            mode='min',      # Chcemy minimalizować błąd
-            factor=0.5,      # O ile mnożymy LR? (0.5 to łagodniejsze zjazdy niż 0.1, lepsze do fine-tuningu BA)
-            patience=5,      # Ile epok bez poprawy czekamy przed cięciem LR? (5 do 10 to optymalny zakres)
-            min_lr=1e-6      # Zabezpieczenie: poniżej tej wartości LR już nie spadnie
+            mode='min',      
+            factor=0.5,      
+            patience=3,      
+            min_lr=1e-6      
         )
         
         return {
@@ -64,11 +64,19 @@ class DPSO_LightningModule(pl.LightningModule):
             "lr_scheduler": {
                 "scheduler": scheduler,
                 "monitor": "val_loss", # check name
-                "interval": "epoch",   # Sprawdzamy na koniec epoki (??? not)
-                "frequency": 1
+                "interval": "step",   # check each 1000 steps
+                "frequency": 1000
             },
         }
-        
+
+# add to trainer object
+#     trainer = pl.Trainer(
+#     max_epochs=1,                  # Trenujemy tylko jedną epokę
+#     val_check_interval=1000,       # <--- KRYTYCZNE: Uruchamia validation_step co 1000 batchy treningowych!
+#     limit_val_batches=1.0,         # Opcjonalnie: upewnia się, że sprawdza cały zbiór walidacyjny (lub jego ułamek, np. 0.2)
+#     # ... reszta Twoich parametrów (logger, callbacks, gpus itp.)
+# )
+    
     def training_step(self, batch, batch_idx):
 
         if self.supervised: 
@@ -91,7 +99,7 @@ class DPSO_LightningModule(pl.LightningModule):
                         timestamp=time, 
                         poses_gt=trajectory_gt, 
                         depth_gt=depth_gt, 
-                        supervised=self.supervised, # Jawne przypisanie
+                        supervised=self.supervised, 
                         freeze_poses=freeze_poses, 
                         init_poses_noise=self.init_poses_noise, 
                         debug_logger=False)
