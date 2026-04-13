@@ -45,20 +45,30 @@ class DPSO_LightningModule(pl.LightningModule):
 
 
     def configure_optimizers(self):
-        optimizer = torch.optim.AdamW(self.parameters(), lr=1e-3, weight_decay=1e-2)
-        # shcelduler 
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.1)
+        # AdamW to świetny wybór. Zmniejszyłem weight_decay z 1e-2 na 1e-4, 
+        # co jest bezpieczniejszym standardem dla architektur wyliczających Optical Flow / Odometrię.
+        # lr=1e-3 to dobry start, choć jeśli loss będzie wybuchał, warto spróbować 1e-4.
+        optimizer = torch.optim.AdamW(self.parameters(), lr=1e-3, weight_decay=1e-4)
+        
+        # Scheduluer, który reaguje na to, co faktycznie dzieje się z siecią
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, 
+            mode='min',      # Chcemy minimalizować błąd
+            factor=0.5,      # O ile mnożymy LR? (0.5 to łagodniejsze zjazdy niż 0.1, lepsze do fine-tuningu BA)
+            patience=5,      # Ile epok bez poprawy czekamy przed cięciem LR? (5 do 10 to optymalny zakres)
+            min_lr=1e-6      # Zabezpieczenie: poniżej tej wartości LR już nie spadnie
+        )
         
         return {
             "optimizer": optimizer,
             "lr_scheduler": {
                 "scheduler": scheduler,
-                "interval": "epoch", 
-                "frequency": 1,      
-                "monitor": "val_loss", 
+                "monitor": "val_loss", # check name
+                "interval": "epoch",   # Sprawdzamy na koniec epoki (??? not)
+                "frequency": 1
             },
         }
-    
+        
     def training_step(self, batch, batch_idx):
 
         if self.supervised: 
@@ -165,7 +175,19 @@ class DPSO_LightningModule(pl.LightningModule):
         pred_poses, target_projection, predicted_projection, valid_mask = pred[-1]
         
         valid_edges_num = torch.sum(valid_mask) + 1e-6
-        patch_proj_err = valid_mask.unsqueeze(-1) * torch.abs(target_projection - predicted_projection)
+
+        # === Smooth L1 Loss with valid mask ===
+        err_raw = F.smooth_l1_loss(predicted_projection, target_projection, reduction='none', beta=1.0)
+        # beta - err value when L2 is used instead of L1 for specific edge
+        # L1 has constant gradient (1 or -1), so outliers and huge error error don't destroy loss fcn
+        # L2 has gradient proportional to it's value so allows to find minimum for small loss value
+        
+        # === Mean absolute error with valid mask ===
+        # err_raw = torch.abs(target_projection - predicted_projection)
+        
+        # ==== 
+        patch_proj_err = valid_mask.unsqueeze(-1) * err_raw
+
         proj_x_err = torch.sum(patch_proj_err[:, 0], dim=-1) / valid_edges_num
         proj_y_err = torch.sum(patch_proj_err[:, 1], dim=-1) / valid_edges_num
 
