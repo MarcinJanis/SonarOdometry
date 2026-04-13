@@ -29,7 +29,6 @@ class DPSO_train(nn.Module):
             sonar_config = Box(yaml.safe_load(f))
 
         self.sonar_param = sonar_config
-        self.sonar_pitch = sonar_config.position.pitch
         # --- get config parameters --- 
 
         # self.update_iter = model_config.UPDATE_ITERATION
@@ -186,7 +185,9 @@ class DPSO_train(nn.Module):
                 ref_poses = poses_gt
                 depth_gt_expand = depth_gt.view(b*n)[src_frames_idx]
                 r_expand = coords_r_theta_expand[:, 0]
-                ref_phi =  depth_to_elev_angle(depth_gt_expand, r_expand, self.sonar_pitch)
+
+                origin_poses_pitch = pp.SO3(origin_poses[:, 3:]).euler()[:, 1] # get pitch to tranform gloal elevation angle to sensor frame
+                ref_phi =  depth_to_elev_angle(depth_gt_expand, r_expand) - origin_poses_pitch
                 ref_phi = ref_phi.unsqueeze(1)
             else:
                 ref_poses = poses_optimized
