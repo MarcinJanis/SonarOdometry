@@ -1,9 +1,21 @@
 import numpy as np
+
 import torch 
 import torch.nn.functional as F
 
-from enum import IntEnum
+import pypose as pp
 
+
+# === Extrinsics calib ===
+T = (sonar_cfg.position.x, sonar_cfg.position.y, sonar_cfg.position.z)
+R = (sonar_cfg.position.roll, sonar_cfg.position.pitch, sonar_cfg.position.yaw)
+
+class extrinsics_calib:
+    def __init__(T, R):
+        self.so3 = 
+    b, n, _ = poses.shape
+    Q = 
+    
 
 # === Points Transformation === 
 
