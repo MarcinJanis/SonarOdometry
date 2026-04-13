@@ -1,5 +1,6 @@
 
 import torch
+import torch.nn.functional as F
 import lightning.pytorch as pl
 
 from .metrics import pose_err
@@ -69,14 +70,7 @@ class DPSO_LightningModule(pl.LightningModule):
             },
         }
 
-# add to trainer object
-#     trainer = pl.Trainer(
-#     max_epochs=1,                  # Trenujemy tylko jedną epokę
-#     val_check_interval=1000,       # <--- KRYTYCZNE: Uruchamia validation_step co 1000 batchy treningowych!
-#     limit_val_batches=1.0,         # Opcjonalnie: upewnia się, że sprawdza cały zbiór walidacyjny (lub jego ułamek, np. 0.2)
-#     # ... reszta Twoich parametrów (logger, callbacks, gpus itp.)
-# )
-    
+
     def training_step(self, batch, batch_idx):
 
         if self.supervised: 
