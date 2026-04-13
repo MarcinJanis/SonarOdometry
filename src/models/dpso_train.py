@@ -53,7 +53,9 @@ class DPSO_train(nn.Module):
         # --- init components --- 
         self.PatchGraph = Graph(model_config, sonar_config, batch_size, frames_in_series)
         self.UpdateOperator = Update(model_config)
-
+        self.calib = extrinsics_calib(T = [sonar_config.position.x, sonar_config.position.y, sonar_config.position.z],
+                                      R = [sonar_config.position.roll, sonar_config.position.pitch, sonar_config.position.yaw],
+                                      device =  )
 
     def forward(self, frames, timestamp, poses_gt, depth_gt, supervised, freeze_poses=False, init_poses_noise = 0.0, debug_logger=False):
         
