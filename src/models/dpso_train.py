@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch_scatter import scatter_mean
 
+import pypose as pp
+
 import os
 import time 
 
@@ -94,8 +96,8 @@ class DPSO_train(nn.Module):
             if debug_logger: print(f'=== Processing: frame {i+1}/{frames_max} ===')
             
             # time measurement
-            torch.cuda.synchronize()
-            t0 = time.time()
+            # torch.cuda.synchronize()
+            # t0 = time.time()
 
             # --- Graph Append ---
             # if init is done, append graph with new edges
@@ -114,8 +116,8 @@ class DPSO_train(nn.Module):
             poses = poses.detach()
             coords_phi = coords_phi.detach()
 
-            torch.cuda.synchronize()
-            t1 = time.time()
+            # torch.cuda.synchronize()
+            # t1 = time.time()
 
             # --- Optimization --- 
             
@@ -130,8 +132,8 @@ class DPSO_train(nn.Module):
             val_edges = torch.sum(valid_mask)
             # if debug_logger: print(f'   - optim iter: {k}, valid edges: {val_edges}')
             
-            torch.cuda.synchronize()
-            t2 = time.time()
+            # torch.cuda.synchronize()
+            # t2 = time.time()
 
             # --- Update operator --- 
             h = self.PatchGraph.get_hidden_state()
@@ -141,8 +143,8 @@ class DPSO_train(nn.Module):
 
             self.PatchGraph.update_hidden_state(h)
             
-            torch.cuda.synchronize()
-            t3 = time.time()
+            # torch.cuda.synchronize()
+            # t3 = time.time()
 
             # --- Bundle Adjustement ---
             if freeze_poses:
@@ -171,8 +173,8 @@ class DPSO_train(nn.Module):
             poses = poses_optimized
             coords_phi = elevation_optimized
 
-            torch.cuda.synchronize()
-            t4 = time.time()
+            # torch.cuda.synchronize()
+            # t4 = time.time()
 
             # --- Reprojection error ---
             physic2fls_scale_factor = torch.tensor([self.sonar_param.resolution.bins / (self.sonar_param.range.max - self.sonar_param.range.min),
@@ -205,12 +207,12 @@ class DPSO_train(nn.Module):
             ref_projection = ref_projection[:, :2] * physic2fls_scale_factor
             pred_projection = coords_r_theta_expand * physic2fls_scale_factor + delta 
 
-            output_iter.append((poses, ref_projection, pred_projection, valid_mask))
+            output_iter.append((poses, ref_projection, pred_projection, valid_mask, weights))
             
-            torch.cuda.synchronize()
-            t5 = time.time()
+            # torch.cuda.synchronize()
+            # t5 = time.time()
             
             # Time measurement results
-            print(f"Frame {i:02d} | Graph: {t1-t0:.4f}s | Corr: {t2-t1:.4f}s | Update: {t3-t2:.4f}s | BA: {t4-t3:.4f}s | Reproj: {t5-t4:.4f}s | TOTAL: {t5-t0:.4f}s")
+            # print(f"Frame {i:02d} | Graph: {t1-t0:.4f}s | Corr: {t2-t1:.4f}s | Update: {t3-t2:.4f}s | BA: {t4-t3:.4f}s | Reproj: {t5-t4:.4f}s | TOTAL: {t5-t0:.4f}s")
         
         return output_iter

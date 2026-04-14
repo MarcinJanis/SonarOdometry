@@ -46,10 +46,8 @@ class DPSO_LightningModule(pl.LightningModule):
 
 
     def configure_optimizers(self):
-        # AdamW to świetny wybór. Zmniejszyłem weight_decay z 1e-2 na 1e-4, 
-        # co jest bezpieczniejszym standardem dla architektur wyliczających Optical Flow / Odometrię.
-        # lr=1e-3 to dobry start, choć jeśli loss będzie wybuchał, warto spróbować 1e-4.
-        optimizer = torch.optim.AdamW(self.parameters(), lr=1e-3, weight_decay=1e-4)
+
+        optimizer = torch.optim.AdamW(self.parameters(), lr=1e-4, weight_decay=1e-4)
         
         # Scheduluer, który reaguje na to, co faktycznie dzieje się z siecią
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
@@ -65,8 +63,8 @@ class DPSO_LightningModule(pl.LightningModule):
             "lr_scheduler": {
                 "scheduler": scheduler,
                 "monitor": "val_loss", # check name
-                "interval": "step",   # check each 1000 steps
-                "frequency": 1000
+                # "interval": "step",   # check each 1000 steps
+                # "frequency": 500 # same as in trainer val_check_interval
             },
         }
 
@@ -98,7 +96,7 @@ class DPSO_LightningModule(pl.LightningModule):
                         init_poses_noise=self.init_poses_noise, 
                         debug_logger=False)
 
-        for k, (pred_poses, target_projection, predicted_projection, valid_mask) in enumerate(pred):
+        for k, (pred_poses, target_projection, predicted_projection, valid_mask, weights) in enumerate(pred):
             
             if self.supervised: # is supervised, compute ATE, as reference metric but not add to to loss fcn
                 # pose eror - mean from absolute pose and rotation error
@@ -121,8 +119,12 @@ class DPSO_LightningModule(pl.LightningModule):
             # === Mean absolute error with valid mask ===
             # err_raw = torch.abs(target_projection - predicted_projection)
             
-            # ==== 
-            patch_proj_err = valid_mask.unsqueeze(-1) * err_raw
+            # ==== Weights loss === 
+            loss_weighted = weights * err_raw - 0.2 * torch.log(weights + 1e-6)
+
+            # === Connenct err with weights and valid mask ===
+            patch_proj_err = valid_mask.unsqueeze(-1) * err_raw * loss_weighted
+
             proj_x_err = torch.sum(patch_proj_err[:, 0]) / valid_edges_num # theta err 
             proj_y_err = torch.sum(patch_proj_err[:, 1]) / valid_edges_num # r err
 
@@ -141,19 +143,19 @@ class DPSO_LightningModule(pl.LightningModule):
             loss_trans = loss_trans / k_total
             loss_rot = loss_rot / k_total
 
-            self.log_dict({'loss_translation':loss_trans, 'loss_rotation':loss_rot, 'loss_projection_theta':loss_theta, 'loss_projection_r':loss_r}, on_step=True, on_epoch=True, logger=True)
+            self.log_dict({'loss_translation':loss_trans, 'loss_rotation':loss_rot, 'loss_projection_theta':loss_theta, 'loss_projection_r':loss_r}, on_step=True, on_epoch=False, logger=True)
 
             total_loss = self.loss_w_proj_r * loss_r + \
                          self.loss_w_proj_theta * loss_theta
             
         else:
 
-            self.log_dict({'loss_projection_theta':loss_theta, 'loss_projection_r':loss_r}, on_step=True, on_epoch=True, logger=True)
+            self.log_dict({'loss_projection_theta':loss_theta, 'loss_projection_r':loss_r}, on_step=True, on_epoch=False, logger=True)
 
             total_loss = self.loss_w_proj_r * loss_r + \
                          self.loss_w_proj_theta * loss_theta
 
-        self.log('total_loss', total_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        self.log('total_loss', total_loss, on_step=True, on_epoch=False, prog_bar=True, logger=True)
 
         return total_loss
         
@@ -171,10 +173,10 @@ class DPSO_LightningModule(pl.LightningModule):
                         depth_gt=depth_gt, 
                         supervised=self.supervised, 
                         freeze_poses=freeze_poses, 
-                        init_poses_noise=self.init_poses_noise, 
+                        init_poses_noise=0.0, 
                         debug_logger=False)
 
-        pred_poses, target_projection, predicted_projection, valid_mask = pred[-1]
+        pred_poses, target_projection, predicted_projection, valid_mask, weights = pred[-1]
         
         valid_edges_num = torch.sum(valid_mask) + 1e-6
 
@@ -187,23 +189,28 @@ class DPSO_LightningModule(pl.LightningModule):
         # === Mean absolute error with valid mask ===
         # err_raw = torch.abs(target_projection - predicted_projection)
         
-        # ==== 
-        patch_proj_err = valid_mask.unsqueeze(-1) * err_raw
+        # ==== Weights loss === 
+        loss_weighted = weights * err_raw - 0.2 * torch.log(weights + 1e-6)
+
+        # === Connenct err with weights and valid mask ===
+        patch_proj_err = valid_mask.unsqueeze(-1) * err_raw * loss_weighted
 
         proj_x_err = torch.sum(patch_proj_err[:, 0], dim=-1) / valid_edges_num
         proj_y_err = torch.sum(patch_proj_err[:, 1], dim=-1) / valid_edges_num
-
 
         metrics = eval_metrics(pred_poses.detach().cpu().numpy(), 
                                trajectory_gt.detach().cpu().numpy(),
                                align=False, align_init_pt_only=True, add_data_series=False)
         
-        metrics['projection_err_theta'] = proj_x_err
-        metrics['projection_err_r'] = proj_y_err
+        metrics['projection_err_theta_val'] = proj_x_err
+        metrics['projection_err_r_val'] = proj_y_err
 
-        self.log_dict(metrics, on_step=True, on_epoch=True, logger=True)
+        total_loss = self.loss_w_proj_r * proj_y_err + \
+                         self.loss_w_proj_theta * proj_x_err
+        
+        self.log_dict(metrics, on_step=False, on_epoch=True, logger=True)
 
-        self.log('val_loss', metrics['MEAN_TRANS_ERR'], on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        self.log('val_loss', total_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
         
         
