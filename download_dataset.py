@@ -3,7 +3,7 @@ import gdown
 import zipfile
 import tarfile
 import sys
-import tdqm
+# import tdqm
 
 URL_ALL = "https://drive.google.com/drive/folders/1BgosYlaRkQkSa43Jpgb6hoGK88n3bXLL?usp=sharing"
 OUT_DIR = os.makedirs(os.path.join(".", "dataset"), exist_ok=True)
