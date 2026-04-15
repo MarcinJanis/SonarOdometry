@@ -1,6 +1,7 @@
 import numpy as np
 
 import torch 
+import torch.nn as nn
 import torch.nn.functional as F
 
 import pypose as pp
@@ -30,9 +31,9 @@ class ExtrinsicsCalib(nn.Module):
         se3_x = pp.SE3(x)
         
         if inverse:
-            out = xse3 @ pp.SE3(self.se3_s2r)
+            out = se3_x @ pp.SE3(self.se3_s2r)
         else:
-            out = xse3 @ pp.SE3(self.se3_r2s)
+            out = se3_x @ pp.SE3(self.se3_r2s)
         return out.tensor()
 
     def depth(self, x, inverse = False):

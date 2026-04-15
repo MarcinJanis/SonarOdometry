@@ -91,7 +91,7 @@ class BundleAdjustment(nn.Module):
         self.coords_baseline = target_coords[:, :, :2] * self.physic2fls_scale_factor + delta
 
         # weights for optimization
-        self.weights = weights.unsqueeze(-1)
+        self.weights = weights
        
 
     def forward(self, dummy_input=None):

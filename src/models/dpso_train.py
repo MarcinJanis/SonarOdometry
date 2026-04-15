@@ -40,7 +40,7 @@ class DPSO_train(nn.Module):
         self.ba_lr_elev = model_config.BUNDLE_ADJUSTMENT.STEP_ELEV
         self.ba_patience = model_config.BUNDLE_ADJUSTMENT.PATIENCE
 
-        self.freeze_poses_num = model_config.FREEZE_POSES.FREEZE_POSES
+        self.freeze_poses_num = model_config.BUNDLE_ADJUSTMENT.FREEZE_POSES
         
         self.motion_appro_model = model_config.MOTION_APPRO_MODEL
         self.patches_per_frame = model_config.PATCHES_PER_FRAME
@@ -102,12 +102,16 @@ class DPSO_train(nn.Module):
             # --- Graph Append ---
             # if init is done, append graph with new edges
             if i >= self.init_frames: 
-
-                x1, x2 = poses[:, i-2, :], poses[:, i-1, :]
-                t1, t2, t3 = timestamp[:, i-2], timestamp[:, i-1], timestamp[:, i]
-                new_pose = approx_movement(x1, x2, t1, t2, t3, 
-                                           motion_model=self.motion_appro_model)
+                
+                if freeze_poses:
+                    new_pose = poses_gt[:, i, :]
+                else:
+                    x1, x2 = poses[:, i-2, :], poses[:, i-1, :]
+                    t1, t2, t3 = timestamp[:, i-2], timestamp[:, i-1], timestamp[:, i]
+                    new_pose = approx_movement(x1, x2, t1, t2, t3, 
+                                            motion_model=self.motion_appro_model)
                  
+
                 poses = torch.cat([poses, new_pose.unsqueeze(1)], dim=1)
 
                 self.PatchGraph.create_new_edges(i, device)
@@ -187,20 +191,21 @@ class DPSO_train(nn.Module):
                 ref_poses = poses_gt
                 depth_gt_expand = depth_gt.view(b*n)[src_frames_idx]
                 r_expand = coords_r_theta_expand[:, 0]
-
-                origin_poses_pitch = pp.SO3(origin_poses[:, 3:]).euler()[:, 1] # get pitch to tranform gloal elevation angle to sensor frame
-                ref_phi =  depth_to_elev_angle(depth_gt_expand, r_expand) - origin_poses_pitch
+                ref_phi =  depth_to_elev_angle(depth_gt_expand, r_expand)
                 ref_phi = ref_phi.unsqueeze(1)
             else:
                 ref_poses = poses_optimized
                 ref_phi = elevation_optimized.view(b*n*p, 1)[patches_idx]
-                
             
-            origin_points = torch.cat([coords_r_theta_expand, ref_phi], dim=1).detach() # detach(), bec its reference val to loss!
-
             b, n_act, _ = ref_poses.shape
             origin_poses = ref_poses.view(b*n_act, 7)[src_frames_idx, :]
             target_poses = ref_poses.view(b*n_act, 7)[tgt_frames_idx, :]
+
+            if supervised: # transform phi to sonar reference frame
+                origin_poses_pitch = pp.SO3(origin_poses[:, 3:]).euler()[:, 1] 
+                ref_phi = ref_phi - origin_poses_pitch.unsqueeze(1)
+            
+            origin_points = torch.cat([coords_r_theta_expand, ref_phi], dim=1).detach() # detach(), bec its reference val to loss!
 
             ref_projection = project_points(origin_points, origin_poses, target_poses)        
             

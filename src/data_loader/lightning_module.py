@@ -32,19 +32,20 @@ class DPSO_LightningModule(pl.LightningModule):
         if mode == 'supervised':
             self.supervised = True
             self.freeze_poses_steps = traning_param['freeze_poses_steps']
-            self.init_poses_noise = traning_param['init_pose_max_noise']
             self.loss_w_trans = traning_param['loss_weight_trans']
             self.loss_w_rot = traning_param['loss_weight_rot']
-            self.loss_w_proj_r = traning_param['loss_weight_proj_r']
-            self.loss_w_proj_theta = traning_param['loss_weight_proj_theta']
-                        
         else:
             self.supervised = False
-            self.init_poses_noise = traning_param['init_pose_max_noise']
-            self.loss_w_proj_r = traning_param['loss_weight_proj_r']
-            self.loss_w_proj_theta = traning_param['loss_weight_proj_theta']
 
+        
+        self.init_poses_noise = traning_param['init_pose_max_noise']
 
+        self.loss_w_proj_r = traning_param['loss_weight_proj_r']
+        self.loss_w_proj_theta = traning_param['loss_weight_proj_theta']
+        self.loss_w_weights = traning_param['loss_weight_weights'] 
+
+        self.freeze_delta_loss_step = traning_param['freeze_delta_loss_step']
+    
     def configure_optimizers(self):
 
         optimizer = torch.optim.AdamW(self.parameters(), lr=1e-4, weight_decay=1e-4)
@@ -119,16 +120,19 @@ class DPSO_LightningModule(pl.LightningModule):
             # === Mean absolute error with valid mask ===
             # err_raw = torch.abs(target_projection - predicted_projection)
             
-            # ==== Weights loss === 
-            loss_weighted = weights * err_raw - 0.2 * torch.log(weights + 1e-6)
+            # ==== Weights loss ===
+           
+            if self.global_step < self.freeze_delta_loss_step:
+                loss_weighted = err_raw
+            else:
+                loss_weighted = weights * err_raw - self.loss_w_weights * torch.log(weights + 1e-6)
 
             # === Connenct err with weights and valid mask ===
-            patch_proj_err = valid_mask.unsqueeze(-1) * err_raw * loss_weighted
+            patch_proj_err = valid_mask.unsqueeze(-1) * loss_weighted
 
             proj_x_err = torch.sum(patch_proj_err[:, 0]) / valid_edges_num # theta err 
             proj_y_err = torch.sum(patch_proj_err[:, 1]) / valid_edges_num # r err
 
-            
             # accumulate loss components
             loss_theta += proj_x_err 
             loss_r += proj_y_err 
@@ -143,7 +147,7 @@ class DPSO_LightningModule(pl.LightningModule):
             loss_trans = loss_trans / k_total
             loss_rot = loss_rot / k_total
 
-            self.log_dict({'loss_translation':loss_trans, 'loss_rotation':loss_rot, 'loss_projection_theta':loss_theta, 'loss_projection_r':loss_r}, on_step=True, on_epoch=False, logger=True)
+            self.log_dict({'loss_translation':loss_trans, 'loss_rotation':loss_rot, 'loss_projection_theta':loss_theta, 'loss_projection_r':loss_r, 'loss_weighted':loss_weighted}, on_step=True, on_epoch=False, logger=True)
 
             total_loss = self.loss_w_proj_r * loss_r + \
                          self.loss_w_proj_theta * loss_theta
@@ -204,6 +208,7 @@ class DPSO_LightningModule(pl.LightningModule):
         
         metrics['projection_err_theta_val'] = proj_x_err
         metrics['projection_err_r_val'] = proj_y_err
+        metrics['loss_weighted'] = loss_weighted
 
         total_loss = self.loss_w_proj_r * proj_y_err + \
                          self.loss_w_proj_theta * proj_x_err
