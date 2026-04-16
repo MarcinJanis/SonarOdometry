@@ -209,9 +209,10 @@ __marimo__/
 # rosbags
 
 *.bag
-
+/others
 src/obsolete/
 Miniconda3-latest-Linux-x86_64.sh
 SonarOdometryDataset/
+SonarOdometryDataset.tar.gz
 training/test_output/
 DONOTUPLOAD.md

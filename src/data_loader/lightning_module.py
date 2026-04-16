@@ -123,7 +123,8 @@ class DPSO_LightningModule(pl.LightningModule):
             # ==== Weights loss ===
            
             if self.global_step < self.freeze_delta_loss_step:
-                loss_weighted = err_raw
+                weight_target_loss = F.mse_loss(weights, torch.ones_like(weights))
+                loss_weighted = err_raw + 0.1 * weight_target_loss.unsqueeze(-1)
             else:
                 loss_weighted = weights * err_raw - self.loss_w_weights * torch.log(weights + 1e-6)
 

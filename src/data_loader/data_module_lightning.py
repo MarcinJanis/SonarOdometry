@@ -10,11 +10,12 @@ from .dataset import SonarSimDataset
 
 class SonarSimDataModule(pl.LightningDataModule):
 
-    def __init__(self, root_dir, batch_size, num_workers, transforms, frames_in_series):
+    def __init__(self, root_dir, train_batch_size, val_batch_size, num_workers, transforms, frames_in_series):
         
         super().__init__()
         self.root_dir = root_dir
-        self.batch_size = batch_size 
+        self.train_batch_size = train_batch_size 
+        self.val_batch_size = val_batch_size
         self.transforms = transforms
         self.window_size = frames_in_series
         self.num_workers = num_workers
