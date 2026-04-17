@@ -25,7 +25,7 @@ ENCODER_NORM_METHOD: 'instance' # 'batch', 'group', None
 
 # === Patchifier configuration === #
 
-PATCHES_PER_FRAME: 32 # 48, 64, 96 
+PATCHES_PER_FRAME: 64 # 48, 64, 96 
 # Amount of patches extracted from single frame 
 
 PATCH_SIZE: 3 
