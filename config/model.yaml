@@ -70,7 +70,8 @@ UPDATE_ITERATION: 1
 # for inference mode only, not used in train 
 
 BUNDLE_ADJUSTMENT:
-  MAX_ITERATION: 20 # max iteration of bundle adjustment
+  MAX_ITERATION_TRAIN: 20 # max iteration of bundle adjustment in train mode
+  MAX_ITERATION_EVAL: 50 # max iteration of bundle adjustment in evaluation mode
   PATIENCE: 5 # early stopping patience
   STEP_TRANSLATION: 0.01 # inital lr for optimization for translation
   STEP_ROTATION: 0.001 # inital lr for optimization for rotation
