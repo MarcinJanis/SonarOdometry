@@ -34,7 +34,8 @@ class DPSO_train(nn.Module):
         # --- get config parameters --- 
 
         # self.update_iter = model_config.UPDATE_ITERATION
-        self.ba_iter = model_config.BUNDLE_ADJUSTMENT.MAX_ITERATION
+        self.ba_iter_train = model_config.BUNDLE_ADJUSTMENT.MAX_ITERATION_TRAIN
+        self.ba_iter_eval = model_config.BUNDLE_ADJUSTMENT.MAX_ITERATION_EVAL
         self.ba_lr_trans = model_config.BUNDLE_ADJUSTMENT.STEP_TRANSLATION
         self.ba_lr_rot = model_config.BUNDLE_ADJUSTMENT.STEP_ROTATION
         self.ba_lr_elev = model_config.BUNDLE_ADJUSTMENT.STEP_ELEV
@@ -158,6 +159,11 @@ class DPSO_train(nn.Module):
             else:
                 ba_freeze_poses = self.freeze_poses_num
 
+            if self.training:
+                ba_iter = self.ba_iter_train
+            else:
+                ba_iter = self.ba_iter_eval    
+                
             # detach all tensors passed to BA
             BA = BundleAdjustment(supervised, poses.detach(),
                                 coords_r_theta.detach(), coords_phi.detach(), 
@@ -168,7 +174,7 @@ class DPSO_train(nn.Module):
 
             # try:
             with torch.no_grad():
-                poses_optimized, elevation_optimized = BA.run(max_iter= self.ba_iter, 
+                poses_optimized, elevation_optimized = BA.run(max_iter= ba_iter, 
                                                               patience = self.ba_patience, 
                                                               min_delta = 1e-4,
                                                               lr_elev=self.ba_lr_elev, lr_rot=self.ba_lr_rot, lr_trans = self.ba_lr_trans,
