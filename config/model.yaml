@@ -43,7 +43,7 @@ PATCHIFIER_METHOD: 'harris'
 # === Graph configuration === #
 # 
 
-INIT_FRAMES: 6 
+INIT_FRAMES: 4 
 # Number of frames to initate graph 
 # for traning only, in ionference INIT_FRAMES = TIME_WINDOW
 
