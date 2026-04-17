@@ -28,7 +28,7 @@ ENCODER_NORM_METHOD: 'instance' # 'batch', 'group', None
 PATCHES_PER_FRAME: 64 # 48, 64, 96 
 # Amount of patches extracted from single frame 
 
-PATCH_SIZE: 3 
+PATCH_SIZE: 5 # 3
 # Patch size, extracted from features map 
 
 PATCHES_GRID_SIZE: 
@@ -54,7 +54,7 @@ BUFF_SIZE: 20
 TIME_WINDOW: 6 
 # Number of previous frames for which edges are created with new frame
 
-CORR_NEIGHBOUR: 5
+CORR_NEIGHBOUR: 7 # 5
 # nieghbour of projected point that is taken to calculate correlation
 
 MOTION_APPRO_MODEL: 'linear' # None
