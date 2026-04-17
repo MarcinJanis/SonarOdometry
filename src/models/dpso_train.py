@@ -144,7 +144,8 @@ class DPSO_train(nn.Module):
             h, correction = self.UpdateOperator(h, None, corr, ctx, src_frames_idx, tgt_frames_idx, patches_idx, device)
             
             delta, weights = correction
-
+            weights = weights * valid_mask # set weights of non valid edges to zero. 
+            
             self.PatchGraph.update_hidden_state(h)
             
             # torch.cuda.synchronize()
