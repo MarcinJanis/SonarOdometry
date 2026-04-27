@@ -43,6 +43,23 @@ Jak opisano w sekcji 3.2 artykułu, ostatni człon funkcji straty działa jako r
 Podsumowanie teoretyczne (z artykułu):
 Przejście na przewidywanie logarytmu wariancji ($s$) zamiast bezpośrednich wag ($w$) poprawia stabilność numeryczną, ponieważ unika dzielenia przez zero w funkcji straty. Artykuł pokazuje, że taka dynamiczna adaptacja wag pozwala modelowi automatycznie ustalić relację między różnymi składowymi błędu (np. błędem azymutu i odległości), co w Twoim przypadku prowadzi do dokładniejszej trajektorii.
 
+
+
+Dodatkowo:
+
+5. "Kaganiec" na wagach (GradientClip)
+Zaszłość z Twojego poprzedniego podejścia do wag, która teraz zaszkodzi.
+
+Plik: update.py
+
+Problem: W module Update masz własną autogradową klasę GradientClip, która obcina gradienty dla delta i weights twardo w przedziale [-0.01, 0.01].
+
+Efekt: Kiedy uczyłeś z użyciem Sigmoida, miało to sens. Jednak teraz przechodzisz na niepewność Kendalla ($s$). Ta wartość szybko zbiega do optymalnych wartości w początkowej fazie treningu. Twój drastyczny klip (0.01) sprawi, że sztucznie udusisz naukę wag, przez co optymalizatorowi zejście z błędem zajmie tysiące epok zamiast kilkuset iteracji.
+
+Naprawa: Całkowicie usuń warstwę GradientClip() z self.d oraz (teraz już zaktualizowanego) self.w. 
+
+PyTorch Lightning automatycznie pilnuje stabilności gradientów na poziomie całego modelu.
+
 ____
 
 
