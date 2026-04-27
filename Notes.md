@@ -44,131 +44,73 @@ ____
 
 
 
+2. "Bomba" NaN w funkcjach trygonometrycznych (Eksplozja Gradientów)
+Model uczy się kwaternionów poprzez obliczenie odległości kątowej. W Twojej implementacji to tykająca bomba, która wyzeruje całą sieć jednym błędem NaN (Not a Number) podczas treningu.
 
-# TODO:
+Gdzie: utils.py, funkcja approx_movement.
 
-o przeanalizowaniu pliku utils.py w połączeniu z poprzednią logiką z graph_train.py i dpso_train.py, mamy już pełny obraz. 
-Dobra wiadomość jest taka, że matematyka w utils.py jest poprawna dla układu prawoskrętnego (jakim jest NED). 
+Błąd: Masz kod:
 
-Zła wiadomość jest taka, że potwierdza to całkowitą niespójność znaków między modułami. 
-Oto szczegółowe zestawienie miejsc, które musisz poprawić, aby system poprawnie odzwierciedlał konwencję NED (gdzie dodatnie $Z$ to dół/głębokość, a dodatni pitch to pochylenie w dół).
+Python
+w = torch.clamp(q_diff[:, -1:], min=-1.0, max=1.0)
+q_diff_angle = 2 * torch.arccos(w)
+Dlaczego to niszczy sieć: Matematyczna pochodna funkcji arccos(x) to -1 / sqrt(1 - x^2). Jeśli w wynosi dokładnie 1.0 (lub -1.0), mianownik jest zerem, a gradient dąży do nieskończoności! Gdy model w jednej klatce zgadnie idealnie brak ruchu (tożsamościowy kwaternion, w=1.0), wsteczna propagacja wyrzuci NaN na wszystkie wagi Twojej sieci GRU i CNN, natychmiast je niszcząc.
 
+Rozwiązanie: Ogranicz clamp przed wejściem w arccos używając lekkiego marginesu (epsilon):
 
-# 1. Znak kąta elewacji ($\phi$) a transformacje kartezjańskie
-Diagnoza:
-W utils.py w funkcji transform_polar2cart masz równanie: z = r * torch.sin(phi).
-Funkcja depth_to_elev_angle liczy kąt jako: gt_elevation = torch.asin(depth/r).
-Skoro depth (głębokość na dno) w NED jest dodatnie, to gt_elevation wyjdzie dodatnie. 
-Skoro $\phi$ jest dodatnie, to z równania na z współrzędna $Z$ również wyjdzie dodatnia (czyli zgodnie z założeniami wyląduje na dnie).
-Problem: W pliku graph_train.py wymuszałeś ujemne $\phi$ (odrzucając minus przed parametrem pitch, np. - sonar_cfg.position.pitch). 
-Powoduje to, że sieć i graf w graph_train.py szukają punktów nad sonarem (ujemne $Z$), podczas gdy dpso_train.py za pomocą utils.py każe im optymalizować się do punktów na dnie (dodatnie $Z$).
+Python
+w = torch.clamp(q_diff[:, -1:], min=-1.0 + 1e-6, max=1.0 - 1e-6)
+3. Crash przy treningu (Batch Size > 1) – Błąd Broadcasting'u
+W notatniku test_lightning.ipynb testowałeś sieć na pozycjach z batch_size = 1. Kiedy jednak odpalisz pełny trening np. z batch_size = 4, Twój kod ulegnie całkowitej awarii z powodu błędu wymiarowości.
 
-Jak to naprawić (w graph_train.py):
-Musisz usunąć minusy i upewnić się, że środek wiązki celuje w dół na plusie.Python# Jeśli pozycja pitch określa środek wiązki w dół (np. 0.2 rad):
-self.phi_max = sonar_cfg.position.pitch + (self.fov_vertical / 2.0)
-self.phi_min = sonar_cfg.position.pitch - (self.fov_vertical / 2.0)
+Gdzie: utils.py, funkcja approx_movement.
 
-(Uwaga: założyłem tu podział FOV na pół wokół kąta pitch, bo fov to zazwyczaj całkowity kąt widzenia)
+Błąd: translation_diff = (translation2 - translation1) / dt12 * dt23.
 
-2. Globalny vs Lokalny kąt elewacji przy walidacji FOV
+Dlaczego to niszczy sieć: translation2 - translation1 to tensor o kształcie (Batch, 3). Zmienne dt12 i dt23 (jako różnice czasu ze zmiennej timestamp) mają kształt jednowymiarowy (Batch,). W PyTorchu podzielenie (B, 3) przez (B,) wywoła RuntimeError: The size of tensor a (3) must match the size of tensor b (B).... Działało Ci to na teście tylko dlatego, że dla (1, 3) / (1,) PyTorch może awaryjnie naciągnąć wymiar 1.
 
-Diagnoza:W utils.py funkcja project_points działa w 100% poprawnie: 
-bierze punkt w układzie sferycznym ramki źródłowej -> przerzuca do kartezjańskiego -> transformuje do przestrzeni globalnej -> transformuje do ramki docelowej -> przerzuca z powrotem na układ sferyczny.
+Rozwiązanie: Rozszerz wymiary czasu, żeby stały się kolumnowe:
 
-Oznacza to, że punkt tgt_cooords zwracany przez tę funkcję w graph_train.py (w metodzie corr) jest wyrażony w lokalnym układzie współrzędnych sonaru docelowego.
+Python
+dt12 = (t2 - t1).unsqueeze(-1)
+dt23 = (t3 - t2).unsqueeze(-1)
+translation_diff = (translation2 - translation1) / dt12 * dt23
+4. Uszkodzony Bundle Adjustment dla Batches
+To rozwinięcie problemu, o którym wspominałem na samym początku naszej konwersacji, jednak wymaga ono gruntownej przebudowy, by trening mógł zadziałać poprawnie.
 
-Problem: Weryfikujesz ten lokalny kąt w graph_train.py za pomocą globalnych limitów z uwzględnieniem pitcha: Pythonout_of_range = out_of_range | (tgt_cooords[:,2] > self.phi_max + coords_eps) # ŹLE
-Lokalny układ współrzędnych sonaru "nie wie", że jest pochylony. Dla niego środek wiązki to $\phi = 0$.
+Gdzie: bundle_adjustment.py.
 
-Jak to naprawić (w graph_train.py):
-Walidacja odrzucająca punkty poza zasięgiem pola widzenia w metodzie corr powinna wyglądać symetrycznie wokół zera:Python# FOV definiuje lokalny widok głowicy
-phi_max_local = self.fov_vertical / 2.0
-phi_min_local = -self.fov_vertical / 2.0
+Błąd: Łączysz wymiary Batch i Poses przed utworzeniem zmiennych do optymalizacji:
+init_poses = init_poses.view(1, poses_n, 7)
+a następnie wycinasz stałe pozy:
+self.poses_anchor = init_poses_se3[:, :freeze_poses, :].
 
-out_of_range = out_of_range | (tgt_cooords[:,2] > phi_max_local + coords_eps)
-out_of_range = out_of_range | (tgt_cooords[:,2] < phi_min_local - coords_eps)
+Dlaczego to niszczy sieć: Załóżmy, że trenujesz 4 sekwencje po 10 klatek (b=4, act_n=10, poses_n=40). Twoje freeze_poses to 2. Powyższy kod zamrozi absolutnie dwie pierwsze klatki z całego 40-elementowego wektora, co oznacza, że zamrozisz układ odniesienia tylko dla pierwszego elementu w batchu! Sekwencje 2, 3 i 4 nie będą miały zakotwiczenia – będą floatować w przestrzeni, a ich Loss z Bundle Adjustment przekaże kompletnie chaotyczny sygnał do sieci.
 
+Rozwiązanie: Rozbij inicjalizację na (b, act_n, 7), stwórz parametry, a spłaszczaj dopiero przed rzutowaniem punktów.
 
-3. Założenie płaskiego dna w depth_to_elev_angle
-Diagnoza:W pliku utils.py dla funkcji depth_to_elev_angle napisałeś wprost komentarz: # Note: Assumption, that there is flat surrounding!.
+Zamień sekcję __init__ na to:
 
-Podejście torch.asin(depth_r_ratio) jest w 100% zgodne matematycznie (przeciwprostokątna to $r$, przyprostokątna to $depth$ czyli współrzędna $Z$).
+Python
+init_poses = init_poses.view(self.b, self.act_n, 7)
+# self.poses_anchor zachowuje teraz zamrożone pozy dla KAŻDEGO przykładu z batcha
+self.poses_anchor = pp.SE3(init_poses[:, :freeze_poses, :])
 
-Miejsca do wyjaśnienia/pilnowania:
-Czy podawane do sieci depth_gt to faktycznie "współrzędna Z od sonaru do danego piksla", czy "wysokość pojazdu nad płaskim dnem (odczytana z DVL/echosondy)"?
-Jeśli to to drugie, a dno bywa strome, model ground truth będzie nie do końca poprawny. 
+if freeze_poses >= self.act_n:
+    self.split_poses = False
+else:
+    self.translation_optim = nn.Parameter(init_poses[:, freeze_poses:, :3])
+    self.rotation_optim = nn.Parameter(init_poses[:, freeze_poses:, 3:])
+    self.split_poses = True
+W funkcji forward() w BA scalaj to z powrotem i spłaszczaj:
 
-Do algorytmu reprojekcji i Bundle Adjustment dla konkretnych patchów potrzebujesz dokładnej współrzędnej lokalnego $Z$ dla tego piksla. 
+Python
+if self.split_poses:
+    rotation_optim_norm = F.normalize(self.rotation_optim, p=2, dim=-1)
+    poses_optim = torch.cat([self.translation_optim, rotation_optim_norm], dim=-1)
+    poses_raw = torch.cat([self.poses_anchor.tensor(), poses_optim], dim=1)
 
-Zostaw to tak jak jest, ale miej świadomość, że jeśli nakarmisz to danymi z bardzo nierównego dna morskiego, loss ground-truth (w przypadku treningu nadzorowanego) będzie uczył sieć fałszywej geometrii.
-
-4. Matematyka Kwaternionów a układ prawoskrętny (RHS)
-
-Diagnoza:NED jest w pełni prawoskrętnym układem kartezjańskim (Right-Handed System). Zaimplementowany przez Ciebie produkt Hamiltona (hamilton_product) i koniugacja (q_conjugate) w utils.py operują jako standardowe obroty $q \otimes v \otimes q^{-1}$, co idealnie odpowiada prawoskrętnemu układowi, przy założeniu konwencji [x, y, z, w].
-
-Zgodność: Tu jest całkowita spójność, pod warunkiem, że biblioteka pypose, której używasz w bundle_adjustment.py (obiekt pp.SE3), korzysta dokładnie z tej samej konwencji ułożenia komponentów kwaternionu (czyli w na końcu - skalarny).
-
-Zwróć uwagę: Niektóre biblioteki graficzne i robotyczne przyjmują kwaternion w formacie [w, x, y, z]. 
-Sprawdź w dokumentacji PyPose, czy przyjmuje [x, y, z, w]. 
-
-Jeśli nie, transformacje wewnątrz optymalizatora BA się posypią. 
-
-PyPose standardowo używa konwencji [x, y, z, w], więc powinno być okej, ale warto mieć to z tyłu głowy, jeśli błędy nadal by występowały.
-
-Podsumowanie
-Dzięki wglądowi w utils.py widać wyraźnie, że matematyka jest solidna i radzi sobie z NED bardzo dobrze. Cały problem leżał w dwóch linijkach pliku graph_train.py, gdzie niepotrzebnie odwróciłeś znak globalnego kąta, wprowadzając schizofrenię w domenie elewacji. 
-
-Wprowadź korekty w punktach 1 i 2, a geometria całego układu zamknie się w spójną, poprawną całość.
-
-<!-- 
-
-!! Problem: 
-- valid mask zmeinic na float, 
-- nie wyrzucac niby krawedzi, przetwarzac wszystkie
-- korelacje albo wagi, idk jeszcze przemnozyc przez valid mask 
-
-
-
-- Dodać F.normalize zaraz przed zwróceniem predykcji póz
-  
-- Dodać F.normalize za każdym razem, gdy modyfikuje pozę, czyli w zasadzie w BA
-  
-- zrobić nowe dataset visualisation, używając modułu do ładowania danych w trybue inferencji, z opcją transformacji do układu kartezjańskiego. Do tego, dodać opcję wizualizwoania key points, zeby zobaczyc, czy jest keypoints śledzą te same miejsca.
-
-- zaimplementować alternatywny sposób wybierania keypoitns. Jest to alternatywna forma "augumentacji", ponieważ zrobi ekstrakcje innych punktów. -->
-
-
-
-
-Inference mode DPSO:
-
-
-- zwracać ma pozycję estymowaną, pierwszy raz
-- opcjonalnie zwraca
-
-- niech jako opcjnalne wyjście wyliczy i zwraca:
-słownik: numer patcha globalny, listę klatek na których się patch pojawia (id globalne), współrzędne na każdejz klatek po estymacji/poprawkach.
-czyliL i, j oraz patch_coords tylko w posegregowanej ładniejszej formie. Można dorzucić też pewność/wagę.
-
-- opcjonalne zapisywanie do pliku: pozycji estymowanej pierwzy raz, pozycji usuwnaej z bufora. 
-- opcjonalne zapisywanie do pliku punktów 3d wyestymowanych wtórnie.
-
-
-
-
-
-
-
-
-
-
-
-## Ideas:
-
-
-wykres execution time (śrendi) od ilości punktów. 
-
-1) naprawić zapiswanie trajektor estymowanej
-2) niech zapisuje do dwóch różnych plików, pierwotna i wtóna estymacja 
-
-3) Ustawianei początkowej pozycji w inferencji
+    # Spłaszczenie do 1D tylko na potrzeby globalnego adresowania po krawędziach
+    poses_raw = poses_raw.view(1, self.b * self.act_n, 7) 
+    poses = pp.SE3(poses_raw)
+Wdrożenie tych poprawek w połączeniu z wagami Kendalla da Twojej sieci wreszcie stabilne i poprawne środowisko do nauki (brak NaN, poprawne osie X/Y w sieciach splotowych, odseparowane batche).
