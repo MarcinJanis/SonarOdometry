@@ -1,3 +1,6 @@
+Walidacja na tkaije samje liczbie update, jak trening. Sprawdzić czy ta ilośc wystarczy 
+
+
 Oto szczegółowa notatka dotycząca zmian w Twoim systemie, oparta na analizie kodu oraz artykułu naukowego "Multi-Task Learning Using Uncertainty to Weigh Losses" (Kendall et al.).
 
 Notatka: Implementacja wag ufności (Homoscedastic Uncertainty)Aby wyeliminować problem "kolapsu wag" (uciekania wag do zera) i umożliwić stabilny trening odometrii, należy wprowadzić następujące zmiany:
