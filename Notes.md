@@ -1,3 +1,50 @@
+Oto szczegółowa notatka dotycząca zmian w Twoim systemie, oparta na analizie kodu oraz artykułu naukowego "Multi-Task Learning Using Uncertainty to Weigh Losses" (Kendall et al.).
+
+Notatka: Implementacja wag ufności (Homoscedastic Uncertainty)Aby wyeliminować problem "kolapsu wag" (uciekania wag do zera) i umożliwić stabilny trening odometrii, należy wprowadzić następujące zmiany:
+
+
+1. Plik: update.py
+
+Zmiana: 
+Usunięcie warstwy nn.Sigmoid() z modułu self.w.
+
+Dlaczego: 
+Artykuł wskazuje, że sieć powinna przewidywać logarytm wariancji ($s := \log \sigma^2$), który jest wartością nieograniczoną ("unconstrained scalar values").
+
+Uzasadnienie techniczne: 
+Warstwa Sigmoid blokuje wartości w przedziale (0, 1). Gdy sieć uczy się ignorować błędy, spycha wynik w stronę zera, gdzie gradient funkcji Sigmoid zanika (Vanishing Gradient). Usunięcie jej pozwala optymalizatorowi swobodnie korygować poziom ufności poprzez operowanie na logarytmie.
+
+
+2. Plik: bundle_adjustment.py
+
+Zmiana:
+Sposób aplikowania wag w funkcji forward. Zamiast project_err * weights, należy użyć project_err * torch.exp(-self.weights).
+
+Dlaczego: 
+Zgodnie z artykułem, w modelu regresyjnym waga błędu to $1/\sigma^2$. Ponieważ sieć teraz wypluwa $s = \log \sigma^2$, to waga $\frac{1}{\sigma^2}$ jest matematycznie równoważna $\exp(-s)$.
+
+Uzasadnienie techniczne: 
+Mapowanie wykładnicze (exp) zapewnia, że waga błędu w optymalizatorze Bundle Adjustment zawsze będzie dodatnia, bez konieczności stosowania sztucznych ograniczeń czy epsilonów.
+
+3. Plik: DPSO_LightningModule (Moduł treningowy w New Text Document.txt)
+
+Zmiana: 
+Modyfikacja funkcji straty loss_weighted w krokach training_step i validation_step.Nowa formuła: loss_weighted = torch.exp(-weights) * err_raw + weights (lub + 0.5 * weights dla pełnej zgodności z log-likelihood).
+
+Dlaczego: 
+W Twoim obecnym kodzie kara za małe wagi to -loss_w_weights * torch.log(weights + 1e-6). Artykuł proponuje prostszy i stabilniejszy człon regularyzacyjny: + log σ.
+
+Uzasadnienie techniczne: 
+Jak opisano w sekcji 3.2 artykułu, ostatni człon funkcji straty działa jako regularyzator. Zapobiega on nieskończonemu zwiększaniu "szumu" (czyli zmniejszaniu wag), co w Twoim poprzednim treningu pozwalało sieci "oszukiwać" i ignorować dane.
+
+Podsumowanie teoretyczne (z artykułu):
+Przejście na przewidywanie logarytmu wariancji ($s$) zamiast bezpośrednich wag ($w$) poprawia stabilność numeryczną, ponieważ unika dzielenia przez zero w funkcji straty. Artykuł pokazuje, że taka dynamiczna adaptacja wag pozwala modelowi automatycznie ustalić relację między różnymi składowymi błędu (np. błędem azymutu i odległości), co w Twoim przypadku prowadzi do dokładniejszej trajektorii.
+
+____
+
+
+
+
 # TODO:
 
 o przeanalizowaniu pliku utils.py w połączeniu z poprzednią logiką z graph_train.py i dpso_train.py, mamy już pełny obraz. 
