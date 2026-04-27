@@ -184,11 +184,11 @@ class Patchifier(nn.Module):
         xp_norm = (2 * coords_p[:, :, :, :, 1] + 1) / w - 1
 
         # sampling grid with norm coords of patches ceneter 
-        grid_p = torch.stack([yp_norm, xp_norm], dim=-1) # grid shape [b*n, patcher_per_frame, K, K 2]
+        grid_p = torch.stack([xp_norm, yp_norm], dim=-1) # grid shape [b*n, patcher_per_frame, K, K 2]
 
         y1_norm = (2 * coords[:, :, :, 0] + 1) / h - 1
         x1_norm = (2 * coords[:, :, :, 1] + 1) / w - 1
-        grid_1 = torch.stack([y1_norm, x1_norm], dim=-1)
+        grid_1 = torch.stack([x1_norm, y1_norm], dim=-1)
 
         # sample patches
         patches_f = torch.nn.functional.grid_sample(
