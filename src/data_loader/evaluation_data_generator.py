@@ -9,6 +9,7 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 import torchvision.io as io
+import torchvision.transforms.functional as F_t
 
 import matplotlib.pyplot as plt
 import matplotlib.style as style
@@ -19,9 +20,11 @@ style.use('fast')
 
 class DataGenerator():
 
-    def __init__(self, data_dir_pth, device, transforms = None):
+    def __init__(self, data_dir_pth, device, fls_resolution, transforms = None, calibration = None):
 
         self.dir_pth = data_dir_pth
+
+        self.fls_resolution = fls_resolution
 
         self.csv_path = os.path.join(self.dir_pth, 'sequence.csv')
         self.fls_path = os.path.join(self.dir_pth, 'fls')
@@ -31,6 +34,7 @@ class DataGenerator():
         self.depth = pd.read_csv(self.csv_path, usecols=['dvl_alt'])
 
         self.transforms = transforms
+        self.calibration = calibration
 
         self.device = device
 
@@ -42,7 +46,8 @@ class DataGenerator():
 
         # get sonar frame
         frame_pth = os.path.join(self.fls_path, f'{idx}.png')
-        frame = io.read_image(frame_pth).float()
+        frame = io.read_image(frame_pth, mode=io.ImageReadMode.GRAY)
+        frame = F_t.resize(frame, size=self.fls_resolution, antialias=True).float()
         frame = frame / 255.0
         frame = frame.unsqueeze(0).to(self.device)
 
@@ -53,14 +58,16 @@ class DataGenerator():
 
         # get other data    
         t = torch.tensor(self.time.iloc[idx].values, dtype = torch.float, device = self.device)
-        pose = torch.tensor(self.pose.iloc[idx].values, dtype = torch.float, device = self.device)
-        pose[3:7] = F.normalize(pose[3:7], p=2, dim=-1)
+        pose_gt = torch.tensor(self.pose.iloc[idx].values, dtype = torch.float, device = self.device)
+        pose_gt[3:7] = F.normalize(pose_gt[3:7], p=2, dim=-1)
 
+        pose_gt = self.calibration.pose(pose_gt)
+        
         if return_visu:
             frame_np = frame.cpu().numpy() * 255
-            return t, frame, pose, frame_np
+            return t, frame, pose_gt, frame_np
         else:
-            return t, frame, pose
+            return t, frame, pose_gt
             
 
     def get_len(self):
@@ -101,8 +108,12 @@ class DataGenerator():
         # --- Ground truth ---
         if show['gt']:
             
-            gt_x = self.pose.iloc[start_idx:end_idx].values[:, ax1]
-            gt_y = self.pose.iloc[start_idx:end_idx].values[:, ax2]
+            pose_gt = self.pose.iloc[start_idx:end_idx].values
+            pose_gt = self.calibration.pose(pose_gt)
+            gt_x = pose_gt[:, ax1]
+            gt_y = pose_gt[:, ax2]
+            # gt_x = self.pose.iloc[start_idx:end_idx].values[:, ax1]
+            # gt_y = self.pose.iloc[start_idx:end_idx].values[:, ax2]
             gt_lbl = 'gt'
 
             ax.plot(gt_x, gt_y, color='black', linewidth=traj_width, alpha=0.6, label=gt_lbl)
@@ -192,9 +203,15 @@ class DataGenerator():
 
         # --- Ground Truth ---
         if show['gt']:
-            gt_x = self.pose.iloc[start_idx:end_idx]['pos_x'].values
-            gt_y = self.pose.iloc[start_idx:end_idx]['pos_y'].values
-            gt_z = self.pose.iloc[start_idx:end_idx]['pos_z'].values
+
+            pose_gt = self.pose.iloc[start_idx:end_idx].values
+            pose_gt = self.calibration.pose(pose_gt)
+            gt_x = pose_gt[:, 0]
+            gt_y = pose_gt[:, 1]
+            gt_z = pose_gt[:, 2]
+            # gt_x = self.pose.iloc[start_idx:end_idx]['pos_x'].values
+            # gt_y = self.pose.iloc[start_idx:end_idx]['pos_y'].values
+            # gt_z = self.pose.iloc[start_idx:end_idx]['pos_z'].values
             gt_z = -gt_z # reverse axis 
             ax.plot(gt_x, gt_y, gt_z, color='black', label='Ground Truth', linewidth=traj_width,  alpha=0.7)
             

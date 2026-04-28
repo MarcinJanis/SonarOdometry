@@ -49,18 +49,19 @@ class Update(nn.Module):
             GatedResidual(hidden_state_dim)
         )
         
-
         self.d = nn.Sequential(
             nn.ReLU(inplace=False),
             nn.Linear(hidden_state_dim, 2),
-            GradientClip())
+            # GradientClip() # not used
+            )
 
         self.w = nn.Sequential(
             nn.ReLU(inplace=False),
             nn.Linear(hidden_state_dim, 2),
-            GradientClip(),
-            nn.Sigmoid())
-
+            # GradientClip(), # not used
+            # nn.Sigmoid()
+            )
+        nn.init(self.w.weights)
 
     
     def forward(self, h, flow, corr, ctx, source_frame_idx, target_frames_idx, patches_idx, device):
@@ -89,9 +90,12 @@ class Update(nn.Module):
         h = self.gru(h)
 
         delta = self.d(h) # projection correction (dx, dy)
-        weights = self.w(h) # correction weights, confidence 
+        s = self.w(h) # correction weights, confidence. 
         
-        return h, (delta, weights)
+        # s = log(variance) = log(std_dev^2)
+        # to get weights: weoghts = exp(-s)
+        
+        return h, (delta, s)
 
 # =========
 

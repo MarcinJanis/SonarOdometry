@@ -137,52 +137,122 @@ def ATE(pred, target):
     return rmse_ate, rmse_rot, dist, rot
 
 
-def eval_metrics(pred, target, align=True, align_init_pt_only=True, add_data_series=False):
+# def eval_metrics(pred, target, align=True, align_init_pt_only=True, add_data_series=False):
   
-    n = min(pred.shape[0], target.shape[0])
-    pred = pred[:n, :]
-    target = target[:n, :]
+#     n = min(pred.shape[0], target.shape[0])
+#     pred = pred[:n, :]
+#     target = target[:n, :]
 
-    if align:
-        pred_align = align_traj(pred, target, init_pt_only=align_init_pt_only)
-    else:
-        pred_align = pred
+#     if align:
+#         pred_align = align_traj(pred, target, init_pt_only=align_init_pt_only)
+#     else:
+#         pred_align = pred
 
-    # Absolute trajectory error
-    rmse_ate, rmse_rot, dist, rot = ATE(pred_align, target)
+#     # Absolute trajectory error
+#     rmse_ate, rmse_rot, dist, rot = ATE(pred_align, target)
 
-    # Relative pose error 
-    vect_rpe, rmse_rpe = RPE(pred, target)
+#     # Relative pose error 
+#     vect_rpe, rmse_rpe = RPE(pred, target)
  
-    metrics = {
-        # Global metrics
-        'RMSE_ATE': float(rmse_ate),
-        'RMSE_RPE': float(rmse_rpe),
-        'RMSE_ROT': float(rmse_rot),
+#     metrics = {
+#         # Global metrics
+#         'RMSE_ATE': float(rmse_ate),
+#         'RMSE_RPE': float(rmse_rpe),
+#         'RMSE_ROT': float(rmse_rot),
         
-        # Translation stats 
-        'MEAN_TRANS_ERR': float(np.mean(dist)),
-        'MEDIAN_TRANS_ERR': float(np.median(dist)),
-        'STD_TRANS_ERR': float(np.std(dist)),
-        'MIN_TRANS_ERR': float(np.min(dist)),
-        'MAX_TRANS_ERR': float(np.max(dist)),
+#         # Translation stats 
+#         'MEAN_TRANS_ERR': float(np.mean(dist)),
+#         'MEDIAN_TRANS_ERR': float(np.median(dist)),
+#         'STD_TRANS_ERR': float(np.std(dist)),
+#         'MIN_TRANS_ERR': float(np.min(dist)),
+#         'MAX_TRANS_ERR': float(np.max(dist)),
         
-        # Rotation stats
-        'MEAN_ROT_ERR': float(np.mean(rot)),
-        'MEDIAN_ROT_ERR': float(np.median(rot)),
-        'STD_ROT_ERR': float(np.std(rot)),
-        'MIN_ROT_ERR': float(np.min(rot)),
-        'MAX_ROT_ERR': float(np.max(rot))
+#         # Rotation stats
+#         'MEAN_ROT_ERR': float(np.mean(rot)),
+#         'MEDIAN_ROT_ERR': float(np.median(rot)),
+#         'STD_ROT_ERR': float(np.std(rot)),
+#         'MIN_ROT_ERR': float(np.min(rot)),
+#         'MAX_ROT_ERR': float(np.max(rot))
 
-    }
+#     }
       
 
-    if add_data_series:
-        metrics['data_absolute_translation'] = dist
-        metrics['data_relative_translation'] = vect_rpe
-        metrics['data_absolute_rotation'] = rot
-    return metrics
+#     if add_data_series:
+#         metrics['data_absolute_translation'] = dist
+#         metrics['data_relative_translation'] = vect_rpe
+#         metrics['data_absolute_rotation'] = rot
+#     return metrics
 
+def eval_metrics(pred, target, align=True, align_init_pt_only=True, add_data_series=False):
+    
+    if pred.ndim == 2:
+        pred = np.expand_dims(pred, axis=0)
+        target = np.expand_dims(target, axis=0)
+
+    B, _, _ = pred.shape
+    n_act = min(pred.shape[1], target.shape[1])
+
+    all_dist = []
+    all_rot = []
+    all_vect_rpe = []
+
+    # iterate over batch
+    for b in range(B):
+        p = pred[b, :n_act, :]
+        t = target[b, :n_act, :]
+
+        if align:
+            p_align = align_traj(p, t, init_pt_only=align_init_pt_only)
+        else:
+            p_align = p
+
+        # Absolute trajectory error
+        _, _, dist, rot = ATE(p_align, t)
+        all_dist.append(dist)
+        all_rot.append(rot)
+
+        # Relative pose error 
+        vect_rpe, _ = RPE(p, t)
+        if vect_rpe.size > 0:
+            all_vect_rpe.append(vect_rpe)
+
+    dist_cat = np.concatenate(all_dist)
+    rot_cat = np.concatenate(all_rot)
+    
+    if len(all_vect_rpe) > 0:
+        vect_rpe_cat = np.concatenate(all_vect_rpe)
+        rmse_rpe_overall = np.sqrt(np.mean(vect_rpe_cat**2))
+    else:
+        vect_rpe_cat = np.array([])
+        rmse_rpe_overall = 0.0
+
+    rmse_ate_overall = np.sqrt(np.mean(dist_cat**2))
+    rmse_rot_overall = np.sqrt(np.mean(rot_cat**2))
+
+    metrics = {
+        'RMSE_ATE': float(rmse_ate_overall),
+        'RMSE_RPE': float(rmse_rpe_overall),
+        'RMSE_ROT': float(rmse_rot_overall),
+        
+        'MEAN_TRANS_ERR': float(np.mean(dist_cat)),
+        'MEDIAN_TRANS_ERR': float(np.median(dist_cat)),
+        'STD_TRANS_ERR': float(np.std(dist_cat)),
+        'MIN_TRANS_ERR': float(np.min(dist_cat)),
+        'MAX_TRANS_ERR': float(np.max(dist_cat)),
+        
+        'MEAN_ROT_ERR': float(np.mean(rot_cat)),
+        'MEDIAN_ROT_ERR': float(np.median(rot_cat)),
+        'STD_ROT_ERR': float(np.std(rot_cat)),
+        'MIN_ROT_ERR': float(np.min(rot_cat)),
+        'MAX_ROT_ERR': float(np.max(rot_cat))
+    }
+      
+    if add_data_series:
+        metrics['data_absolute_translation'] = dist_cat
+        metrics['data_relative_translation'] = vect_rpe_cat
+        metrics['data_absolute_rotation'] = rot_cat
+        
+    return metrics
 
 
 # b = 1  # batch size

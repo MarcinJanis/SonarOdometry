@@ -123,7 +123,7 @@ class Patchifier(nn.Module):
         pad_w = pix_per_cell_w * self.grid_size_w - w
         
         if pad_h > 0 or pad_w > 0:
-            g = F.pad(g, (0, pad_w, 0, pad_h), mode='constant', value=0) # pad: right side and bottom
+            g = F.pad(g, (0, pad_w, 0, pad_h), mode='constant', value=-float('inf')) # pad: right side and bottom
 
         # devide into grid of cells
         g = g.view(bn, 1, self.grid_size_h, pix_per_cell_h, self.grid_size_w, pix_per_cell_w)
@@ -170,24 +170,26 @@ class Patchifier(nn.Module):
         # offsets to get patches
         r = torch.arange(self.patch_size, device=device).float() - (self.patch_size // 2)
         dy, dx = torch.meshgrid(r, r, indexing="ij")
-        coords_offsets = torch.stack([dy, dx], dim=-1).float() # shape [K, K, 2]
+        coords_offsets = torch.stack([dx, dy], dim=-1).float() # shape [K, K, 2]
 
         # add offsets dim to coords
-        coords = coords.unsqueeze(-2)
-        coords_p = coords.unsqueeze(-2) + coords_offsets.unsqueeze(0).unsqueeze(0) # [B*N, patches_per_frame, K, K, 2]
+        coords = coords.flip(-1).unsqueeze(-2).unsqueeze(-2) # (y, x) [bn, p, 2] -> (x, y),  [bn, p, 1, 1, 2]
+        coords_offsets = coords_offsets.unsqueeze(0).unsqueeze(0) # (x, y), [1, 1, K, K, 2]
+        coords_p = coords + coords_offsets
         
         # normalize to (-1, 1) range
         bn, c1, h, w = fmap.shape
         c2 = cmap.shape[1]
 
-        yp_norm = (2 * coords_p[:, :, :, :, 0] + 1) / h - 1
-        xp_norm = (2 * coords_p[:, :, :, :, 1] + 1) / w - 1
+        xp_norm = (2 * coords_p[:, :, :, :, 0] + 1) / w - 1
+        yp_norm = (2 * coords_p[:, :, :, :, 1] + 1) / h - 1
 
         # sampling grid with norm coords of patches ceneter 
         grid_p = torch.stack([xp_norm, yp_norm], dim=-1) # grid shape [b*n, patcher_per_frame, K, K 2]
 
-        y1_norm = (2 * coords[:, :, :, 0] + 1) / h - 1
-        x1_norm = (2 * coords[:, :, :, 1] + 1) / w - 1
+        x1_norm = (2 * coords[:, :, :, :, 0] + 1) / w - 1
+        y1_norm = (2 * coords[:, :, :, :, 1] + 1) / h - 1
+        
         grid_1 = torch.stack([x1_norm, y1_norm], dim=-1)
 
         # sample patches

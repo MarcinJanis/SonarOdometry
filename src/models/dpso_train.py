@@ -82,7 +82,7 @@ class DPSO_train(nn.Module):
         else: 
             poses = poses_gt[:, :self.init_frames, :]
             noise_translation = torch.rand_like(poses[:, :, :3]) * init_poses_noise
-            noise_rotation = torch.rand_like(poses[:, :, 3:]) * 0.1
+            noise_rotation = torch.rand_like(poses[:, :, 3:]) * 0.1 * init_poses_noise
             noise = torch.cat([noise_translation, noise_rotation], dim=-1)
             poses = poses + noise
             poses[:, :, 3:] = F.normalize(poses[:, :, 3:], p=2, dim=-1)
@@ -144,9 +144,9 @@ class DPSO_train(nn.Module):
             h = self.PatchGraph.get_hidden_state()
             h, correction = self.UpdateOperator(h, None, corr, ctx, src_frames_idx, tgt_frames_idx, patches_idx, device)
             
-            delta, weights = correction
-            weights = weights * valid_mask # set weights of non valid edges to zero. 
-            
+            delta, weights_s = correction
+            # weights = torch.ones_like(weights) * valid_mask.view(-1, 1) # tmp
+
             self.PatchGraph.update_hidden_state(h)
             
             # torch.cuda.synchronize()
@@ -159,16 +159,21 @@ class DPSO_train(nn.Module):
             else:
                 ba_freeze_poses = self.freeze_poses_num
 
-            if self.training:
+            if supervised:
                 ba_iter = self.ba_iter_train
             else:
                 ba_iter = self.ba_iter_eval    
                 
+            
             # detach all tensors passed to BA
-            BA = BundleAdjustment(supervised, poses.detach(),
+
+            weights_ba = torch.exp(-weights_s) # exp to ensure values in range (0, +inf)
+            weights_ba = weights_ba * valid_mask.view(-1, 1) # set weights of non valid edges to zero. 
+            
+            BA = BundleAdjustment(poses.detach(),
                                 coords_r_theta.detach(), coords_phi.detach(), 
                                 src_frames_idx.detach(), tgt_frames_idx.detach(), patches_idx.detach(),
-                                delta.detach(), weights.detach(),
+                                delta.detach(), weights_ba.detach(),
                                 self.sonar_param, ba_freeze_poses)
             BA.to(device)
 
@@ -179,10 +184,6 @@ class DPSO_train(nn.Module):
                                                               min_delta = 1e-4,
                                                               lr_elev=self.ba_lr_elev, lr_rot=self.ba_lr_rot, lr_trans = self.ba_lr_trans,
                                                               disp_stats=False)
-
-            # feedback after BA
-            poses = poses_optimized
-            coords_phi = elevation_optimized
 
             # torch.cuda.synchronize()
             # t4 = time.time()
@@ -195,15 +196,18 @@ class DPSO_train(nn.Module):
             coords_r_theta_expand = coords_r_theta.view(b*n*p, 2)[patches_idx]
 
             if supervised:
+                # gt poses as reference, phi estimated from depth
                 ref_poses = poses_gt
                 depth_gt_expand = depth_gt.view(b*n)[src_frames_idx]
                 r_expand = coords_r_theta_expand[:, 0]
                 ref_phi =  depth_to_elev_angle(depth_gt_expand, r_expand)
                 ref_phi = ref_phi.unsqueeze(1)
             else:
+                # optimized poses as reference, optimized phi (from BA)
                 ref_poses = poses_optimized
                 ref_phi = elevation_optimized.view(b*n*p, 1)[patches_idx]
             
+            # --- gt projection --- 
             b, n_act, _ = ref_poses.shape
             origin_poses = ref_poses.view(b*n_act, 7)[src_frames_idx, :]
             target_poses = ref_poses.view(b*n_act, 7)[tgt_frames_idx, :]
@@ -215,12 +219,29 @@ class DPSO_train(nn.Module):
             origin_points = torch.cat([coords_r_theta_expand, ref_phi], dim=1).detach() # detach(), bec its reference val to loss!
 
             ref_projection = project_points(origin_points, origin_poses, target_poses)        
-            
             ref_projection = ref_projection[:, :2] * physic2fls_scale_factor
-            pred_projection = coords_r_theta_expand * physic2fls_scale_factor + delta 
 
-            output_iter.append((poses, ref_projection, pred_projection, valid_mask, weights))
+            # --- pred projection ---
+
+            b, n_act, _ = poses.shape
+            pred_origin_poses = poses.view(b*n_act, 7)[src_frames_idx, :]
+            pred_target_poses = poses.view(b*n_act, 7)[tgt_frames_idx, :]
+
+            pred_phi_expand = coords_phi.view(b*n*p, 1)[patches_idx]
+
+            origin_points = torch.cat([coords_r_theta_expand, pred_phi_expand], dim=1).detach()
+
+            pred_projection = project_points(origin_points, pred_origin_poses, pred_target_poses)    
+            pred_projection = pred_projection[:, :2] * physic2fls_scale_factor + delta
+            # pred_projection = coords_r_theta_expand * physic2fls_scale_factor + delta 
+
+            output_iter.append((poses, ref_projection, pred_projection, valid_mask, weights_s))
             
+            # --- feedback after BA --- 
+            poses = poses_optimized
+            coords_phi = elevation_optimized
+
+
             # torch.cuda.synchronize()
             # t5 = time.time()
             

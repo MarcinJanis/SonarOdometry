@@ -37,7 +37,10 @@ class Graph(nn.Module):
         self.corr_neighbour = model_cfg.CORR_NEIGHBOUR # size of nieghbour of projected patch that is used in correlation calculations
         self.fmap_h = sonar_cfg.resolution.bins // model_cfg.ENCODER_DOWNSIZE # feature map size h
         self.fmap_w = sonar_cfg.resolution.beams // model_cfg.ENCODER_DOWNSIZE # feature map size w
+        
         self.encoder_downsize = model_cfg.ENCODER_DOWNSIZE # encoder downsize factor 
+        self.fmap_downsize = model_cfg.FMAP_DOWNSIZE # encoder downsize factor 
+
         self.buff_size = model_cfg.BUFF_SIZE
         self.phi_init_mode = model_cfg.ELEVATION_INIT_MODE
 
@@ -72,12 +75,12 @@ class Graph(nn.Module):
         self.fmap1 = fmap # frames feature map (orginal size)
 
         b, n, c, h, w = fmap.shape
-        fmap2 = F.avg_pool2d(fmap.view(b*n, c, h, w), self.encoder_downsize, self.encoder_downsize)
-        self.fmap2 = fmap2.view(b, n, c, h // self.encoder_downsize, w // self.encoder_downsize) # frames feature map (downsized)
+        fmap2 = F.avg_pool2d(fmap.view(b*n, c, h, w), self.fmap_downsize, self.fmap_downsize)
+        self.fmap2 = fmap2.view(b, n, c, h // self.fmap_downsize, w // self.fmap_downsize) # frames feature map (downsized)
 
         return coords_phi, self.coords_r_theta
 
-    def init_phi(self, b, n, p, device, mode = 'rand'):
+    def init_phi(self, b, n, p, device):
         if self.phi_init_mode == 'rand':
             coords_phi = (torch.rand((b, n, p, 1), device=device, dtype=torch.float) - 0.5) * self.fov_vertical # (self.phi_max - self.phi_min) + self.phi_min
         else: 
@@ -169,102 +172,102 @@ class Graph(nn.Module):
 
         self.frame_n += 1
 
-    def corr_obsolete(self, poses, coords_phi, coords_eps, device):
+    # def corr_obsolete(self, poses, coords_phi, coords_eps, device):
 
-        b, n, p, _ = self.coords_r_theta.shape
-        n_act = poses.shape[1]
-        # --- reproject points --- 
+    #     b, n, p, _ = self.coords_r_theta.shape
+    #     n_act = poses.shape[1]
+    #     # --- reproject points --- 
 
-        # src and tgt framem idxs
-        src_frame_idx = self.i // self.patches_per_frame
-        tgt_frame_idx = self.j 
+    #     # src and tgt framem idxs
+    #     src_frame_idx = self.i // self.patches_per_frame
+    #     tgt_frame_idx = self.j 
 
-        # src poses, coords and tgt poses
-        poses_flat = poses.view(b*n_act, 7)
+    #     # src poses, coords and tgt poses
+    #     poses_flat = poses.view(b*n_act, 7)
  
-        src_poses = poses_flat[src_frame_idx]
-        tgt_poses = poses_flat[tgt_frame_idx]
+    #     src_poses = poses_flat[src_frame_idx]
+    #     tgt_poses = poses_flat[tgt_frame_idx]
 
-        coords_r_theta = self.coords_r_theta.view(b*n*p, -1)
-        coords_phi = coords_phi.view(b*n*p, -1)
+    #     coords_r_theta = self.coords_r_theta.view(b*n*p, -1)
+    #     coords_phi = coords_phi.view(b*n*p, -1)
 
-        src_coords = torch.cat([coords_r_theta, coords_phi], dim=1)[self.i]
+    #     src_coords = torch.cat([coords_r_theta, coords_phi], dim=1)[self.i]
 
-        # reproject
-        tgt_cooords = project_points(src_coords, src_poses, tgt_poses)
+    #     # reproject
+    #     tgt_cooords = project_points(src_coords, src_poses, tgt_poses)
 
-        # --- edge validation ---
-        theta_max = self.fov_horizontal / 2
+    #     # --- edge validation ---
+    #     theta_max = self.fov_horizontal / 2
 
-        out_of_range = (tgt_cooords[:,0] < (self.r_min - coords_eps)) | (tgt_cooords[:,0] > (self.r_max + coords_eps))
-        out_of_range = out_of_range | (torch.abs(tgt_cooords[:,1]) > theta_max + coords_eps)
-        out_of_range = out_of_range | (tgt_cooords[:,2] > self.phi_max + coords_eps)
-        out_of_range = out_of_range | (tgt_cooords[:,2] < self.phi_min - coords_eps)
-        valid_mask = ~out_of_range
+    #     out_of_range = (tgt_cooords[:,0] < (self.r_min - coords_eps)) | (tgt_cooords[:,0] > (self.r_max + coords_eps))
+    #     out_of_range = out_of_range | (torch.abs(tgt_cooords[:,1]) > theta_max + coords_eps)
+    #     out_of_range = out_of_range | (tgt_cooords[:,2] > self.phi_max + coords_eps)
+    #     out_of_range = out_of_range | (tgt_cooords[:,2] < self.phi_min - coords_eps)
+    #     valid_mask = ~out_of_range
 
-        valid_edges_num = self.i.shape[0] 
+    #     valid_edges_num = self.i.shape[0] 
 
-        # transform to fls values
-        tgt_coords_val_fls = self.scale_phisical2fls(tgt_cooords)
+    #     # transform to fls values
+    #     tgt_coords_val_fls = self.scale_phisical2fls(tgt_cooords)
 
-        # --- get correlation of projected patches and target frame ---
+    #     # --- get correlation of projected patches and target frame ---
 
-        search_size = self.corr_neighbour + self.patch_size - 1
+    #     search_size = self.corr_neighbour + self.patch_size - 1
 
-        # ofsets to search for each target coords
-        r_range = torch.arange(-(search_size // 2), search_size // 2 + 1, device=device).float()
-        dy, dx = torch.meshgrid(r_range, r_range, indexing="ij")
-        offsets = torch.stack([dx, dy], dim=-1)
+    #     # ofsets to search for each target coords
+    #     r_range = torch.arange(-(search_size // 2), search_size // 2 + 1, device=device).float()
+    #     dy, dx = torch.meshgrid(r_range, r_range, indexing="ij")
+    #     offsets = torch.stack([dx, dy], dim=-1)
 
-        # add offsets to target coords
-        center_coords_lv1 = tgt_coords_val_fls[:, [1, 0]].view(valid_edges_num, 1, 1, 2) 
+    #     # add offsets to target coords
+    #     center_coords_lv1 = tgt_coords_val_fls[:, [1, 0]].view(valid_edges_num, 1, 1, 2) 
 
-        # create normal size sampling grid 
-        grid1 = center_coords_lv1 + offsets.unsqueeze(0)
-        norm_factor1 = torch.tensor([(self.fls_w - 1) / 2.0, (self.fls_h - 1) / 2.0], device=device)
-        grid1 = (grid1 / norm_factor1) - 1.0
+    #     # create normal size sampling grid 
+    #     grid1 = center_coords_lv1 + offsets.unsqueeze(0)
+    #     norm_factor1 = torch.tensor([(self.fls_w - 1) / 2.0, (self.fls_h - 1) / 2.0], device=device)
+    #     grid1 = (grid1 / norm_factor1) - 1.0
 
-        # downsample target coords with offsets
-        center_coords_lv2 = center_coords_lv1 / self.encoder_downsize
+    #     # downsample target coords with offsets
+    #     center_coords_lv2 = center_coords_lv1 / self.encoder_downsize
 
-        # create downsample sampling grid
-        grid2 = center_coords_lv2 + offsets.unsqueeze(0)
-        norm_factor2 = torch.tensor([(self.fls_w // self.encoder_downsize - 1) / 2.0, (self.fls_h // self.encoder_downsize - 1) / 2.0], device=device)
-        grid2 = (grid2 / norm_factor2) - 1.0
+    #     # create downsample sampling grid
+    #     grid2 = center_coords_lv2 + offsets.unsqueeze(0)
+    #     norm_factor2 = torch.tensor([(self.fls_w // self.encoder_downsize - 1) / 2.0, (self.fls_h // self.encoder_downsize - 1) / 2.0], device=device)
+    #     grid2 = (grid2 / norm_factor2) - 1.0
 
-        # get features patches from fmaps 
-        b, n, c, h, w = self.fmap1.shape
+    #     # get features patches from fmaps 
+    #     b, n, c, h, w = self.fmap1.shape
 
-        fmap1_cpy = self.fmap1.view(b*n, c, h, w)
-        fmap2_cpy = self.fmap2.view(b*n, c, h//self.encoder_downsize, w//self.encoder_downsize)
+    #     fmap1_cpy = self.fmap1.view(b*n, c, h, w)
+    #     fmap2_cpy = self.fmap2.view(b*n, c, h//self.encoder_downsize, w//self.encoder_downsize)
 
-        target_patches_fmap1 = F.grid_sample(fmap1_cpy[self.j], grid1, mode='bilinear', padding_mode='zeros', align_corners=True)
-        target_patches_fmap2 = F.grid_sample(fmap2_cpy[self.j], grid2, mode='bilinear', padding_mode='zeros', align_corners=True)
-        # shapes: [valid_edges_num, fmap_c, search_size, search_size]
+    #     target_patches_fmap1 = F.grid_sample(fmap1_cpy[self.j], grid1, mode='bilinear', padding_mode='zeros', align_corners=True)
+    #     target_patches_fmap2 = F.grid_sample(fmap2_cpy[self.j], grid2, mode='bilinear', padding_mode='zeros', align_corners=True)
+    #     # shapes: [valid_edges_num, fmap_c, search_size, search_size]
 
-        # represent in standard conv form (batch, channels, h, w)
-        target_patches_fmap1 = target_patches_fmap1.view(1, valid_edges_num * self.fmap_c, search_size, search_size)
-        target_patches_fmap2 = target_patches_fmap2.view(1, valid_edges_num * self.fmap_c, search_size, search_size)
+    #     # represent in standard conv form (batch, channels, h, w)
+    #     target_patches_fmap1 = target_patches_fmap1.view(1, valid_edges_num * self.fmap_c, search_size, search_size)
+    #     target_patches_fmap2 = target_patches_fmap2.view(1, valid_edges_num * self.fmap_c, search_size, search_size)
 
-        # represent each patch as conv kernel
-        b, n, p, c1, d = self.patches_f.shape
-        c2 = self.patches_c.shape[3]
+    #     # represent each patch as conv kernel
+    #     b, n, p, c1, d = self.patches_f.shape
+    #     c2 = self.patches_c.shape[3]
 
-        patch_features_kernel = self.patches_f.view(b*n*p, c1, self.patch_size, self.patch_size)[self.i, :, :, :] # patches features kernel
+    #     patch_features_kernel = self.patches_f.view(b*n*p, c1, self.patch_size, self.patch_size)[self.i, :, :, :] # patches features kernel
 
-        # perform conv2d with group = valid_edges_num
-        # each of kernels, represnting each patch have acces to features of corresponding fmap features
-        corr_map1 = F.conv2d(target_patches_fmap1, patch_features_kernel, groups=valid_edges_num)
-        corr_map2 = F.conv2d(target_patches_fmap2, patch_features_kernel, groups=valid_edges_num)
-        # output shape: (1, valid_edges_num, corr_neighbour, corr_neighbour)
+    #     # perform conv2d with group = valid_edges_num
+    #     # each of kernels, represnting each patch have acces to features of corresponding fmap features
+    #     corr_map1 = F.conv2d(target_patches_fmap1, patch_features_kernel, groups=valid_edges_num)
+    #     corr_map2 = F.conv2d(target_patches_fmap2, patch_features_kernel, groups=valid_edges_num)
+    #     # output shape: (1, valid_edges_num, corr_neighbour, corr_neighbour)
 
-        # get context features for valid edges
-        act_patches_c = self.patches_c.view(b*n*p, c2)[self.i, :]
+    #     # get context features for valid edges
+    #     act_patches_c = self.patches_c.view(b*n*p, c2)[self.i, :]
         
-        # calc correlation and connect to single tensor 
-        corr_map = torch.cat((corr_map1.view(valid_edges_num, -1), corr_map2.view(valid_edges_num, -1)), dim=-1) 
+    #     # calc correlation and connect to single tensor 
+    #     corr_map = torch.cat((corr_map1.view(valid_edges_num, -1), corr_map2.view(valid_edges_num, -1)), dim=-1) 
 
-        return corr_map, act_patches_c, self.i, self.j, valid_mask.float()
+    #     return corr_map, act_patches_c, self.i, self.j, valid_mask.float()
 
     
     def corr(self, poses, coords_phi, coords_eps, device):
@@ -323,11 +326,11 @@ class Graph(nn.Module):
         grid1 = (grid1 / norm_factor1) - 1.0
 
         # downsample target coords with offsets
-        center_coords_lv2 = center_coords_lv1 / self.encoder_downsize
+        center_coords_lv2 = center_coords_lv1 / self.fmap_downsize
 
         # create downsample sampling grid
         grid2 = center_coords_lv2 + offsets.unsqueeze(0)
-        norm_factor2 = torch.tensor([(self.fls_w // self.encoder_downsize - 1) / 2.0, (self.fls_h // self.encoder_downsize - 1) / 2.0], device=device)
+        norm_factor2 = torch.tensor([(self.fls_w // self.fmap_downsize - 1) / 2.0, (self.fls_h // self.fmap_downsize - 1) / 2.0], device=device)
         grid2 = (grid2 / norm_factor2) - 1.0
 
         # get features patches from fmaps 
@@ -335,18 +338,13 @@ class Graph(nn.Module):
         
         # create view of features map 
         fmap1_cpy = self.fmap1.view(b*n, c, h, w)
-        fmap2_cpy = self.fmap2.view(b*n, c, h//self.encoder_downsize, w//self.encoder_downsize)
+        fmap2_cpy = self.fmap2.view(b*n, c, h//self.fmap_downsize, w//self.fmap_downsize)
         
         # create empty tensors for correlation neighbour for each edge
-        
-        # =====================================================old version=====================================================
-        # corr_neighbur_fmap1 = torch.zeros((valid_edges_num, c, search_size, search_size), device=device, dtype=fmap1_cpy.dtype)
-        # corr_neighbur_fmap2 = torch.zeros((valid_edges_num, c, search_size, search_size), device=device, dtype=fmap2_cpy.dtype)
-        # =====================================================new version=====================================================
+      
         corr_neighbur_fmap1_list = []
         corr_neighbur_fmap2_list = []
         orginal_indices = []
-        # ====================================================end of changes block=============================================
         
         # group edges for groups that contains edges with the same target frame (same self.j)
         unique_tgt_frame = torch.unique(self.j)
@@ -359,11 +357,8 @@ class Graph(nn.Module):
             edge_mask = (self.j == tgt_frame) 
             edges_act = torch.sum(edge_mask)
 
-            # =====================================================old version=====================================================
-            # =====================================================new version=====================================================
             orginal_indices.append(torch.nonzero(edge_mask).squeeze(-1))
-            # ====================================================end of changes block=============================================
-            
+                     
             # get actual feature map and set batch size as 1 
             fmap1_tgt = fmap1_cpy[tgt_frame].unsqueeze(0) 
             fmap2_tgt = fmap2_cpy[tgt_frame].unsqueeze(0) 
@@ -384,18 +379,9 @@ class Graph(nn.Module):
             
             # Pase to target tensor
             # Restore orginal shape
-            # =====================================================old version=====================================================
-            # corr_neighbur_fmap1[edge_mask] = sampled_patch1.view(edges_act, c, search_size, search_size)
-            # corr_neighbur_fmap2[edge_mask] = sampled_patch2.view(edges_act, c, search_size, search_size)
-            # =====================================================new version====================================================
             corr_neighbur_fmap1_list.append(sampled_patch1.view(edges_act, c, search_size, search_size))
             corr_neighbur_fmap2_list.append(sampled_patch2.view(edges_act, c, search_size, search_size))
-            # ====================================================end of changes block=============================================
-        
-       
-        
-        # =====================================================old version=====================================================
-        # =====================================================new version=====================================================
+ 
         corr_neighbur_fmap1_unsorted = torch.cat(corr_neighbur_fmap1_list, dim=0)
         corr_neighbur_fmap2_unsorted = torch.cat(corr_neighbur_fmap2_list, dim=0)
         cat_indices = torch.cat(orginal_indices, dim=0)
@@ -403,7 +389,7 @@ class Graph(nn.Module):
         # sort to keep orginal order 
         corr_neighbur_fmap1 = corr_neighbur_fmap1_unsorted[reverse_order]
         corr_neighbur_fmap2 = corr_neighbur_fmap2_unsorted[reverse_order]
-        # ====================================================end of changes block=============================================
+     
         # Set shape for 2D convolution operation (B, C, H, W)
         # Setting B = 1, C = edges_number * channels
         corr_neighbur_fmap1 = corr_neighbur_fmap1.view(1, valid_edges_num*c, search_size, search_size)

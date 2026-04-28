@@ -55,7 +55,7 @@ class DPSO_LightningModule(pl.LightningModule):
             optimizer, 
             mode='min',      
             factor=0.5,      
-            patience=3,      
+            patience=5, 
             min_lr=1e-6      
         )
         
@@ -64,12 +64,11 @@ class DPSO_LightningModule(pl.LightningModule):
             "lr_scheduler": {
                 "scheduler": scheduler,
                 "monitor": "val_loss", # check name
-                # "interval": "step",   # check each 1000 steps
-                # "frequency": 500 # same as in trainer val_check_interval
+                "interval": "step",   
+                "frequency": 100 # global steps
             },
         }
-
-
+    
     def training_step(self, batch, batch_idx):
 
         if self.supervised: 
@@ -117,16 +116,25 @@ class DPSO_LightningModule(pl.LightningModule):
             # L1 has constant gradient (1 or -1), so outliers and huge error error don't destroy loss fcn
             # L2 has gradient proportional to it's value so allows to find minimum for small loss value
             
+
             # === Mean absolute error with valid mask ===
             # err_raw = torch.abs(target_projection - predicted_projection)
             
             # ==== Weights loss ===
-           
-            if self.global_step < self.freeze_delta_loss_step:
-                weight_target_loss = F.mse_loss(weights, torch.ones_like(weights))
-                loss_weighted = err_raw + 0.1 * weight_target_loss.unsqueeze(-1)
-            else:
-                loss_weighted = weights * err_raw - self.loss_w_weights * torch.log(weights + 1e-6)
+
+            loss_weighted = torch.exp(-weights) * err_raw + weights
+
+            # --- warm-up for weights, try without this
+            # if self.global_step < self.freeze_delta_loss_step:
+            #     # at the beggining of training force all weights near 1.0 (by using MSE with 1.0) 
+            #     weight_target_loss = F.mse_loss(weights, torch.ones_like(weights))
+            #     # loss_weighted = err_raw + 0.1 * weight_target_loss.unsqueeze(-1)
+
+            #     loss_weighted = torch.exp(-weights) * err_raw + weights
+
+            # else:
+            #     # unlock weights 
+            #     loss_weighted = weights * err_raw - self.loss_w_weights * torch.log(weights + 1e-6)
 
             # === Connenct err with weights and valid mask ===
             patch_proj_err = valid_mask.unsqueeze(-1) * loss_weighted
@@ -148,7 +156,7 @@ class DPSO_LightningModule(pl.LightningModule):
             loss_trans = loss_trans / k_total
             loss_rot = loss_rot / k_total
 
-            self.log_dict({'loss_translation':loss_trans, 'loss_rotation':loss_rot, 'loss_projection_theta':loss_theta, 'loss_projection_r':loss_r, 'loss_weighted':loss_weighted}, on_step=True, on_epoch=False, logger=True)
+            self.log_dict({'loss_translation':loss_trans, 'loss_rotation':loss_rot, 'loss_projection_theta':loss_theta, 'loss_projection_r':loss_r, 'loss_weighted':torch.mean(loss_weighted)}, on_step=True, on_epoch=False, logger=True)
 
             total_loss = self.loss_w_proj_r * loss_r + \
                          self.loss_w_proj_theta * loss_theta
@@ -195,10 +203,11 @@ class DPSO_LightningModule(pl.LightningModule):
         # err_raw = torch.abs(target_projection - predicted_projection)
         
         # ==== Weights loss === 
-        loss_weighted = weights * err_raw - 0.2 * torch.log(weights + 1e-6)
+        # loss_weighted = torch.exp(-weights) * err_raw + weights
+        # For validation step only phisicial error, without weights 
 
         # === Connenct err with weights and valid mask ===
-        patch_proj_err = valid_mask.unsqueeze(-1) * err_raw * loss_weighted
+        patch_proj_err = valid_mask.unsqueeze(-1) * err_raw
 
         proj_x_err = torch.sum(patch_proj_err[:, 0], dim=-1) / valid_edges_num
         proj_y_err = torch.sum(patch_proj_err[:, 1], dim=-1) / valid_edges_num
@@ -209,7 +218,7 @@ class DPSO_LightningModule(pl.LightningModule):
         
         metrics['projection_err_theta_val'] = proj_x_err
         metrics['projection_err_r_val'] = proj_y_err
-        metrics['loss_weighted'] = loss_weighted
+        # metrics['loss_weighted'] = torch.mean(loss_weighted)
 
         total_loss = self.loss_w_proj_r * proj_y_err + \
                          self.loss_w_proj_theta * proj_x_err

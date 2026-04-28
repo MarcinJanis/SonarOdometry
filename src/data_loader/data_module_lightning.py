@@ -10,7 +10,7 @@ from .dataset import SonarSimDataset
 
 class SonarSimDataModule(pl.LightningDataModule):
 
-    def __init__(self, root_dir, train_batch_size, val_batch_size, num_workers, transforms, frames_in_series):
+    def __init__(self, root_dir, train_batch_size, val_batch_size, num_workers, transforms, frames_in_series, fls_resolution):
         
         super().__init__()
         self.root_dir = root_dir
@@ -19,28 +19,30 @@ class SonarSimDataModule(pl.LightningDataModule):
         self.transforms = transforms
         self.window_size = frames_in_series
         self.num_workers = num_workers
+        self.fls_resolution = fls_resolution
 
     def setup(self, stage):
         if stage == "fit" or stage is None:
             train_pth = os.path.join(self.root_dir, 'train')
-            self.train_dataset = SonarSimDataset(train_pth, self.window_size, transform=self.transforms, revert_sequence_p = 0.5)
+            self.train_dataset = SonarSimDataset(train_pth, self.window_size, transform=self.transforms, revert_sequence_p = 0.5, fls_resolution=self.fls_resolution)
             
             val_pth = os.path.join(self.root_dir, 'val')
-            self.val_dataset = SonarSimDataset(val_pth, self.window_size, transform=self.transforms, revert_sequence_p = 0.0)
+            self.val_dataset = SonarSimDataset(val_pth, self.window_size, transform=self.transforms, revert_sequence_p = 0.0, fls_resolution=self.fls_resolution)
+        
         if stage == "test" or stage is None:
-            test_pth = os.path.join(self.root_dir, 'test')
-            self.test_dataset = SonarSimDataset(test_pth, self.window_size, transform=self.transforms, revert_sequence_p = 0.0)
+            test_pth = os.path.join(self.root_dir, 'val')
+            self.test_dataset = SonarSimDataset(test_pth, self.window_size, transform=self.transforms, revert_sequence_p = 0.0, fls_resolution=self.fls_resolution)
         
     def train_dataloader(self):
-        return DataLoader(self.train_dataset, batch_size=self.batch_size, 
+        return DataLoader(self.train_dataset, batch_size=self.train_batch_size, 
                           shuffle=True, num_workers=self.num_workers)
 
     def val_dataloader(self):
-        return DataLoader(self.val_dataset, batch_size=self.batch_size, 
+        return DataLoader(self.val_dataset, batch_size=self.val_batch_size, 
                           shuffle=False, num_workers=self.num_workers)
 
     def test_dataloader(self):
-        return DataLoader(self.test_dataset, batch_size=self.batch_size, 
+        return DataLoader(self.test_dataset, batch_size=self.val_batch_size, 
                           shuffle=False, num_workers=self.num_workers)
 
 

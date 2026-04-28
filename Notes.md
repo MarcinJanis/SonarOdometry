@@ -1,3 +1,31 @@
+#TODO:
+
+1. w `utils.py`, approx_movement -> przerobić na pypose może?
+
+2. Dodać do trainera: 
+trainer = pl.Trainer(
+    # ... inne parametry ...
+    gradient_clip_val=1.0, 
+    gradient_clip_algorithm="norm" 
+)
+
+Ponoć bez tego po 100 krokach mogą byc NaN-y, skoro w update zakomentowałem gradient clip 
+
+
+3. Można kolejne iteracje przemnożyc przez współczynnik eksponencjalny żeby ważyć loss z różnych iteracji. 
+
+
+
+
+
+
+
+
+
+
+
+
+
 Walidacja na tkaije samje liczbie update, jak trening. Sprawdzić czy ta ilośc wystarczy 
 
 

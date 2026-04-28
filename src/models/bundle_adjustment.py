@@ -7,7 +7,7 @@ from .utils import transform_cart2polar, transform_polar2cart, depth_to_elev_ang
 import pypose as pp
 
 class BundleAdjustment(nn.Module):
-    def __init__(self, supervised,
+    def __init__(self, 
                  init_poses, 
                  init_patch_coords_r_theta, 
                  init_patch_coords_phi, 
@@ -19,7 +19,6 @@ class BundleAdjustment(nn.Module):
 
         # --- init ---
         self.device = init_poses.device
-        self.supervised = supervised
         self.sonar_param = sonar_param
 
         self.err_scale = torch.tensor([1.0, 0.1], device = self.device)
@@ -135,7 +134,7 @@ class BundleAdjustment(nn.Module):
             param_groups.append({'params': [self.rotation_optim], 'lr': lr_rot})
 
         optimizer = torch.optim.Adam(param_groups)
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5)
 
         best_loss = float('inf')
         best_elev_angle = None
@@ -185,7 +184,7 @@ class BundleAdjustment(nn.Module):
             best_elev_angle = self.elevation_angle.detach()
 
         pose_optimized = best_pose_raw.detach().view(self.b, self.act_n, 7)
-        pose_optimized[:, :, 3:] = F.normalize(pose_optimized[:, :, 3:], p=2, dim=1)
+        pose_optimized[:, :, 3:] = F.normalize(pose_optimized[:, :, 3:], p=2, dim=-1)
         elevation_optimized = best_elev_angle.detach().view(self.b, self.n_total, self.p, 1)
 
         return pose_optimized, elevation_optimized

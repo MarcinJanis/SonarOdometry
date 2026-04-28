@@ -21,6 +21,9 @@ CONTEXT_MAP_FIRST_DIM: 32 # or 64
 ENCODER_DOWNSIZE: 4 
 # Downsize of feature map, made by encoder
 
+FMAP_DOWNSIZE: 2
+# Downsize feature map - pyramid
+
 ENCODER_NORM_METHOD: 'instance' # 'batch', 'group', None
 
 # === Patchifier configuration === #
@@ -41,9 +44,7 @@ PATCHIFIER_METHOD: 'harris'
 
 
 # === Graph configuration === #
-# 
-
-INIT_FRAMES: 4 
+INIT_FRAMES: 3 
 # Number of frames to initate graph 
 # for traning only, in ionference INIT_FRAMES = TIME_WINDOW
 
@@ -70,12 +71,12 @@ UPDATE_ITERATION: 1
 # for inference mode only, not used in train 
 
 BUNDLE_ADJUSTMENT:
-  MAX_ITERATION_TRAIN: 20 # max iteration of bundle adjustment in train mode
+  MAX_ITERATION_TRAIN: 15 # max iteration of bundle adjustment in train mode
   MAX_ITERATION_EVAL: 50 # max iteration of bundle adjustment in evaluation mode
   PATIENCE: 5 # early stopping patience
-  STEP_TRANSLATION: 0.01 # inital lr for optimization for translation
-  STEP_ROTATION: 0.001 # inital lr for optimization for rotation
-  STEP_ELEV: 0.01  # inital lr for optimization for elevation angle
+  STEP_TRANSLATION: 0.015 # inital lr for optimization for translation
+  STEP_ROTATION: 0.003 # inital lr for optimization for rotation
+  STEP_ELEV: 0.015  # inital lr for optimization for elevation angle
   FREEZE_POSES: 2 # number of poses to not change while optimization, min 1.
 
 

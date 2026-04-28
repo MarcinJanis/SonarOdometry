@@ -13,7 +13,7 @@ import torchvision.transforms as T
 import torchvision.transforms.functional as F_t
 
 class SonarSimDataset(Dataset):
-    def __init__(self, root_dir, window_size, transform=None, revert_sequence_p = 0.0, fls_resolution=(400, 385)):
+    def __init__(self, root_dir, window_size, transform=None, revert_sequence_p = 0.0, fls_resolution=(800, 768)):
 
         self.root_dir = root_dir 
         self.window_size = window_size
