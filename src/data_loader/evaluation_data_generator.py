@@ -157,6 +157,8 @@ class DataGenerator():
         ax.grid(which='minor', linestyle=':', linewidth='0.3', color='black', alpha=0.5)
         ax.legend()
 
+        ax.set_aspect('equal', adjustable='box')
+
         plt.show()
 
         # save to file
@@ -175,7 +177,7 @@ class DataGenerator():
         traj_len.append(self.get_len())
         n_max = min(traj_len)
 
-        start_idx = int(start * n_max)
+        start_idx =  int(start * n_max)
         end_idx = int(end * n_max)
 
         fig = plt.figure(figsize=(12, 12))
@@ -259,6 +261,9 @@ class DataGenerator():
         ax.set_title("3D Trajectory and Point Cloud")
         ax.legend()
         
+        ax.set_aspect('equal')
+        ax.set_box_aspect([1, 1, 1])
+
         plt.show()
 
     def generate_timeseries(self, data_type = 'dataset_depth', title = 'Time series', start = 0, end = 1, color = 'red', traj_width = 2, pt_size = 3, markers='x', save_to_file = None):

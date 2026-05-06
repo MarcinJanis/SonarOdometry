@@ -14,9 +14,9 @@ import yaml
 
 from .update import Update
 from .graph_inference import Graph
-from .bundle_adjustment import BundleAdjustment
+from .bundle_adjustment_v3 import BundleAdjustment
 
-from .utils import approx_movement, transform_to_global, ExtrinsicsCalib
+from .utils import approx_movement2, transform_to_global, ExtrinsicsCalib
 
 from .logger import DataLogger
 class DPSO(nn.Module):
@@ -97,7 +97,7 @@ class DPSO(nn.Module):
         
         # --- init pose ---
         x_prev, t_prev = self.PatchGraph.get_last_poses(num=2)
-        new_pose = approx_movement(x_prev[1], x_prev[0], t_prev[1], t_prev[0], timestamp, 
+        new_pose = approx_movement2(x_prev[1], x_prev[0], t_prev[1], t_prev[0], timestamp, 
                                    motion_model=self.motion_appro_model)
 
         # --- add to graph --- 
@@ -122,9 +122,16 @@ class DPSO(nn.Module):
                 h = self.PatchGraph.get_hidden_state()
                 h, correction = self.UpdateOperator(h, None, corr, ctx, src_frames_global_idx, tgt_frames_global_idx, patches_global_idx, self.device)
                 
-                delta, weights = correction
-                weights = weights * valid_mask.view(-1, 1)
-                
+                delta, weights_s = correction
+                # delta = 10 * delta
+                # weights = weights * valid_mask.view(-1, 1)
+
+                weights_ba = torch.exp(-weights_s) # exp to ensure values in range (0, +inf)
+                weights_ba = weights_ba * valid_mask.view(-1, 1) # set weights of non valid edges to zero. 
+            
+
+                self.delta_debug = torch.mean(torch.abs(delta.detach().clone()))
+                self.weights_debug = torch.mean(torch.abs(weights_s.detach().clone()))
                 # weights = torch.ones_like(weights) * valid_mask.view(-1, 1) # tmp
 
                 self.PatchGraph.update_hidden_state(h)
@@ -142,7 +149,7 @@ class DPSO(nn.Module):
                 BA = BundleAdjustment(poses.unsqueeze(0),
                                     coords_r_theta.unsqueeze(0), coords_phi.unsqueeze(0), 
                                     src_frames_local_idx_chrono, tgt_frames_local_idx_chrono, patches_chrono_idx,
-                                    delta, weights,
+                                    delta, weights_ba,
                                     self.sonar_param, self.freeze_poses_num)
                 BA.to(self.device)
 

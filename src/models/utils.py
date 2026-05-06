@@ -127,11 +127,6 @@ def project_points(origin_pt, origin_pose, target_pose):
 
     return target_pt
 
-
-
-
-
-
 # === Transform from local to global ===
 # transtom points from local, source frame (polar) to global frame (carthesian)
 # Pipe line: 
@@ -163,61 +158,99 @@ def transform_to_global(origin_pt, origin_pose):
 
 # === Movement approximation === 
 
-def approx_movement(x1, x2, t1, t2, t3, motion_model = 'linear'):
+# def approx_movement(x1, x2, t1, t2, t3, motion_model = 'linear'):
     
-    n = x1.shape[0]
+#     n = x1.shape[0]
 
+#     if motion_model == 'linear':
+        
+#         # --- translation estimation ---
+#         translation1 = x1[:, :3]
+#         translation2 = x2[:, :3]
+
+#         dt12 = (t2 - t1)
+#         dt23 = (t3 - t2)
+#         translation_diff = (translation2 - translation1) / dt12 * dt23
+#         translation3 = translation2 + translation_diff
+
+#         # --- rotation estimation ---
+#         q1 = x1[:, 3:]
+#         q2 = x2[:, 3:]
+
+#         # find shortest rotation 
+#         dot = (q2 * q1).sum(dim=-1, keepdim=True) 
+#         q2 = torch.where(dot < 0, -q2, q2)
+
+#         # rotation - quaternions difference in global frame
+#         # diff q2 -> q1: diff = q2 * q1^-1
+#         q_diff = hamilton_product(q2, q_conjugate(q1))
+
+        
+#         w = torch.clamp(q_diff[:, -1:], min=-1.0, max=1.0)
+        
+#         # extract rotation angle 
+#         q_diff_angle = 2 * torch.arccos(w)
+#         new_rot_angle = q_diff_angle / dt12 * dt23
+
+#         # extract rotation axis
+#         s_squared = torch.clamp(1.0 - w * w, min=0.0)
+#         s = torch.sqrt(torch.clamp(s_squared, min=1e-8))
+#         q_diff_axis = q_diff[:, :3] / s
+        
+#         # compose new quaterion
+
+#         q_step_vect = q_diff_axis * torch.sin(new_rot_angle / 2.0)
+#         q_step_scal = torch.cos(new_rot_angle / 2.0)
+#         q_step = torch.cat([q_step_vect, q_step_scal], dim=-1)
+
+#         # add new quaternion to last pose 
+#         q3 = hamilton_product(q_step, q2)
+#         q3 = q3 / torch.norm(q3, dim=-1, keepdim=True)
+
+#         # --- connect translation and rotation --- 
+#         x3 = torch.cat([translation3, q3], dim=1)
+#     else:
+#         x3 = x2
+
+#     return x3
+
+
+def approx_movement(x1, x2, t1, t2, t3, motion_model='linear'):
+    """
+    Approximates the next pose based on the previous two poses using 
+    a Constant Velocity Model on the SE(3) Lie Algebra manifold.
+    """
     if motion_model == 'linear':
+        # Convert raw tensors to PyPose SE3 objects
+        pose1 = pp.SE3(x1)
+        pose2 = pp.SE3(x2)
         
-        # --- translation estimation ---
-        translation1 = x1[:, :3]
-        translation2 = x2[:, :3]
+        # Format time intervals for batch broadcasting.
+        # Clamping dt12 prevents division by zero if t1 == t2.
+        dt12 = (t2 - t1).view(-1, 1).clamp(min=1e-6)
+        dt23 = (t3 - t2).view(-1, 1)
 
-        dt12 = (t2 - t1)
-        dt23 = (t3 - t2)
-        translation_diff = (translation2 - translation1) / dt12 * dt23
-        translation3 = translation2 + translation_diff
-
-        # --- rotation estimation ---
-        q1 = x1[:, 3:]
-        q2 = x2[:, 3:]
-
-        # find shortest rotation 
-        dot = (q2 * q1).sum(dim=-1, keepdim=True) 
-        q2 = torch.where(dot < 0, -q2, q2)
-
-        # rotation - quaternions difference in global frame
-        # diff q2 -> q1: diff = q2 * q1^-1
-        q_diff = hamilton_product(q2, q_conjugate(q1))
-
+        # Calculate the relative transformation in the local frame
+        delta_pose = pose1.Inv() @ pose2 # pose 1 -> pose 2 movement
         
-        w = torch.clamp(q_diff[:, -1:], min=-1.0, max=1.0)
+        # Map the SE(3) object to the tangent space se(3) 
+        # 7d oboejcts (x, y, z, qx, qy, qz, qw) -> 6d objects (tangent space)
+        twist = delta_pose.Log()
         
-        # extract rotation angle 
-        q_diff_angle = 2 * torch.arccos(w)
-        new_rot_angle = q_diff_angle / dt12 * dt23
-
-        # extract rotation axis
-        s_squared = torch.clamp(1.0 - w * w, min=0.0)
-        s = torch.sqrt(torch.clamp(s_squared, min=1e-8))
-        q_diff_axis = q_diff[:, :3] / s
+        # Scale the 6D twist by the time ratio to predict the next movement
+        scaled_twist = twist / dt12 * dt23 # now its normal tensor obejct
         
-        # compose new quaterion
+        # Re-cast to a PyPose se3 object and map back to the curved SE(3) manifold
+        delta_se3 = pp.se3(scaled_twist).Exp()
+        
+        # Apply the predicted movement to the last known pose
+        pose3 = pose2 @ delta_se3
 
-        q_step_vect = q_diff_axis * torch.sin(new_rot_angle / 2.0)
-        q_step_scal = torch.cos(new_rot_angle / 2.0)
-        q_step = torch.cat([q_step_vect, q_step_scal], dim=-1)
-
-        # add new quaternion to last pose 
-        q3 = hamilton_product(q_step, q2)
-        q3 = q3 / torch.norm(q3, dim=-1, keepdim=True)
-
-        # --- connect translation and rotation --- 
-        x3 = torch.cat([translation3, q3], dim=1)
+        return pose3.tensor()
     else:
-        x3 = x2
-
-    return x3
+        # Return last pose 
+        return x2
+    
 
 def depth_to_elev_angle(depth, r):
 
@@ -226,7 +259,6 @@ def depth_to_elev_angle(depth, r):
     gt_elevation = torch.asin(depth_r_ratio)  
 
     return gt_elevation
-
 
 
 

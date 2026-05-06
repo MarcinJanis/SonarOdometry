@@ -19,6 +19,7 @@ from .metrics import eval_metrics
 #     'loss_weight_proj_r':1.0,
 #     'loss_weight_proj_theta':1.0
 # }
+
 class DPSO_LightningModule(pl.LightningModule):
     def __init__(self, model, mode, traning_param):
         super().__init__()
@@ -55,7 +56,7 @@ class DPSO_LightningModule(pl.LightningModule):
             optimizer, 
             mode='min',      
             factor=0.5,      
-            patience=5, 
+            patience=10, 
             min_lr=1e-6      
         )
         
@@ -65,7 +66,7 @@ class DPSO_LightningModule(pl.LightningModule):
                 "scheduler": scheduler,
                 "monitor": "val_loss", # check name
                 "interval": "step",   
-                "frequency": 100 # global steps
+                "frequency": 400 # global steps
             },
         }
     
@@ -121,8 +122,10 @@ class DPSO_LightningModule(pl.LightningModule):
             # err_raw = torch.abs(target_projection - predicted_projection)
             
             # ==== Weights loss ===
-
-            loss_weighted = torch.exp(-weights) * err_raw + weights
+            if self.global_step < self.freeze_delta_loss_step:
+                loss_weighted = err_raw
+            else:
+                loss_weighted = torch.exp(-weights) * err_raw + weights
 
             # --- warm-up for weights, try without this
             # if self.global_step < self.freeze_delta_loss_step:
@@ -156,7 +159,7 @@ class DPSO_LightningModule(pl.LightningModule):
             loss_trans = loss_trans / k_total
             loss_rot = loss_rot / k_total
 
-            self.log_dict({'loss_translation':loss_trans, 'loss_rotation':loss_rot, 'loss_projection_theta':loss_theta, 'loss_projection_r':loss_r, 'loss_weighted':torch.mean(loss_weighted)}, on_step=True, on_epoch=False, logger=True)
+            self.log_dict({'loss_translation':loss_trans, 'loss_rotation':loss_rot, 'loss_projection_theta':loss_theta, 'loss_projection_r':loss_r, 'loss_weighted':torch.mean(weights)}, on_step=True, on_epoch=False, logger=True)
 
             total_loss = self.loss_w_proj_r * loss_r + \
                          self.loss_w_proj_theta * loss_theta
@@ -225,7 +228,5 @@ class DPSO_LightningModule(pl.LightningModule):
         
         self.log_dict(metrics, on_step=False, on_epoch=True, logger=True)
 
-        self.log('val_loss', total_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log('val_loss', total_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
 
-        
-        

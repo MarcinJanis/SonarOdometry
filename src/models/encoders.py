@@ -49,7 +49,7 @@ class ResidualBlock(nn.Module):
 
 
 class Encoder(nn.Module):
-    def __init__(self, in_ch = 1, out_ch = 128, dim = 32, dropout=0.5, norm_fn ='instance', downsize = 4):
+    def __init__(self, in_ch = 1, out_ch = 128, dim = 32, dropout=0.0, norm_fn ='instance', downsize = 4):
         super().__init__()
 
         self.stride = int(sqrt(downsize))

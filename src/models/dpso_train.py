@@ -14,7 +14,7 @@ import yaml
 
 from .update import Update
 from .graph_train import Graph
-from .bundle_adjustment import BundleAdjustment
+from .bundle_adjustment_v1 import BundleAdjustment
 
 from .utils import project_points, approx_movement, depth_to_elev_angle, ExtrinsicsCalib
 

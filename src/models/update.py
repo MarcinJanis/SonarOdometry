@@ -14,7 +14,12 @@ class Update(nn.Module):
         self.patch_size = model_cfg.PATCH_SIZE 
         
         # correlation preprocess net
-        corr_input_dim = self.corr_neighbour*self.corr_neighbour*2 #self.fmap_c*self.corr_neighbour*self.corr_neighbour*self.patch_size*self.patch_size
+        search_size = self.corr_neighbour * self.patch_size - 1
+        fmap_1_c = self.patch_size**2 * search_size**2
+        fmap_2_c = self.patch_size**2 * ((search_size + 2 - 3)/2 + 1)**2 # (search_size + 2*padding - ksize) / stride + 1, see in graph.py, def corr()
+        corr_input_dim = fmap_1_c + fmap_2_c # 3025 + 900 = 3925
+
+        # self.corr_neighbour*self.corr_neighbour*2 #self.fmap_c*self.corr_neighbour*self.corr_neighbour*self.patch_size*self.patch_size
         hidden_state_dim = model_cfg.CONTEXT_OUTPUT_CH
 
         self.corr_net = nn.Sequential(
@@ -61,8 +66,10 @@ class Update(nn.Module):
             # GradientClip(), # not used
             # nn.Sigmoid()
             )
-        nn.init(self.w.weights)
-
+        
+        # init as 0, at the start of training exp(-0.0) = 1.
+        nn.init.zeros_(self.w[-1].weight)
+        nn.init.zeros_(self.w[-1].bias)
     
     def forward(self, h, flow, corr, ctx, source_frame_idx, target_frames_idx, patches_idx, device):
         
@@ -77,8 +84,8 @@ class Update(nn.Module):
 
         prev_idx, next_idx = neighbours(patches_idx, target_frames_idx, device = device, range = 1)
 
-        prev_mask = (prev_idx >= 1).float() # or (prev_idx >= 0)
-        next_mask = (next_idx >= 1).float() # or (prev_idx >= 0)
+        prev_mask = (prev_idx >= 0).float() 
+        next_mask = (next_idx >= 0).float() 
 
         h = h + self.c1(prev_mask.unsqueeze(-1) * h[prev_idx, :]) # add to hidden state information about temporal patches neighbours 
         h = h + self.c2(next_mask.unsqueeze(-1) * h[next_idx, :]) # add to hidden state information about temporal patches neighbours 
@@ -92,6 +99,8 @@ class Update(nn.Module):
         delta = self.d(h) # projection correction (dx, dy)
         s = self.w(h) # correction weights, confidence. 
         
+        s = torch.clamp(s, min=-5.0, max=5.0) # add safety clamp for weights limitation
+
         # s = log(variance) = log(std_dev^2)
         # to get weights: weoghts = exp(-s)
         

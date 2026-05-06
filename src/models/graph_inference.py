@@ -193,8 +193,12 @@ class Graph(nn.Module):
 
         # delete obsolete edges
         # print(f'edges1\ni: {self.i}\nj: {self.j}')
-        edges_to_keep = (self.j >= (self.n - self.buff_size)) # delete edges that points to obsolete frames
-        # edges_to_keep = ~edges_to_del
+        valid_j_edges = (self.j >= (self.n - self.buff_size)) # delete edges that points to obsolete frames
+        
+        src_frames_global = self.i // self.patches_per_frame
+        valid_i_edges = (src_frames_global >= (self.n - self.buff_size))
+        
+        edges_to_keep = valid_j_edges & valid_i_edges
 
         self.i = self.i[edges_to_keep]
         self.j = self.j[edges_to_keep] 
@@ -345,14 +349,24 @@ class Graph(nn.Module):
 
         return corr_map, act_patches_c, self.i, self.j, valid_mask.float()
         
+    # def get_last_poses(self, num=2):
+    #     local_n = self.g2l_frame_idx(self.n - 1)
+    #     if num == 1:
+    #         x = self.poses[local_n, :].unsqueeze(0)
+    #         t = self.time[local_n].unsqueeze(0)
+    #     else:
+    #         x = [self.poses[local_n - i, :].unsqueeze(0) for i in range(num) ]
+    #         t = [self.time[local_n - i].unsqueeze(0) for i in range(num) ]
+    #     return x, t
+    
     def get_last_poses(self, num=2):
         local_n = self.g2l_frame_idx(self.n - 1)
         if num == 1:
             x = self.poses[local_n, :].unsqueeze(0)
             t = self.time[local_n].unsqueeze(0)
         else:
-            x = [self.poses[local_n - i, :].unsqueeze(0) for i in range(num) ]
-            t = [self.time[local_n - i].unsqueeze(0) for i in range(num) ]
+            x = [self.poses[self.g2l_frame_idx(self.n - 1 - i), :].unsqueeze(0) for i in range(num)]
+            t = [self.time[self.g2l_frame_idx(self.n - 1 - i)].unsqueeze(0) for i in range(num)]
         return x, t
 
     def get_graphstate(self, chronological = True):

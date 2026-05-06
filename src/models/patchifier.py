@@ -26,14 +26,14 @@ class Patchifier(nn.Module):
         self.feature_extractor = Encoder(in_ch = 1, 
                                          out_ch = self.cfg.FEATURES_OUTPUT_CH,
                                          dim = self.cfg.FEATURES_MAP_FIRST_DIM, 
-                                         dropout=0.5, 
+                                         dropout=0.0, 
                                          norm_fn=self.cfg.ENCODER_NORM_METHOD,
                                          downsize=self.downsize_factor)
         
         self.context_extractor = Encoder(in_ch = 1, 
                                          out_ch = self.cfg.CONTEXT_OUTPUT_CH,
                                          dim = self.cfg.CONTEXT_MAP_FIRST_DIM, 
-                                         dropout=0.5, 
+                                         dropout=0.0, 
                                          norm_fn=None,
                                          downsize=self.downsize_factor)
         
@@ -131,6 +131,7 @@ class Patchifier(nn.Module):
         g = g.view(bn, self.grid_size_h, self.grid_size_w, pix_per_cell_h * pix_per_cell_w)
 
         # find strongest features in each cell
+        
         max_vals, max_idx = torch.max(g, dim=-1) # max_idx.shape = (bn, self.grid_size_h, self.grid_size_w), value -> idx of max value in cell
 
         # local (cell) index -> global index

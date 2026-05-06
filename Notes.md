@@ -1,5 +1,12 @@
 #TODO:
 
+Dobrac tak zeby dalo sie osobno ustwaic init frames a osobno time window. 
+
+prze buff size 20, freeze posez 17, musimt dac 17 init framews, i bedzei mega
+
+
+_____
+
 1. w `utils.py`, approx_movement -> przerobić na pypose może?
 
 2. Dodać do trainera: 
@@ -16,6 +23,11 @@ Ponoć bez tego po 100 krokach mogą byc NaN-y, skoro w update zakomentowałem g
 
 
 
+
+Co zmieniłem poza traning_lighting:
+
+dpso_train - przesymnałem noise symetrycznie i dałem nosie nawet przy zamrożonych pozach
+zmieniłem interval learnig rate na 400, zeby odpalił sie po 100
 
 
 
