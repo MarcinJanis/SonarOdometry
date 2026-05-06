@@ -52,7 +52,7 @@ class DPSO_train(nn.Module):
 
         assert frames_in_series >= init_frames, f'[Error] Frames number for initialization shall be equal or smaller than total frames number'
 
-        # --- init components --- 
+        # --- init modules --- 
         self.PatchGraph = Graph(model_config, sonar_config, batch_size, frames_in_series)
         self.UpdateOperator = Update(model_config)
         self.calib = ExtrinsicsCalib(T = [sonar_config.position.x, sonar_config.position.y, sonar_config.position.z],
@@ -112,12 +112,11 @@ class DPSO_train(nn.Module):
                     new_pose = approx_movement(x1, x2, t1, t2, t3, 
                                             motion_model=self.motion_appro_model)
                  
-
                 poses = torch.cat([poses, new_pose.unsqueeze(1)], dim=1)
 
                 self.PatchGraph.create_new_edges(i, device)
 
-            # detach from torch graph for each frame in sequence
+            # detach from torch graph (for each frame in sequence)
             poses = poses.detach()
             coords_phi = coords_phi.detach()
 
@@ -130,7 +129,7 @@ class DPSO_train(nn.Module):
             corr, ctx, patches_idx, tgt_frames_idx, valid_mask = self.PatchGraph.corr(poses, coords_phi, coords_eps=1e-2, device=device)
             src_frames_idx = patches_idx // self.patches_per_frame
 
-            # force zero correlation for non valid edges 
+            # force zero correlation value for non valid edges 
             corr = corr * valid_mask.view(-1, 1)
 
             # check if any active edge exist
@@ -145,7 +144,6 @@ class DPSO_train(nn.Module):
             h, correction = self.UpdateOperator(h, None, corr, ctx, src_frames_idx, tgt_frames_idx, patches_idx, device)
             
             delta, weights_s = correction
-            # weights = torch.ones_like(weights) * valid_mask.view(-1, 1) # tmp
 
             self.PatchGraph.update_hidden_state(h)
             
@@ -165,10 +163,10 @@ class DPSO_train(nn.Module):
                 ba_iter = self.ba_iter_eval    
                 
             
-            # detach all tensors passed to BA
+            # detach all tensors passed to BA 
 
-            weights_ba = torch.exp(-weights_s) # exp to ensure values in range (0, +inf)
-            weights_ba = weights_ba * valid_mask.view(-1, 1) # set weights of non valid edges to zero. 
+            weights_ba = torch.exp(-weights_s) 
+            weights_ba = weights_ba * valid_mask.view(-1, 1) # force weights of non valid edges to zero. 
             
             BA = BundleAdjustment(poses.detach(),
                                 coords_r_theta.detach(), coords_phi.detach(), 
@@ -177,7 +175,6 @@ class DPSO_train(nn.Module):
                                 self.sonar_param, ba_freeze_poses)
             BA.to(device)
 
-            # try:
             with torch.no_grad():
                 poses_optimized, elevation_optimized = BA.run(max_iter= ba_iter, 
                                                               patience = self.ba_patience, 
@@ -207,7 +204,7 @@ class DPSO_train(nn.Module):
                 ref_poses = poses_optimized
                 ref_phi = elevation_optimized.view(b*n*p, 1)[patches_idx]
             
-            # --- gt projection --- 
+            # --- reference poses -> reprojection --- 
             b, n_act, _ = ref_poses.shape
             origin_poses = ref_poses.view(b*n_act, 7)[src_frames_idx, :]
             target_poses = ref_poses.view(b*n_act, 7)[tgt_frames_idx, :]
@@ -221,7 +218,7 @@ class DPSO_train(nn.Module):
             ref_projection = project_points(origin_points, origin_poses, target_poses)        
             ref_projection = ref_projection[:, :2] * physic2fls_scale_factor
 
-            # --- pred projection ---
+            # --- predicted poses + delta -> reprojection ---
 
             b, n_act, _ = poses.shape
             pred_origin_poses = poses.view(b*n_act, 7)[src_frames_idx, :]
@@ -240,7 +237,6 @@ class DPSO_train(nn.Module):
             # --- feedback after BA --- 
             poses = poses_optimized
             coords_phi = elevation_optimized
-
 
             # torch.cuda.synchronize()
             # t5 = time.time()

@@ -13,15 +13,19 @@ class BundleAdjustment(nn.Module):
                  init_patch_coords_phi, 
                  source_frame_idx, target_frame_idx, patch_idx,
                  delta, weights,
-                 sonar_param, freeze_poses):
+                 sonar_param, freeze_poses, 
+                 damping = False):
         
         super().__init__()
 
         # --- init ---
         self.device = init_poses.device
         self.sonar_param = sonar_param
+        self.damping = damping
 
         self.err_scale = torch.tensor([1.0, 1.0], device = self.device)
+        self.damping_trans_weight = 5.0
+        self.damping_rot_weight = 400.0
 
         if freeze_poses < 1:
             freeze_poses = 1
@@ -182,17 +186,19 @@ class BundleAdjustment(nn.Module):
                 optimizer.zero_grad()
                 err = self.forward()
                 
+                # --- smooth L1 loss ---
+                #  (L1 for big err, L2 for small err)
                 loss = F.smooth_l1_loss(err, torch.zeros_like(err), beta=1.0)
-            
-                # reg_weight_trans = 10.0 
-                # reg_weight_rot = 50.0  
+
+                # --- Add prior/damper for optimizer ---
                 
-                # prior_loss_trans = torch.sum(self.delta_trans ** 2) * reg_weight_trans
-                # prior_loss_rot = torch.sum(self.delta_rot ** 2) * reg_weight_rot
-                
-                # loss = data_loss + prior_loss_trans + prior_loss_rot
-                
-                # --- 
+                # to force back from too big changes, 
+                # add to loss punishment, proportional to changed distance
+                if self.damping: 
+                    prior_trans += torch.sum(self.trans_correction**2) * self.damping_trans_weight 
+                    priot_rot += torch.sum(self.rot_correction**2) * self.damping_rot_weight 
+
+                    loss = loss + prior_trans + priot_rot
 
                 loss.backward()
                 optimizer.step()

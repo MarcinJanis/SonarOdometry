@@ -178,8 +178,7 @@ class DPSO_LightningModule(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         
-        # freeze poses 
-        freeze_poses = False
+        freeze_poses = False 
 
         fls_series, time, trajectory_gt, depth_gt = batch
 
@@ -192,7 +191,7 @@ class DPSO_LightningModule(pl.LightningModule):
                         init_poses_noise=0.0, 
                         debug_logger=False)
 
-        pred_poses, target_projection, predicted_projection, valid_mask, weights = pred[-1]
+        pred_poses, target_projection, predicted_projection, valid_mask, weights_s = pred[-1]
         
         valid_edges_num = torch.sum(valid_mask) + 1e-6
 
@@ -215,9 +214,7 @@ class DPSO_LightningModule(pl.LightningModule):
         proj_x_err = torch.sum(patch_proj_err[:, 0], dim=-1) / valid_edges_num
         proj_y_err = torch.sum(patch_proj_err[:, 1], dim=-1) / valid_edges_num
 
-        metrics = eval_metrics(pred_poses.detach().cpu().numpy(), 
-                               trajectory_gt.detach().cpu().numpy(),
-                               align=False, align_init_pt_only=True, add_data_series=False)
+        # add here ATE, RPE, active edges number, mean and std of weight_s
         
         metrics['projection_err_theta_val'] = proj_x_err
         metrics['projection_err_r_val'] = proj_y_err
