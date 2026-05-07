@@ -7,6 +7,12 @@ from scipy.spatial.transform import Rotation as R
 
 def eval_metrics(pred, gt, reduction = 'mean'):
 
+    b, n, _ = pred.shape
+    pred = pred.view(b*n, -1)
+    gt = gt[:, :n, :] # if less pred poses than gt
+    gt = gt.view(b*n, -1)
+    
+
     # create SE3 objects
     pred_se3 = pp.SE3(pred)
     gt_se3 = pp.SE3(gt)
@@ -41,7 +47,8 @@ def eval_metrics(pred, gt, reduction = 'mean'):
             'ATE': ATE,
             'ARE': ARE,
             'RPE_translation': RPE_trans,
-            'RPE_rotation': RPE_rot
+            'RPE_rotation': RPE_rot,
+            'num_steps': b*n
         }
 
     return metrics 
