@@ -55,8 +55,8 @@ BUFF_SIZE: 20
 TIME_WINDOW: 6 
 # Number of previous frames for which edges are created with new frame
 
-CORR_NEIGHBOUR: 7 # 5
-# nieghbour of projected point that is taken to calculate correlation
+CORR_NEIGHBOUR: 11 # 5
+# nieghbour of projected patch, taken to correlation calculation
 
 MOTION_APPRO_MODEL: 'linear' # None
 # Model of new pose approximation
