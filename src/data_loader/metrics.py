@@ -1,96 +1,144 @@
 import numpy as np
 import torch
 import torch.nn.functional as F
-# import pypose as pp
+import pypose as pp
 from scipy.spatial.transform import Rotation as R
 
-# === Training metrics - PyTorch === 
 
-def translation_err(x_pred, x_target):
-    '''
-    Distance betweend two poses, q = (x, y, z).
-    Euclidesian norm (L2) from vector difference.
-    dist_err = L2(q1 - q2)
-    '''
-    Lx = torch.linalg.norm(x_target-x_pred, dim=1)
-    return Lx
+def eval_metrics(pred, gt, reduction = 'mean'):
+
+    # create SE3 objects
+    pred_se3 = pp.SE3(pred)
+    gt_se3 = pp.SE3(gt)
+
+    # --- ABSOLUTE ERROR --- 
+    absolute_pose_error_unreduced = (pred_se3.Inv() * gt_se3)
+    # Absolute trajectory error - unreduced
+    ATE = absolute_pose_error_unreduced.translation().norm()
+    # Absolute rotation error - unreduced
+    ARE = absolute_pose_error_unreduced.Log()[:, 3:].norm(dim-1)
+    
+    
+    # --- RELATIVE ERROR --- 
+    pred_diff_se3 = pred_se3[:-1, :].Inv() * pred_se3[1:, :]
+    gt_diff_se3 = gt_se3[:-1, :].Inv() * gt_se3[1:, :]
+    diff_se3 = pred_diff_se3.Inv() * gt_diff_se3
+
+    # Relative trajectory error - unreduced
+    RPE_trans = diff_se3.translation().norm()
+    # Relative rotation error - unreduced
+    RPE_rot = diff_se3.Log()[:, 3:].norm(dim=-1)
+    
+    if reduction == 'mean':
+        metrics = {
+            'ATE': torch.mean(ATE),
+            'ARE': torch.mean(ARE),
+            'RPE_translation': torch.mean(RPE_trans),
+            'RPE_rotation': torch.mean(RPE_rot)
+        }
+    else:
+        metrics = {
+            'ATE': ATE,
+            'ARE': ARE,
+            'RPE_translation': RPE_trans,
+            'RPE_rotation': RPE_rot
+        }
+
+    return metrics 
+    
+
+
+
+
+
+
+# # === Training metrics - PyTorch === 
+
+# def translation_err(x_pred, x_target):
+#     '''
+#     Distance betweend two poses, q = (x, y, z).
+#     Euclidesian norm (L2) from vector difference.
+#     dist_err = L2(q1 - q2)
+#     '''
+#     Lx = torch.linalg.norm(x_target-x_pred, dim=1)
+#     return Lx
  
-def rot_err(q_pred, q_target):
-    '''
-    Rotation error:
-    Angle $\theta$ extracted from difference quaterion $\Delta q$:
-    $$\Delta q = q_{pred}^{-1} \otimes q_{target}$$.
+# def rot_err(q_pred, q_target):
+#     '''
+#     Rotation error:
+#     Angle $\theta$ extracted from difference quaterion $\Delta q$:
+#     $$\Delta q = q_{pred}^{-1} \otimes q_{target}$$.
 
-    If only rotation angle is needed, this problem can be simoplified to:
-    - calculatation of qw quaternion component. 
-    - extraction $\theta$ from quaternion construction: w = cos($0.5*\theta$)
-    '''
-    # find shortest rotation 
-    dot = (q_pred * q_target).sum(dim=-1, keepdim=True) # real part of difference quaternion -> dot product
-    q_dist = torch.abs(dot) # shortest rotation
-    q_dist = torch.clamp(q_dist, max=1.0 - 1e-7)
+#     If only rotation angle is needed, this problem can be simoplified to:
+#     - calculatation of qw quaternion component. 
+#     - extraction $\theta$ from quaternion construction: w = cos($0.5*\theta$)
+#     '''
+#     # find shortest rotation 
+#     dot = (q_pred * q_target).sum(dim=-1, keepdim=True) # real part of difference quaternion -> dot product
+#     q_dist = torch.abs(dot) # shortest rotation
+#     q_dist = torch.clamp(q_dist, max=1.0 - 1e-7)
 
-    return 2*torch.arccos(q_dist)
+#     return 2*torch.arccos(q_dist)
 
-def odometry_evaluation_metrics(pred, target, reduction = 'mean'):
+# def odometry_evaluation_metrics(pred, target, reduction = 'mean'):
     
-    b, n, _ = pred.shape
+#     b, n, _ = pred.shape
     
-    target_act = target[:, :n, :] # if less pred poses than gt
-    target_act = target_act.view(b*n, -1)
+#     target_act = target[:, :n, :] # if less pred poses than gt
+#     target_act = target_act.view(b*n, -1)
     
-    pred = pred.view(b*n, -1)
+#     pred = pred.view(b*n, -1)
    
 
-    x_pred, x_target = pred[:, :3], target_act[:, :3] # translation
-    q_pred, q_target = pred[:, 3:7], target_act[:, 3:7] # quaternion
+#     x_pred, x_target = pred[:, :3], target_act[:, :3] # translation
+#     q_pred, q_target = pred[:, 3:7], target_act[:, 3:7] # quaternion
 
     
 
-    # --- Absolute errors ---
+#     # --- Absolute errors ---
 
-    # --- absolut translation --- 
-    abs_dist_error_unreduced = dist_err(x_pred, x_target) # L2 
+#     # --- absolut translation --- 
+#     abs_dist_error_unreduced = dist_err(x_pred, x_target) # L2 
     
-    # --- absolute rotation --- 
-    abs_rot_error_unreduced = rot_err(q_pred, q_target) # relative rotatio nangl
+#     # --- absolute rotation --- 
+#     abs_rot_error_unreduced = rot_err(q_pred, q_target) # relative rotatio nangl
 
-    # --- Relative errors ---
+#     # --- Relative errors ---
 
-    # --- relative translation --- 
-    x_pred_rel = x_pred[1:, :] - x_pred[:-1, :]
-    x_target_rel = x_target[1:, :] - x_target[:-1, :]
+#     # --- relative translation --- 
+#     x_pred_rel = x_pred[1:, :] - x_pred[:-1, :]
+#     x_target_rel = x_target[1:, :] - x_target[:-1, :]
 
-    dist_rel_error_unreduced = Lx = torch.linalg.norm(x_target_rel - x_pred_rel, dim=1)
+#     dist_rel_error_unreduced = Lx = torch.linalg.norm(x_target_rel - x_pred_rel, dim=1)
     
-    # --- relative rotation ---
+#     # --- relative rotation ---
 
-    q_pred_rel = torch.sum(q_pred[1:, :] * q_pred[:-1, :], dim =-1)
-    q_target_rel = torch.sum(q_target[1:, :] * q_target[:-1, :], dim =-1)
+#     q_pred_rel = torch.sum(q_pred[1:, :] * q_pred[:-1, :], dim =-1)
+#     q_target_rel = torch.sum(q_target[1:, :] * q_target[:-1, :], dim =-1)
 
-    w_pred_rel = torch.clamp(torch.abs(q_pred_rel), 1 - 1e-7)
-    w_target_rel =  torch.clamp(torch.abs(q_target_rel), 1 - 1e-7)
+#     w_pred_rel = torch.clamp(torch.abs(q_pred_rel), 1 - 1e-7)
+#     w_target_rel =  torch.clamp(torch.abs(q_target_rel), 1 - 1e-7)
 
-    rel_pred_angle = 2*torch.arccos(w_pred_rel)
-    rel_target_angle = 2*torch.arccos(w_pred_rel)
+#     rel_pred_angle = 2*torch.arccos(w_pred_rel)
+#     rel_target_angle = 2*torch.arccos(w_pred_rel)
 
-    mean_rel_rot_err_unreduced = rel_target_angle - rel_pred_angle
+#     mean_rel_rot_err_unreduced = rel_target_angle - rel_pred_angle
 
-    # --- metrics dict ---
-    if reduction == 'mean':
-        metrics = {'ATE': torch.mean(abs_dist_error_unreduced), 
-                   'RPE': torch.mean(dist_rel_error_unreduced), 
-                   'MEAN_ABS_ROT_ERR': torch.mean(torch.abs(abs_rot_error_unreduced)),
-                   'MEAN_REL_ROT_ERR':torch.mean(torch.abs(mean_rel_rot_err_unreduced))
-                  }
-    else: 
-         metrics = {'ATE': abs_dist_error_unreduced, 
-                    'RPE': dist_rel_error_unreduced, 
-                    'MEAN_ABS_ROT_ERR': abs_rot_error_unreduced,
-                    'MEAN_REL_ROT_ERR': rel_target_angle - rel_pred_angle,
-                  }
+#     # --- metrics dict ---
+#     if reduction == 'mean':
+#         metrics = {'ATE': torch.mean(abs_dist_error_unreduced), 
+#                    'RPE': torch.mean(dist_rel_error_unreduced), 
+#                    'MEAN_ABS_ROT_ERR': torch.mean(torch.abs(abs_rot_error_unreduced)),
+#                    'MEAN_REL_ROT_ERR':torch.mean(torch.abs(mean_rel_rot_err_unreduced))
+#                   }
+#     else: 
+#          metrics = {'ATE': abs_dist_error_unreduced, 
+#                     'RPE': dist_rel_error_unreduced, 
+#                     'MEAN_ABS_ROT_ERR': abs_rot_error_unreduced,
+#                     'MEAN_REL_ROT_ERR': rel_target_angle - rel_pred_angle,
+#                   }
     
-    return ATE, RPE, mean_abs_rot_err, mean_rel_rot_err
+#     return ATE, RPE, mean_abs_rot_err, mean_rel_rot_err
 
 
 
