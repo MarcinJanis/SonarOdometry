@@ -34,14 +34,40 @@ weight = 0.5 / dx = scale [pix/unit] / 2*dx
 
 # ==== for theta ==== 
 
----------------------------------------------------------dx_pix = dx*scale = 0.04056 rad * 211.6588 pix/rad = 8.5848 pix for mean rotation movement 
-
-weight_theta = scale_theta / (2 * dx) = 2609
+weight_theta = scale_theta / (2 * dx) =  211.6588 / (2 * 0.045.. rad) = 2609
 
 # ==== for r ==== 
 
----------------------------------------------------------dx_pix = dx*scale = 0.2693 m * 5.02 pix/m = 1.35188 pix for mean rotation movement 
-weight_r = scale_r / (2 * 0.2693 m ) = 9.33
+weight_r = scale_r / (2 * dx ) = 5.02 / (2 * dx 0.2693 m )= 9.33
+
+
+____ 
+## Correlation area calculation
+
+mean value (r, theta) between following steps:
+
+dr_mean = 0.2693 m
+dtheta_mean = 0.045 rad
+
+dr_max = 0.2693 m
+dtheta_max = 0.045 rad
+
+if means, after max step, object can change posiiton on image:
+
+v = (2 * 0.2693 m * 5.02 pix/m, 2 * 0.045 rad * 211.6588 pix/rad) = (2.70, 19.04)
+
+on feature map, which is downsized 4 times it became: 
+v_fmap = v / 4 =(0.675, 4.76).
+
+So, it is necessery to search at least area (-5, 5) from patch center on fmap. That will cover (-20, 20) pix on original image. 
+
+I set search_size = 7, it covers (-3, 3) on fmap. 
+
+2-nd lvl pyramid. 
+I passed fmap through avg_pool2d. It downsampled 2 times fmap. I calculate correlation on search size, 
+Then correlation of my patch is calculate with each search_size * search_size area. 
+It gives us again, search size (-3, 3) on downsample fmap -> (-6, 6) on orginal fmap -> 2nd lvl fmap can see the biggest considered movement. 
+is it enough? 
 
 
 
