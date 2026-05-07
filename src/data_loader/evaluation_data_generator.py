@@ -14,7 +14,7 @@ import torchvision.transforms.functional as F_t
 import matplotlib.pyplot as plt
 import matplotlib.style as style
 
-from .metrics import align_traj
+from .metrics import eval_metrics
 
 style.use('fast')
 
@@ -79,7 +79,7 @@ class DataGenerator():
     def read_pts(self, csv_pth):
         self.pts3d = pd.read_csv(csv_pth, usecols=['x', 'y', 'z'])
 
-    def generate_trajectory_map_2d(self, plane = 'xy', show = {'gt':True,'traj':True,'pts':True, 'align':True}, start = 0, end = 1, colors = ('red', 'green', 'blue', 'orange'), traj_width = 2, pt_size = 3, markers='x', save_to_file = None):
+    def generate_trajectory_map_2d(self, plane = 'xy', show = {'gt':True,'traj':True,'pts':True}, start = 0, end = 1, colors = ('red', 'green', 'blue', 'orange'), traj_width = 2, pt_size = 3, markers='x', save_to_file = None):
         # show_traj = (gt, primary, secondary)
         
         traj_len = [len(traj) for traj in self.predict_traj.values()]
@@ -134,14 +134,14 @@ class DataGenerator():
                 ax.scatter(traj1_x[0], traj1_y[0], color='black', zorder=5)
                 ax.scatter(traj1_x[-1], traj1_y[-1], color='black', zorder=5)
             
-            if show['align']:
-                for k in range(len(predict_traj)):
-                    traj = predict_traj[k].iloc[start_idx:end_idx].values
-                    gt = self.pose.iloc[start_idx:end_idx].values
-                    traj_lbl = predict_traj_lbl[k]
-                    traj_aligned = align_traj(traj, gt)
-                    traj_aligned_x, traj_aligned_y = traj_aligned[:, ax1], traj_aligned[:, ax2]
-                    ax.plot(traj_aligned_x, traj_aligned_y, color=colors[k], linewidth=traj_width, alpha=1, linestyle='--', marker = markers, label=f'{traj_lbl} aligned')
+            # if show['align']:
+            #     for k in range(len(predict_traj)):
+            #         traj = predict_traj[k].iloc[start_idx:end_idx].values
+            #         gt = self.pose.iloc[start_idx:end_idx].values
+            #         traj_lbl = predict_traj_lbl[k]
+            #         traj_aligned = align_traj(traj, gt)
+            #         traj_aligned_x, traj_aligned_y = traj_aligned[:, ax1], traj_aligned[:, ax2]
+            #         ax.plot(traj_aligned_x, traj_aligned_y, color=colors[k], linewidth=traj_width, alpha=1, linestyle='--', marker = markers, label=f'{traj_lbl} aligned')
 
         if show['pts']:
             x = self.pts3d.iloc[start_idx:end_idx].values[:, ax1]
@@ -235,14 +235,14 @@ class DataGenerator():
                 ax.scatter(traj_x[0], traj_y[0], traj_z[0], color=colors[k], s=50, label='Start')
                 ax.scatter(traj_x[-1], traj_y[-1], traj_z[-1], color=colors[k], s=50, label='End')
 
-            if show['align']:
-                for k in range(len(predict_traj)):
-                    traj = predict_traj[k].iloc[start_idx:end_idx].values
-                    gt = self.pose.iloc[start_idx:end_idx].values
-                    traj_lbl = predict_traj_lbl[k]
-                    traj_aligned = align_traj(traj, gt, init_pt_only=True)
-                    traj_aligned_x, traj_aligned_y, traj_aligned_z = traj_aligned[:, 0], traj_aligned[:, 1], traj_aligned[:, 2]
-                    ax.plot(traj_aligned_x, traj_aligned_y, traj_aligned_z, color=colors[k], label=f'{traj_lbl} aligned', linestyle='--', linewidth=traj_width,  alpha=0.7)
+            # if show['align']:
+            #     for k in range(len(predict_traj)):
+            #         traj = predict_traj[k].iloc[start_idx:end_idx].values
+            #         gt = self.pose.iloc[start_idx:end_idx].values
+            #         traj_lbl = predict_traj_lbl[k]
+            #         traj_aligned = align_traj(traj, gt, init_pt_only=True)
+            #         traj_aligned_x, traj_aligned_y, traj_aligned_z = traj_aligned[:, 0], traj_aligned[:, 1], traj_aligned[:, 2]
+            #         ax.plot(traj_aligned_x, traj_aligned_y, traj_aligned_z, color=colors[k], label=f'{traj_lbl} aligned', linestyle='--', linewidth=traj_width,  alpha=0.7)
         
         # --- 3D Points ---
         if show['pts'] and self.pts3d is not None:
@@ -319,6 +319,71 @@ class DataGenerator():
                 transparent=False       
             )
 
+    def evaluate(self):
+        
+        traj_len = [len(traj) for traj in self.predict_traj.values()]
+        traj_len.append(self.get_len())
+        n_max = min(traj_len)
+
+        start_idx =  int(start * n_max)
+        end_idx = int(end * n_max)
+
+        # --- gt data --- 
+        pose_gt = self.pose.iloc[start_idx:end_idx].values
+        pose_gt = self.calibration.pose(pose_gt)
+
+        predict_traj = list(self.predict_traj.values())
+        predict_traj_lbl =  list(self.predict_traj.keys())
+
+        # --- predicted data ---
+        
+        predict_traj = list(self.predict_traj.values())
+        predict_traj_lbl =  list(self.predict_traj.keys())
+        
+        for k in range(len(predict_traj)):
+            
+            traj = predict_traj[k].iloc[start_idx:end_idx].values
+            name = predict_traj_lbl[k]
+            metrics_reduced = eval_metrics(traj, pose_gt, reduction = 'mean')
+            metrics_data = eval_metrics(traj, pose_gt, reduction = 'None')
+            steps = np.arange(metrics_data['num_steps'])
+            
+            fig1, ax1 = plt.subplots(figsize=(20, 20))
+            ax1.plot(steps, metrics_data['ATE'], color='red')
+            ax1.plot(steps, metrics_data['RPE_translation'], color='green')
+            ax1.set_title(f"Błąd pozycji")
+            ax1.minorticks_on()
+            ax1.grid(which='major', linestyle='-', linewidth='0.5', color='black', alpha=0.7)
+            ax1.grid(which='minor', linestyle=':', linewidth='0.3', color='black', alpha=0.5)
+            ax1.legend()
+
+            fig2, ax2 = plt.subplots(figsize=(20, 20))
+            ax2.plot(steps, metrics_data['ARE'], color='red')
+            ax2.plot(steps, metrics_data['RPE_rotation'], color='green')
+            ax2.set_title(f"Błąd rotacji")
+            ax2.minorticks_on()
+            ax2.grid(which='major', linestyle='-', linewidth='0.5', color='black', alpha=0.7)
+            ax2.grid(which='minor', linestyle=':', linewidth='0.3', color='black', alpha=0.5)
+            ax2.legend()
+            
+            print('='*50)
+            print(''*20, 'Evaluation metrics', )
+            print('='*50)
+            print('Position error:')
+            print('    Absolute Trajectory Error:')
+            print(f'        mean: {:.2}, std: {:.2}')
+            print('    Relative Pose Error:')
+            print(f'        mean: {:.2}, std: {:.2}')
+            print('Rotation error:')
+            print('    Absolute Rotation Error:')
+            print(f'        mean: {:.2}, std: {:.2}')
+            print('    Relative Rotation Error:')
+            print(f'        mean: {:.2}, std: {:.2}')
+
+        plt.show()
+
+            
+        
     # def evaluate(self):
         
     #     # metrics for all loaded trajectories:
