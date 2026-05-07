@@ -69,6 +69,19 @@ Then correlation of my patch is calculate with each search_size * search_size ar
 It gives us again, search size (-3, 3) on downsample fmap -> (-6, 6) on orginal fmap -> 2nd lvl fmap can see the biggest considered movement. 
 is it enough? 
 
+Search size changed to 11. 
+To void OOM: 
+
+i config/model.yaml:
+search_h = 7 
+search_w = 15
+
+in graph/corr():
+
+r_range_y = torch.arange(-(search_h // 2), search_h // 2 + 1, device=device)
+r_range_x = torch.arange(-(search_w // 2), search_w // 2 + 1, device=device)
+dy, dx = torch.meshgrid(r_range_y, r_range_x, indexing="ij")
+
 
 
 
