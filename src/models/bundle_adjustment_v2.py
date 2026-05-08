@@ -23,9 +23,13 @@ class BundleAdjustment(nn.Module):
         self.sonar_param = sonar_param
         self.damping = damping
 
-        self.err_scale = torch.tensor([1.0, 1.0], device = self.device)
-        self.damping_trans_weight = 5.0
-        self.damping_rot_weight = 400.0
+        # self.err_scale = torch.tensor([1.0, 1.0], device = self.device)
+
+        # For details see BA_test.ipynb
+        # damping_trans_weight = scale [pix/m] / (2 * max_permissible_trans)
+        # damping_trans_weight = scale [pix/rad] / (2 * max_permissible_rot)
+        self.damping_trans_weight = 9.329494828396749
+        self.damping_rot_weight = 2608.996360840966
 
         if freeze_poses < 1:
             freeze_poses = 1
@@ -156,7 +160,7 @@ class BundleAdjustment(nn.Module):
         project_err = torch.stack([projection_err_r, projection_err_theta], dim=2)
         
         # add weights, err scale
-        weighted_err = project_err * self.err_scale * self.weights
+        weighted_err = project_err * self.weights
         
         return weighted_err
 

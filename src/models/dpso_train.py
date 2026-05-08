@@ -172,7 +172,7 @@ class DPSO_train(nn.Module):
                                 coords_r_theta.detach(), coords_phi.detach(), 
                                 src_frames_idx.detach(), tgt_frames_idx.detach(), patches_idx.detach(),
                                 delta.detach(), weights_ba.detach(),
-                                self.sonar_param, ba_freeze_poses)
+                                self.sonar_param, ba_freeze_poses, damping = True)
             BA.to(device)
 
             with torch.no_grad():
@@ -209,9 +209,9 @@ class DPSO_train(nn.Module):
             origin_poses = ref_poses.view(b*n_act, 7)[src_frames_idx, :]
             target_poses = ref_poses.view(b*n_act, 7)[tgt_frames_idx, :]
 
-            if supervised: # transform phi to sonar reference frame
-                origin_poses_pitch = pp.SO3(origin_poses[:, 3:]).euler()[:, 1] 
-                ref_phi = ref_phi - origin_poses_pitch.unsqueeze(1)
+            # if supervised: # transform phi to sonar reference frame
+            #     ref_phi = pp.SO3(origin_poses[:, 3:]).euler()[:, 1] 
+            #     # ref_phi = ref_phi - origin_poses_pitch.unsqueeze(1)
             
             origin_points = torch.cat([coords_r_theta_expand, ref_phi], dim=1).detach() # detach(), bec its reference val to loss!
 
@@ -231,8 +231,8 @@ class DPSO_train(nn.Module):
             pred_projection = project_points(origin_points, pred_origin_poses, pred_target_poses)    
             pred_projection = pred_projection[:, :2] * physic2fls_scale_factor + delta
             # pred_projection = coords_r_theta_expand * physic2fls_scale_factor + delta 
-
-            output_iter.append((poses, ref_projection, pred_projection, valid_mask, weights_s))
+            
+            output_iter.append((poses, ref_projection, pred_projection, valid_mask, weights_s, delta.clone().detach()))
             
             # --- feedback after BA --- 
             poses = poses_optimized
