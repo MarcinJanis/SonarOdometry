@@ -66,18 +66,18 @@ ELEVATION_INIT_MODE: 'zeros' #'rand', 'zeros' or None
 
 # === Update operation and bundle adjustment === #
 
-UPDATE_ITERATION: 1 
+# UPDATE_ITERATION: 1 
 # number of iteration of optimization loop 
 # for inference mode only, not used in train 
 
 BUNDLE_ADJUSTMENT:
   MAX_ITERATION_TRAIN: 5 # max iteration of bundle adjustment in train mode
-  MAX_ITERATION_EVAL: 20 # max iteration of bundle adjustment in evaluation mode
+  MAX_ITERATION_EVAL: 15 # max iteration of bundle adjustment in evaluation mode
   PATIENCE: 5 # early stopping patience
   STEP_TRANSLATION: 0.05 # inital lr for optimization for translation
   STEP_ROTATION: 0.01 # inital lr for optimization for rotation
   STEP_ELEV: 0.01  # inital lr for optimization for elevation angle
-  FREEZE_POSES: 15 # number of poses to not change while optimization, min 1.
+  FREEZE_POSES: 4 # number of poses to not change while optimization, min 1.
 
 
 

@@ -25,12 +25,12 @@ class DPSO_LightningModule(pl.LightningModule):
 
         if mode == 'supervised':
             self.supervised = True
-            self.freeze_poses_steps = traning_param['freeze_poses_steps']
+            self.freeze_poses = traning_param['freeze_poses']
         else:
             self.supervised = False
 
-        self.init_poses_noise = traning_param['init_pose_max_noise']
-        self.freeze_weights_global_steps = traning_param['freeze_weights_global_steps']
+        self.init_poses_noise_trans = traning_param['init_pose_max_noise_trans']
+        self.init_poses_noise_rot = traning_param['init_pose_max_noise_rot']
         self.gamma = traning_param['weights_loss_gamma']
 
     def configure_optimizers(self):
@@ -58,13 +58,13 @@ class DPSO_LightningModule(pl.LightningModule):
     def training_step(self, batch, batch_idx):
 
         # freeze poses 
-        if self.supervised: 
-            if self.global_step < self.freeze_poses_steps:
-                freeze_poses = True
-            else:
-                freeze_poses = False
-        else:
-            freeze_poses = False
+        # if self.supervised: 
+        #     if self.freeze_poses:
+        #         freeze_poses = True
+        #     else:
+        #         freeze_poses = False
+        # else:
+        #     freeze_poses = False
 
         # loss_trans = 0.0
         # loss_rot = 0.0
@@ -79,8 +79,8 @@ class DPSO_LightningModule(pl.LightningModule):
                         poses_gt=trajectory_gt, 
                         depth_gt=depth_gt, 
                         supervised=self.supervised, 
-                        freeze_poses=freeze_poses, 
-                        init_poses_noise=self.init_poses_noise, 
+                        freeze_poses=self.freeze_poses, 
+                        init_poses_noise=(self.init_poses_noise_trans, self.init_poses_noise_rot),
                         debug_logger=False)
 
 
@@ -98,7 +98,7 @@ class DPSO_LightningModule(pl.LightningModule):
             err_raw = F.smooth_l1_loss(predicted_projection, target_projection, reduction='none', beta=1.0)
           
             # --- weights - Kandell Loss --- 
-            if self.global_step < self.freeze_weights_global_steps: 
+            if self.freeze_poses: 
                 # do not use weighted error
                 loss_weighted = err_raw
             else:
@@ -142,7 +142,7 @@ class DPSO_LightningModule(pl.LightningModule):
                         poses_gt=trajectory_gt, 
                         depth_gt=depth_gt, 
                         supervised=self.supervised, 
-                        freeze_poses=freeze_poses, 
+                        freeze_poses=self.freeze_poses, 
                         init_poses_noise=0.0, 
                         debug_logger=False)
 

@@ -58,7 +58,7 @@ class DPSO_train(nn.Module):
         self.calib = ExtrinsicsCalib(T = [sonar_config.position.x, sonar_config.position.y, sonar_config.position.z],
                                      R = [sonar_config.position.roll, sonar_config.position.pitch, sonar_config.position.yaw])
 
-    def forward(self, frames, timestamp, poses_gt, depth_gt, supervised, freeze_poses=False, init_poses_noise = 0.0, debug_logger=False):
+    def forward(self, frames, timestamp, poses_gt, depth_gt, supervised, freeze_poses=False, init_poses_noise = (0.0, 0.0), debug_logger=False):
         
         device = frames.device
         
@@ -76,16 +76,22 @@ class DPSO_train(nn.Module):
         # global features extractor on whole sequence
         coords_phi, coords_r_theta  = self.PatchGraph.extract_features(frames, device) 
         
-        # init poses and time  stamps
-        if freeze_poses:
-            poses = poses_gt[:, :self.init_frames, :]
-        else: 
-            poses = poses_gt[:, :self.init_frames, :]
-            noise_translation = torch.rand_like(poses[:, :, :3]) * init_poses_noise
-            noise_rotation = torch.rand_like(poses[:, :, 3:]) * 0.1 * init_poses_noise
-            noise = torch.cat([noise_translation, noise_rotation], dim=-1)
-            poses = poses + noise
-            poses[:, :, 3:] = F.normalize(poses[:, :, 3:], p=2, dim=-1)
+        # init poses and time stamps
+        
+        if self.init_frames > 2:
+            poses_anchored_num = 2
+        else:
+            poses_anchored_num = 1
+
+        anchor_poses = poses_gt[:, :poses_anchored_num, :]
+
+        poses = poses_gt[:, :self.init_frames, :]
+        noise_translation = (torch.rand_like(poses[:, :, :3]) - 0.5) * 2 * init_poses_noise[0]
+        noise_rotation = (torch.rand_like(poses[:, :, 3:]) - 0.5) * 2 * init_poses_noise[1]
+        noise = torch.cat([noise_translation, noise_rotation], dim=-1)
+        poses = poses + noise
+        poses[:, :, 3:] = F.normalize(poses[:, :, 3:], p=2, dim=-1)
+        poses[:, :poses_anchored_num, :] = anchor_poses
 
         # init edges
         self.PatchGraph.init_edges(self.init_frames, device)
@@ -106,6 +112,13 @@ class DPSO_train(nn.Module):
                 
                 if freeze_poses:
                     new_pose = poses_gt[:, i, :]
+                    
+                    noise_translation = (torch.rand_like(new_pose[:, :3]) - 0.5) * 2* init_poses_noise
+                    noise_rotation = (torch.rand_like(new_pose[:, 3:]) - 0.5) * 2 * 0.1 * init_poses_noise
+                    noise = torch.cat([noise_translation, noise_rotation], dim=-1)
+                    new_pose = new_pose + noise
+                    new_pose[:, 3:] = F.normalize(new_pose[:, 3:], p=2, dim=-1)
+
                 else:
                     x1, x2 = poses[:, i-2, :], poses[:, i-1, :]
                     t1, t2, t3 = timestamp[:, i-2], timestamp[:, i-1], timestamp[:, i]
