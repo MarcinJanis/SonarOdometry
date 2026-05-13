@@ -193,7 +193,7 @@ class BundleAdjustment(nn.Module):
                 
                 # --- smooth L1 loss ---
                 #  (L1 for big err, L2 for small err)
-                loss = F.smooth_l1_loss(err, torch.zeros_like(err), beta=10.0)
+                loss = F.smooth_l1_loss(err, torch.zeros_like(err), beta=2.5)
 
                 # --- Add prior/damper for optimizer ---
                 

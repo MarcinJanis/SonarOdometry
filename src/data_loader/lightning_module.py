@@ -98,7 +98,7 @@ class DPSO_LightningModule(pl.LightningModule):
 
             # --- Smooth L1 Loss with valid mask ---
             # use L1 norm, when err > beta, use L2 if err < beta
-            err_raw = F.smooth_l1_loss(predicted_projection, target_projection, reduction='none', beta=1.0)
+            err_raw = F.smooth_l1_loss(predicted_projection, target_projection, reduction='none', beta=2.5)
           
             # --- weights - Kandell Loss --- 
             if self.freeze_poses: 
