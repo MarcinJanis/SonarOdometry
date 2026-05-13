@@ -33,6 +33,9 @@ class DPSO_LightningModule(pl.LightningModule):
         self.init_poses_noise_rot = traning_param['init_pose_max_noise_rot']
         self.gamma = traning_param['weights_loss_gamma']
 
+        self.log_var_r = torch.nn.Parameter(torch.zeros(1))
+        self.log_var_theta = torch.nn.Parameter(torch.zeros(1))
+
     def configure_optimizers(self):
 
         optimizer = torch.optim.AdamW(self.parameters(), lr=1e-4, weight_decay=1e-4)
@@ -116,7 +119,12 @@ class DPSO_LightningModule(pl.LightningModule):
 
             # accumulate loss components
 
-            step_loss = proj_x_err + proj_y_err
+            weighted_loss_r = torch.exp(-self.log_var_r) * proj_x_err + self.log_var_r
+            weighted_loss_theta = torch.exp(-self.log_var_theta) * proj_y_err + self.log_var_theta
+
+            step_loss = weighted_loss_r + weighted_loss_theta
+
+            # step_loss = proj_x_err + proj_y_err
             weight_step = self.gamma ** (max_pred_iter - k - 1)
             total_loss += weight_step * step_loss
     
@@ -127,7 +135,8 @@ class DPSO_LightningModule(pl.LightningModule):
         # --- log stats ---
 
         self.log_dict({'total_loss':total_loss, 'mean_projection_err_r':proj_x_err, 'mean_projection_err_theta':proj_y_err, 
-                       'mean_weights_r':torch.mean(weights[:, 0]), 'mean_weights_theta':torch.mean(weights[:, 1])}, 
+                       'mean_weights_r':torch.mean(weights[:, 0]), 'mean_weights_theta':torch.mean(weights[:, 1]), 'valid_edges_num':valid_edges_num,
+                       'train/log_var_r':self.log_var_r, 'train/log_var_theta':self.log_var_theta}, 
                        on_step=True, on_epoch=False, logger=True)
 
         return total_loss
@@ -172,7 +181,7 @@ class DPSO_LightningModule(pl.LightningModule):
         metrics['mean_abs_weights_theta'] = torch.mean(torch.abs(weights_s[:, 1]))
         metrics['mean_abs_delta_r'] = torch.mean(torch.abs(delta[:, 0]))
         metrics['mean_abs_delta_theta'] = torch.mean(torch.abs(delta[:, 1]))
-        
+        metrics['valid_edges_num'] = valid_edges_num
         self.log_dict(metrics, on_step=False, on_epoch=True, logger=True)
         self.log('val_loss', val_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
 
