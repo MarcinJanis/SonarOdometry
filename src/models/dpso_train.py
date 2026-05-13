@@ -52,6 +52,12 @@ class DPSO_train(nn.Module):
 
         assert frames_in_series >= init_frames, f'[Error] Frames number for initialization shall be equal or smaller than total frames number'
 
+        scale_factor = torch.tensor([
+            model_config.FLS_INPUT_HEIGHT / (sonar_config.range.max - sonar_config.range.min),
+            model_config.FLS_INPUT_WIDTH / sonar_config.fov.horizontal
+        ]).view(1, 2)
+        self.register_buffer('physic2fls_scale_factor', scale_factor)
+
         # --- init modules --- 
         self.PatchGraph = Graph(model_config, sonar_config, batch_size, frames_in_series)
         self.UpdateOperator = Update(model_config)
@@ -112,9 +118,8 @@ class DPSO_train(nn.Module):
                 
                 if freeze_poses:
                     new_pose = poses_gt[:, i, :]
-                    
-                    noise_translation = (torch.rand_like(new_pose[:, :3]) - 0.5) * 2* init_poses_noise
-                    noise_rotation = (torch.rand_like(new_pose[:, 3:]) - 0.5) * 2 * 0.1 * init_poses_noise
+                    noise_translation = (torch.rand_like(new_pose[:, :3]) - 0.5) * 2 * init_poses_noise[0]
+                    noise_rotation = (torch.rand_like(new_pose[:, 3:]) - 0.5) * 2 * init_poses_noise[1]
                     noise = torch.cat([noise_translation, noise_rotation], dim=-1)
                     new_pose = new_pose + noise
                     new_pose[:, 3:] = F.normalize(new_pose[:, 3:], p=2, dim=-1)
@@ -185,7 +190,8 @@ class DPSO_train(nn.Module):
                                 coords_r_theta.detach(), coords_phi.detach(), 
                                 src_frames_idx.detach(), tgt_frames_idx.detach(), patches_idx.detach(),
                                 delta.detach(), weights_ba.detach(),
-                                self.sonar_param, ba_freeze_poses, damping = True)
+                                self.physic2fls_scale_factor.view(1, 1, 2), 
+                                ba_freeze_poses, damping = True)
             BA.to(device)
 
             with torch.no_grad():
@@ -199,9 +205,11 @@ class DPSO_train(nn.Module):
             # t4 = time.time()
 
             # --- Reprojection error ---
-            physic2fls_scale_factor = torch.tensor([self.sonar_param.resolution.bins / (self.sonar_param.range.max - self.sonar_param.range.min),
-                                                    self.sonar_param.resolution.beams / self.sonar_param.fov.horizontal], device = device).view(1, 2)
+            # physic2fls_scale_factor = torch.tensor([self.sonar_param.resolution.bins / (self.sonar_param.range.max - self.sonar_param.range.min),
+            #                                         self.sonar_param.resolution.beams / self.sonar_param.fov.horizontal], device = device).view(1, 2)
             
+            
+                            
             b, n, p, _ = coords_r_theta.shape
             coords_r_theta_expand = coords_r_theta.view(b*n*p, 2)[patches_idx]
 

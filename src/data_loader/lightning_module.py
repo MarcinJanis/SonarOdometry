@@ -79,13 +79,16 @@ class DPSO_LightningModule(pl.LightningModule):
                         poses_gt=trajectory_gt, 
                         depth_gt=depth_gt, 
                         supervised=self.supervised, 
-                        freeze_poses=self.freeze_poses, 
+                        freeze_poses=self.freeze_poses,
                         init_poses_noise=(self.init_poses_noise_trans, self.init_poses_noise_rot),
                         debug_logger=False)
 
 
         # --- iterate over each prediction --- 
         max_pred_iter = len(pred)
+
+        total_loss = 0.0
+
         for k, (pred_poses, target_projection, predicted_projection, valid_mask, weights, delta) in enumerate(pred):
             
             # --- reprojection error --- 
@@ -108,8 +111,8 @@ class DPSO_LightningModule(pl.LightningModule):
             #  --- mask weighted error - keep gradient for valid edges only --- 
             patch_proj_err = valid_mask.unsqueeze(-1) * loss_weighted
 
-            proj_x_err = torch.sum(patch_proj_err[:, 0]) / valid_edges_num # theta err 
-            proj_y_err = torch.sum(patch_proj_err[:, 1]) / valid_edges_num # r err
+            proj_x_err = torch.sum(patch_proj_err[:, 0]) / valid_edges_num # r err 
+            proj_y_err = torch.sum(patch_proj_err[:, 1]) / valid_edges_num # theta err
 
             # accumulate loss components
 
@@ -123,14 +126,13 @@ class DPSO_LightningModule(pl.LightningModule):
 
         # --- log stats ---
 
-        self.log_dict({'total_loss':total_loss, 'mean_projection_err_r':proj_y_err, 'mean_projection_err_theta':proj_x_err, 
+        self.log_dict({'total_loss':total_loss, 'mean_projection_err_r':proj_x_err, 'mean_projection_err_theta':proj_y_err, 
                        'mean_weights_r':torch.mean(weights[:, 0]), 'mean_weights_theta':torch.mean(weights[:, 1])}, 
                        on_step=True, on_epoch=False, logger=True)
 
         return total_loss
 
        
-
     def validation_step(self, batch, batch_idx):
         
         freeze_poses = False 
@@ -142,8 +144,8 @@ class DPSO_LightningModule(pl.LightningModule):
                         poses_gt=trajectory_gt, 
                         depth_gt=depth_gt, 
                         supervised=self.supervised, 
-                        freeze_poses=self.freeze_poses, 
-                        init_poses_noise=0.0, 
+                        freeze_poses=freeze_poses, 
+                        init_poses_noise=(self.init_poses_noise_trans, self.init_poses_noise_rot), 
                         debug_logger=False)
 
         pred_poses, target_projection, predicted_projection, valid_mask, weights_s, delta = pred[-1]
@@ -164,11 +166,12 @@ class DPSO_LightningModule(pl.LightningModule):
         val_loss = proj_y_err + proj_x_err
 
         # --- log metric --- 
-        metrics = eval_metrics(pred_poses, trajectory_gt, reduction = 'mean') 
-        metrics['mean_abs_weights_r':torch.mean(torch.abs(weights_s[:, 0])),
-                'mean_abs_weights_theta':torch.mean(torch.abs(weights_s[:, 1])),
-                'mean_abs_delta_r':torch.mean(torch.abs(delta[:, 0])),
-                'mean_abs_delta_theta':torch.mean(torch.abs(delta[:, 1])),]
+        trajectory_gt_sonar = self.model.calib.pose(trajectory_gt)
+        metrics = eval_metrics(pred_poses, trajectory_gt_sonar, reduction = 'mean') 
+        metrics['mean_abs_weights_r'] = torch.mean(torch.abs(weights_s[:, 0]))
+        metrics['mean_abs_weights_theta'] = torch.mean(torch.abs(weights_s[:, 1]))
+        metrics['mean_abs_delta_r'] = torch.mean(torch.abs(delta[:, 0]))
+        metrics['mean_abs_delta_theta'] = torch.mean(torch.abs(delta[:, 1]))
         
         self.log_dict(metrics, on_step=False, on_epoch=True, logger=True)
         self.log('val_loss', val_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)

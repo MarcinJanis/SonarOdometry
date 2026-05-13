@@ -19,7 +19,7 @@ def eval_metrics(pred, gt, reduction = 'mean'):
     # --- ABSOLUTE ERROR --- 
     absolute_pose_error_unreduced = (pred_se3.Inv() * gt_se3)
     # Absolute trajectory error - unreduced
-    ATE = absolute_pose_error_unreduced.translation().norm()
+    ATE = absolute_pose_error_unreduced.translation().norm(dim=-1)
     # Absolute rotation error - unreduced
     ARE = absolute_pose_error_unreduced.Log()[:, 3:].norm(dim=-1)
     
@@ -30,7 +30,7 @@ def eval_metrics(pred, gt, reduction = 'mean'):
     diff_se3 = pred_diff_se3.Inv() * gt_diff_se3
 
     # Relative trajectory error - unreduced
-    RPE_trans = diff_se3.translation().norm()
+    RPE_trans = diff_se3.translation().norm(dim=-1)
     # Relative rotation error - unreduced
     RPE_rot = diff_se3.Log()[:, 3:].norm(dim=-1)
     

@@ -16,8 +16,8 @@ class Graph(nn.Module):
         self.r_min = sonar_cfg.range.min # min range
         self.r_max = sonar_cfg.range.max # max range
 
-        self.fls_h = sonar_cfg.resolution.bins # vertical resolution of input fls image
-        self.fls_w = sonar_cfg.resolution.beams # horizontal resolution of input fls image
+        # self.fls_h = sonar_cfg.resolution.bins # vertical resolution of input fls image
+        # self.fls_w = sonar_cfg.resolution.beams # horizontal resolution of input fls image
 
         self.fov_vertical = sonar_cfg.fov.vertical # vertical fov [rad]
         self.fov_horizontal = sonar_cfg.fov.horizontal # horizontal fov [rad]
@@ -32,9 +32,12 @@ class Graph(nn.Module):
         self.cmap_c = model_cfg.CONTEXT_OUTPUT_CH # context features = hidden state features 
 
         self.corr_neighbour = model_cfg.CORR_NEIGHBOUR # size of nieghbour of projected patch that is used in correlation calculations
-        self.fmap_h = sonar_cfg.resolution.bins // model_cfg.ENCODER_DOWNSIZE # feature map size h
-        self.fmap_w = sonar_cfg.resolution.beams // model_cfg.ENCODER_DOWNSIZE # feature map size w
+        # self.fmap_h = sonar_cfg.resolution.bins // model_cfg.ENCODER_DOWNSIZE # feature map size h
+        # self.fmap_w = sonar_cfg.resolution.beams // model_cfg.ENCODER_DOWNSIZE # feature map size w
         
+        self.fls_h = model_cfg.FLS_INPUT_HEIGHT # // model_cfg.ENCODER_DOWNSIZE # 500
+        self.fls_w = model_cfg.FLS_INPUT_WIDTH  # // model_cfg.ENCODER_DOWNSIZE # 480
+
         self.encoder_downsize = model_cfg.ENCODER_DOWNSIZE # encoder downsize factor 
         self.fmap_downsize = model_cfg.FMAP_DOWNSIZE # encoder downsize factor 
 
@@ -230,18 +233,25 @@ class Graph(nn.Module):
         center_traget_coords = tgt_coords_val_fls[:, [1, 0]] / self.encoder_downsize 
         center_target_coords = center_traget_coords.view(valid_edges_num, 1, 1, 2) # reshape for broadcasting
 
+
         # create sampling grid for fmap
+        b, n, c, h, w = self.fmap.shape
+        
         grid = center_target_coords + offsets.unsqueeze(0) # add offsets to coords center 
-        norm_factor = torch.tensor([((self.fls_w / self.encoder_downsize) - 1) / 2.0, 
-                                     ((self.fls_h / self.encoder_downsize)- 1) / 2.0], 
-                                     device=device)
-        grid = (grid / norm_factor) - 1.0
+        # norm_factor = torch.tensor([((self.fls_w / self.encoder_downsize) - 1) / 2.0, 
+        #                              ((self.fls_h / self.encoder_downsize)- 1) / 2.0], 
+        #                              device=device)
+        # norm_factor = torch.tensor([(w - 1) / 2.0, (h - 1) / 2.0], device=device)
+        # grid = (grid / norm_factor) - 1.0
+
+        norm_factor = torch.tensor([w, h], device=device, dtype=torch.float)
+        grid = (2.0 * grid + 1.0) / norm_factor - 1.0
+
         # grid shape (E, S, S, 2), E - edges num, S - search size 
 
-        b, n, c, h, w = self.fmap.shape
-        fmap = self.fmap.view(b*n, c, h, w) 
-
+    
         # --- sampling from fmap ---
+        fmap = self.fmap.view(b*n, c, h, w) 
         # To avoid creating copy of fmap for each patch (OOM), patches are grouped by common target frame,
         # and all selected patches are sampled from it once
         
@@ -271,7 +281,7 @@ class Graph(nn.Module):
             # then patches are reshaped to proper size
 
             grid_reshaped = grid_act.view(1, edges_act * search_size, search_size, 2)
-            sampled_patch = F.grid_sample(fmap_tgt, grid_reshaped, mode='bilinear', padding_mode='zeros', align_corners=True)
+            sampled_patch = F.grid_sample(fmap_tgt, grid_reshaped, mode='bilinear', padding_mode='zeros', align_corners=False)
             corr_neighbur_fmap_list.append(sampled_patch.view(edges_act, c, search_size, search_size))
 
         # connect all sampled patches, and restor orginal order 

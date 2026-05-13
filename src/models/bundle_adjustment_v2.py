@@ -13,31 +13,31 @@ class BundleAdjustment(nn.Module):
                  init_patch_coords_phi, 
                  source_frame_idx, target_frame_idx, patch_idx,
                  delta, weights,
-                 sonar_param, freeze_poses, 
+                 physic2fls_scale_factor, freeze_poses, 
                  damping = False):
         
         super().__init__()
 
         # --- init ---
         self.device = init_poses.device
-        self.sonar_param = sonar_param
+        # self.sonar_param = sonar_param
+
         self.damping = damping
 
-        # self.err_scale = torch.tensor([1.0, 1.0], device = self.device)
 
         # For details see BA_test.ipynb
         # damping_trans_weight = scale [pix/m] / (2 * max_permissible_trans)
         # damping_trans_weight = scale [pix/rad] / (2 * max_permissible_rot)
-        self.damping_trans_weight = 9.329494828396749
-        self.damping_rot_weight = 2608.996360840966
+        self.damping_trans_weight = 2.63 / 50 # 9.329494828396749 
+        self.damping_rot_weight = 356.51 / 50# 2608.996360840966 
 
         if freeze_poses < 1:
             freeze_poses = 1
         self.freeze_poses = freeze_poses # not optimized poses number
         
         # physical to fls units scaling 
-        self.physic2fls_scale_factor = torch.tensor([sonar_param.resolution.bins / (sonar_param.range.max - sonar_param.range.min),
-                                                     sonar_param.resolution.beams / sonar_param.fov.horizontal], device = self.device).view(1, 1, 2)
+
+        self.physic2fls_scale_factor = physic2fls_scale_factor
 
         # save input shape:
         self.b, self.n_total, self.p, _ = init_patch_coords_r_theta.shape
@@ -57,9 +57,9 @@ class BundleAdjustment(nn.Module):
         self.patch_coords_r_theta = init_patch_coords_r_theta.view(1, self.edges_total, 2)
         
         # get initial poses as optimization base, saved as SE3 objects
-        init_poses = init_poses.view(1, poses_n, 7)
+        init_poses = init_poses.clone()
         init_poses[:, :, 3:] = F.normalize(init_poses[:, :, 3:], p=2, dim=-1) # normalize quaterions 
-        self.init_poses_se3 = pp.SE3(init_poses) 
+        self.init_poses_se3 = pp.SE3(init_poses)
 
         # --- define parameters to optimize --- 
 
@@ -83,10 +83,10 @@ class BundleAdjustment(nn.Module):
         # project points with actual poses, add delta from net. 
         # Result will be baseline for poses and phi angle optimization
 
-
         # reproject points with act pose
-        source_poses = init_poses[:, self.source_frame_idx, :].clone()
-        target_poses = init_poses[:, self.target_frame_idx, :].clone()
+        init_poses_flat = init_poses.view(1, poses_n, 7)
+        source_poses = init_poses_flat[:, self.source_frame_idx, :].clone()
+        target_poses = init_poses_flat[:, self.target_frame_idx, :].clone()
         
         patch_coords = self.patch_coords_r_theta[:, self.patch_idx, :] 
         elevation_angle = self.elevation_angle[:, self.patch_idx].clone().detach() 
@@ -135,8 +135,9 @@ class BundleAdjustment(nn.Module):
         # --- reproject points with actual poses --- 
 
         # expand for all edges
-        source_poses = poses[:, self.source_frame_idx, :]
-        target_poses = poses[:, self.target_frame_idx, :]
+        poses_flat = poses.view(1, self.b * self.act_n, 7)
+        source_poses = poses_flat[:, self.source_frame_idx, :]
+        target_poses = poses_flat[:, self.target_frame_idx, :]
 
         # reproject
         projected_coords = project_points(source_coords.squeeze(0), 
@@ -177,7 +178,7 @@ class BundleAdjustment(nn.Module):
 
         optimizer = torch.optim.Adam(param_groups)
         # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5)
-        scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.90)
+        scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9)
 
         best_loss = float('inf')
         best_elev_angle = None
@@ -192,15 +193,15 @@ class BundleAdjustment(nn.Module):
                 
                 # --- smooth L1 loss ---
                 #  (L1 for big err, L2 for small err)
-                loss = F.smooth_l1_loss(err, torch.zeros_like(err), beta=1.0)
+                loss = F.smooth_l1_loss(err, torch.zeros_like(err), beta=10.0)
 
                 # --- Add prior/damper for optimizer ---
                 
                 # to force back from too big changes, 
                 # add to loss punishment, proportional to changed distance
-                if self.damping: 
-                    prior_trans += torch.sum(self.trans_correction**2) * self.damping_trans_weight 
-                    priot_rot += torch.sum(self.rot_correction**2) * self.damping_rot_weight 
+                if self.damping and self.optimize_poses: 
+                    prior_trans = torch.mean(self.trans_correction**2) * self.damping_trans_weight 
+                    priot_rot = torch.mean(self.rot_correction**2) * self.damping_rot_weight 
 
                     loss = loss + prior_trans + priot_rot
 
@@ -222,8 +223,8 @@ class BundleAdjustment(nn.Module):
                     best_loss = current_loss
                     cntr = 0
                     with torch.no_grad():
-                    
-                        best_delta_pose = torch.cat([self.trans_correction.clone(), self.rot_correction.clone()], dim=-1)
+                        if self.optimize_poses:
+                            best_delta_pose = torch.cat([self.trans_correction.clone(), self.rot_correction.clone()], dim=-1)
                         best_elev_angle = self.elevation_angle.clone()
                 else:
                     cntr += 1
@@ -231,38 +232,23 @@ class BundleAdjustment(nn.Module):
                         break
         
         if best_delta_pose is None:
-            best_delta_pose = torch.cat([self.trans_correction, self.rot_correction], dim=-1)
+            if self.optimize_poses:
+                best_delta_pose = torch.cat([self.trans_correction, self.rot_correction], dim=-1)
             best_elev_angle = self.elevation_angle
 
         # post processing optimized values
 
         elevation_optimized = best_elev_angle.detach().view(self.b, self.n_total, self.p, 1)
-        
-        best_delta_poses_se3 = pp.se3(best_delta_pose.detach()).Exp()
-        base_poses = self.init_poses_se3[:, self.freeze_poses:, :]
-        new_poses_se3 = base_poses @ best_delta_poses_se3
-        frozen_poses = self.init_poses_se3[:, :self.freeze_poses, :]
+        if self.optimize_poses:
+            best_delta_poses_se3 = pp.se3(best_delta_pose.detach()).Exp()
+            base_poses = self.init_poses_se3[:, self.freeze_poses:, :]
+            new_poses_se3 = base_poses @ best_delta_poses_se3
+            frozen_poses = self.init_poses_se3[:, :self.freeze_poses, :]
 
-        # pose_optimized = torch.cat([frozen_poses, new_poses_se3], dim=1)
-        pose_optimized = torch.cat([frozen_poses.tensor(), new_poses_se3.tensor()], dim=1)
+            # pose_optimized = torch.cat([frozen_poses, new_poses_se3], dim=1)
+            pose_optimized = torch.cat([frozen_poses.tensor(), new_poses_se3.tensor()], dim=1)
+        else:
+            pose_optimized = self.init_poses_se3.tensor()
 
         return pose_optimized, elevation_optimized
     
-# def transform(source_poses, target_poses, coords):
-#     # project points from source pose to target pose frame of refernce
-#     # function operates on pp.SE3() objects
-
-#     source_poses = source_poses.squeeze(0)
-#     target_poses = target_poses.squeeze(0)
-#     coords = coords.squeeze(0)
-
-#     local_source_coords = transform_polar2cart(coords) 
-
-#     global_coords = source_poses @ local_source_coords
-
-#     local_target_coords = target_poses.Inv() @ global_coords
-
-#     coords = transform_cart2polar(local_target_coords)
-
-#     return coords.unsqueeze(0)
-       

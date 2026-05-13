@@ -14,10 +14,10 @@ class Update(nn.Module):
         self.patch_size = model_cfg.PATCH_SIZE 
         
         # correlation preprocess net
-        search_size = self.corr_neighbour * self.patch_size - 1
+        search_size = self.corr_neighbour + self.patch_size - 1
         fmap_1_c = self.patch_size**2 * search_size**2
-        fmap_2_c = self.patch_size**2 * ((search_size + 2 - 3)/2 + 1)**2 # (search_size + 2*padding - ksize) / stride + 1, see in graph.py, def corr()
-        corr_input_dim = fmap_1_c + fmap_2_c # 3025 + 900 = 3925
+        fmap_2_c = self.patch_size**2 * ((search_size + 2 - 3)//2 + 1)**2 # (search_size + 2*padding - ksize) / stride + 1, see in graph.py, def corr()
+        corr_input_dim = int(fmap_1_c + fmap_2_c) # 6525
 
         # self.corr_neighbour*self.corr_neighbour*2 #self.fmap_c*self.corr_neighbour*self.corr_neighbour*self.patch_size*self.patch_size
         hidden_state_dim = model_cfg.CONTEXT_OUTPUT_CH

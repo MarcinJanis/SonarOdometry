@@ -64,6 +64,11 @@ class Patchifier(nn.Module):
 
         return response
 
+    def _feature_map(self, frame_fmap):
+        fmap_norm = frame_fmap.norm(dim=1)
+        g = F.interpolate(fmap_norm, scale_factor=self.downsize_factor, mode='bilinear', align_corners=False)
+        return g
+    
     # def _hessian_det(self, frame, ksize=7, sigma=(0.5, 0.5)):
      
     #     # connect batch size and frames in series dimension
@@ -291,6 +296,8 @@ class Patchifier(nn.Module):
             g =  self._DoG(frame, kernel_size=5, sigma1=(0.5, 0.5), sigma2=(3.0, 3.0)) # g.shape = [b*n, c, h, w]
         elif mode == 'hessian':
             g = self._hessian_det(frame, ksize=7, sigma=(0.5, 0.5)) # g.shape = [b*n, c, h, w]
+        elif mode == 'fmap':
+            g = self._feature_map(fmap)
         else: 
             g = frame.view(b*n, c1, h, w)  # g.shape = [b*n, c, h, w]
             
