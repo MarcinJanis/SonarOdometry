@@ -133,9 +133,12 @@ class DPSO_LightningModule(pl.LightningModule):
         total_loss = total_loss / k_total
 
         # --- log stats ---
+        projection_error_log = predicted_projection - target_projection
 
-        self.log_dict({'total_loss':total_loss, 'mean_projection_err_r':proj_x_err, 'mean_projection_err_theta':proj_y_err, 
+        self.log_dict({'total_loss':total_loss, 'mean_err_r':proj_x_err, 'mean_err_theta':proj_y_err, 
+                       'mean_projection_err_r':torch.mean(torch.abs(projection_error_log[:, 0])), 'mean_projection_err_theta':torch.mean(torch.abs(projection_error_log[:, 1])),
                        'mean_weights_r':torch.mean(weights[:, 0]), 'mean_weights_theta':torch.mean(weights[:, 1]),
+                       'delta_r_mean':torch.mean(torch.abs(delta[:, 0])), 'delta_theta_mean':torch.mean(torch.abs(delta[:, 0])),
                        'log_var_r':self.log_var_r.detach(), 'log_var_theta':self.log_var_theta.detach(), 'valid_edges_num':float(valid_edges_num)}, 
                        on_step=True, on_epoch=False, logger=True)
 
