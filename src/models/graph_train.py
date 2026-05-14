@@ -5,7 +5,7 @@ import torch.nn.functional as F
 import math 
 
 from .patchifier import Patchifier
-from .utils import project_points
+from .utils import project_points, depth_to_elev_angle
 
 
 class Graph(nn.Module):
@@ -58,7 +58,9 @@ class Graph(nn.Module):
         self.frame_n = 0 # Frames cnte
         
 
-    def extract_features(self, frames, device):
+    def extract_features(self, frames, depth_gt = None):
+
+        device = frames.device
 
         coords, patches_f, patches_c, fmap = self.patchifier(frames) # extract features
         
@@ -67,7 +69,7 @@ class Graph(nn.Module):
         coords_r_theta = self.scale_fls2phisical(coords.view(b*n*p, 2)) # coords of patches (r, theta)
         self.coords_r_theta = coords_r_theta.view(b, n, p, 2)
         
-        coords_phi = self.init_phi(b, n, p, device) # coords of patches (phi) - init
+        coords_phi = self.init_phi(b, n, p, device, depth_gt) # coords of patches (phi) - init
 
         self.patches_f = patches_f # patches features
         self.patches_c = patches_c # patches context features
@@ -80,8 +82,17 @@ class Graph(nn.Module):
 
         return coords_phi, self.coords_r_theta
 
-    def init_phi(self, b, n, p, device):
-        if self.phi_init_mode == 'rand':
+    def init_phi(self, b, n, p, device, depth_gt):
+
+        if not depth_gt is None:
+            b, n, p , _ = self.coords_r_theta.shape
+            depth_gt = depth_gt.expand(b, n, p)
+            # print(depth_gt.shape, self.coords_r_theta[:, :, :, 0].shape)
+            ref_phi = depth_to_elev_angle(depth_gt, self.coords_r_theta[:, :, :, 0])
+            coords_phi = ref_phi.unsqueeze(1)
+            # print(coords_phi.shape)
+
+        elif self.phi_init_mode == 'rand':
             coords_phi = (torch.rand((b, n, p, 1), device=device, dtype=torch.float) - 0.5) * self.fov_vertical # (self.phi_max - self.phi_min) + self.phi_min
         else: 
             coords_phi = torch.zeros((b, n, p, 1), device=device, dtype=torch.float) # init elevation angle with zeros
@@ -93,7 +104,7 @@ class Graph(nn.Module):
         for sf in range(init_frames): # for each source frame
             for tf in range(init_frames): # for each target frame
                 # if sf - tf > 0: # in frames distance is smaller that time window
-                if sf != tf: 
+                if sf < tf: # if sf != tf: 
                     # edges: new patches -> old frames
                     new_i.append(torch.arange(sf * self.patches_per_frame, (sf + 1) * self.patches_per_frame, device=device)) 
                     new_j.append(torch.full((self.patches_per_frame,), tf, device=device))
@@ -180,7 +191,7 @@ class Graph(nn.Module):
 
 
     
-    def corr(self, poses, coords_phi, coords_eps, device):
+    def corr(self, poses, coords_phi, coords_eps, device, depth_gt = None):
 
         b, n, p, _ = self.coords_r_theta.shape
         n_act = poses.shape[1]
@@ -198,13 +209,18 @@ class Graph(nn.Module):
         tgt_poses = poses_flat[tgt_frame_idx]
 
         coords_r_theta = self.coords_r_theta.view(b*n*p, -1)
+
+        # === MODIFIED ==== 
+        
         coords_phi = coords_phi.view(b*n*p, -1)
+
+        # === END MODIFIED ==== 
 
         src_coords = torch.cat([coords_r_theta, coords_phi], dim=1)[self.i]
 
         # reproject
         tgt_cooords = project_points(src_coords, src_poses, tgt_poses)
-
+        
         # --- edge validation ---
 
         theta_max = self.fov_horizontal / 2
@@ -293,45 +309,43 @@ class Graph(nn.Module):
         
         # --- calculate correlation ---
 
-        # batch matrix multiplication torch.bmm - muliplication whole batch of matrixes
-        # (b, i, j) @ (b, m, n) = (b, i, n) 
+        # --- Group Convolution 2D --- 
+        # Group convolution for efficiency 
 
-        # reshape target patches to proper form 
-        target_patches = target_patches.view(valid_edges_num, c, search_size*search_size)
 
-        # expand patches for all active edges and reshape source patches to proper form 
-        b, n, p, c1, d = self.patches_f.shape 
-        source_patches = self.patches_f.view(b*n*p, c1, d)[self.i]
-        source_patches = source_patches.view(valid_edges_num, c1, d).transpose(1, 2).contiguous()
+        # Search area
+        # reshape for group convolution (connect feature dimension with one spatial dimension)
+        target_patches = target_patches.view(1, valid_edges_num*c, search_size, search_size)
+
+        # Source patch 
+        # normal shapes like for clasic convolution 2d 
+        b, n, p, c1, d, d = self.patches_f.shape 
+        source_patches = self.patches_f.view(b*n*p, c1, d, d)[self.i, :, :]
+        source_patches = source_patches.view(valid_edges_num, c1, d, d)
+
+        corr_map = F.conv2d(target_patches, source_patches, groups=valid_edges_num)
+
+        # convoltion with groups parametr set as channel number
+        # it behaves like offset for convoltuion
+        corr_size = search_size - d + 1 # shall be equal to corr_neighbour
+        # print(corr_map.shape)
+        # print(valid_edges_num, c, corr_size, corr_size)
+        corr_map = corr_map.view(valid_edges_num, corr_size, corr_size) # torch.Size([1, 1920, 11, 11])
         
-        # source patches shape: (e, c, p*p) -> (e, p*p, c)
-        # target patches shape: (e, c, s*s)
-        correrlation = torch.bmm(source_patches, target_patches) 
-        e, pp, ss = correrlation.shape
-        # correlation shape: (e, p*p, s*s)
-
-        # coorelation pyramid 
-        corr_lv1 = correrlation.view(e, -1) # (e, p*p*s*s)
-
-        corr_lv2 = F.avg_pool2d(correrlation.view(e*pp, 1, search_size, search_size), 
+        corr_lv2 = F.avg_pool2d(corr_map.view(valid_edges_num, 1, corr_size, corr_size), 
                                 kernel_size=3, stride=2, padding=1)
-        corr_lv2 = corr_lv2.view(e, -1)
-        # pool2d is performed on grid (search_size x search_size) 
-        # output shape: ((size + 2*pad - ksize) / stride) + 1
-        # 
-        # (13)
 
+        corr_lv1 = corr_map.view(valid_edges_num, -1) 
+        corr_lv2 = corr_lv2.view(valid_edges_num, -1)
 
-        # get context features for valid edges
-        c2 = self.patches_c.shape[3]
-        act_patches_c = self.patches_c.view(b*n*p, c2)[self.i, :]
-        
         # connect correlation pyramid
         corr_map = torch.cat((corr_lv1, corr_lv2), dim=-1) 
-        # corr map shape: (e, c), where:
-        # c = p*p*s*s + p*p*x*x, x = (s - ksize + 2*paddig)/stride + 1
 
-        return corr_map, act_patches_c, self.i, self.j, valid_mask.float()
+        # get context features
+        c2 = self.patches_c.shape[3]
+        act_patches_c = self.patches_c.view(b*n*p, c2)[self.i, :]
+
+        return corr_map, act_patches_c, self.i, self.j, valid_mask.float(), src_coords, tgt_cooords
     
     def get_hidden_state(self):
         return self.hidden_state #[valid_mask, :]

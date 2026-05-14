@@ -65,7 +65,7 @@ class Patchifier(nn.Module):
         return response
 
     def _feature_map(self, frame_fmap):
-        fmap_norm = frame_fmap.norm(dim=1)
+        fmap_norm = frame_fmap.norm(dim=1, keepdim=True)
         g = F.interpolate(fmap_norm, scale_factor=self.downsize_factor, mode='bilinear', align_corners=False)
         return g
     
@@ -284,6 +284,7 @@ class Patchifier(nn.Module):
     def forward(self, frame, mode = 'harris'):
 
         fmap = self.feature_extractor(frame)
+        fmap = F.relu(fmap)
         imap = self.context_extractor(frame)
 
         b, n, c1, h, w = fmap.shape
@@ -307,7 +308,7 @@ class Patchifier(nn.Module):
 
         # append dimesion for sepearate batch dimension
     
-        patches_f = patches_f.view(b, n, self.patches_per_frame, c1, self.patch_size * self.patch_size)
+        patches_f = patches_f.view(b, n, self.patches_per_frame, c1, self.patch_size, self.patch_size)  # MODIFIED!!! BEFORE: ...., self.patch_size *self.patch_size) 
         patches_c = patches_c.view(b, n, self.patches_per_frame, c2)
         coords = coords.view(b, n, self.patches_per_frame, 2)
 

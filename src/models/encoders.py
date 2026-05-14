@@ -13,8 +13,8 @@ class ResidualBlock(nn.Module):
         self.conv2 = nn.Conv2d(out_ch, out_ch, 3, stride = 1, padding = 1)
 
         if norm_fn == 'instance':
-            self.norm1 = nn.InstanceNorm2d(out_ch) 
-            self.norm2 = nn.InstanceNorm2d(out_ch)
+            self.norm1 = nn.InstanceNorm2d(out_ch, affine=True) 
+            self.norm2 = nn.InstanceNorm2d(out_ch, affine=True)
         elif norm_fn == 'batch':
             self.norm1 = nn.BatchNorm2d(out_ch)
             self.norm2 = nn.BatchNorm2d(out_ch)
@@ -58,7 +58,7 @@ class Encoder(nn.Module):
         self.conv2 = nn.Conv2d(dim*2, out_ch, kernel_size=3, stride=1, padding=1)
 
         if norm_fn == 'instance':
-            self.norm1 = nn.InstanceNorm2d(dim) 
+            self.norm1 = nn.InstanceNorm2d(dim, affine=True) 
         elif norm_fn == 'batch':
             self.norm1 = nn.BatchNorm2d(dim)
         elif norm_fn == 'group':
@@ -84,7 +84,7 @@ class Encoder(nn.Module):
         x = self.ResBlock1(x)
         x = self.ResBlock2(x)
         x = self.dropout(x)
-        x = F.relu(self.conv2(x))
-
+        # x = F.relu(self.conv2(x))
+        x = self.conv2(x)
         _, c2, h2, w2 = x.shape
         return x.view(b, n, c2, h2, w2)

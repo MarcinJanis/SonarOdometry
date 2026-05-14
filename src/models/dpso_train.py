@@ -14,10 +14,9 @@ import yaml
 
 from .update import Update
 from .graph_train import Graph
-from .bundle_adjustment_v1 import BundleAdjustment
+from .bundle_adjustment_v2 import BundleAdjustment
 
-from .utils import project_points, approx_movement, depth_to_elev_angle, ExtrinsicsCalib
-
+from .utils import project_points, approx_movement, depth_to_elev_angle, add_noise, ExtrinsicsCalib
 class DPSO_train(nn.Module):
 
     def __init__(self, model_cfg, sonar_cfg, batch_size, frames_in_series, init_frames):
@@ -30,10 +29,11 @@ class DPSO_train(nn.Module):
         with open(sonar_cfg, "r") as f:
             sonar_config = Box(yaml.safe_load(f))
 
-        self.sonar_param = sonar_config
+        self.model_config = model_config
+        self.sonar_config = sonar_config
+
         # --- get config parameters --- 
 
-        # self.update_iter = model_config.UPDATE_ITERATION
         self.ba_iter_train = model_config.BUNDLE_ADJUSTMENT.MAX_ITERATION_TRAIN
         self.ba_iter_eval = model_config.BUNDLE_ADJUSTMENT.MAX_ITERATION_EVAL
         self.ba_lr_trans = model_config.BUNDLE_ADJUSTMENT.STEP_TRANSLATION
@@ -49,6 +49,8 @@ class DPSO_train(nn.Module):
         self.init_frames = init_frames
         self.batch_size = batch_size
         self.frames_in_series = frames_in_series
+
+        self.encoder_downsize = model_config.ENCODER_DOWNSIZE
 
         assert frames_in_series >= init_frames, f'[Error] Frames number for initialization shall be equal or smaller than total frames number'
 
@@ -72,34 +74,27 @@ class DPSO_train(nn.Module):
 
         batch_size, frames_max = frames.shape[:2]
 
-        # --- Extrinsic calibration --- 
-        # gt -> sonar frame
+        # --- Extrinsic calibration (robot -> sonar) --- 
         poses_gt = self.calib.pose(poses_gt)
         depth_gt = self.calib.depth(depth_gt)
         
         # --- Graph Init --- 
 
         # global features extractor on whole sequence
-        coords_phi, coords_r_theta  = self.PatchGraph.extract_features(frames, device) 
-        
-        # init poses and time stamps
-        
-        if self.init_frames > 2:
-            poses_anchored_num = 2
+        if supervised and freeze_poses:
+            depth_for_phi_init = depth_gt
         else:
-            poses_anchored_num = 1
-
-        anchor_poses = poses_gt[:, :poses_anchored_num, :]
-
-        poses = poses_gt[:, :self.init_frames, :]
-        noise_translation = (torch.rand_like(poses[:, :, :3]) - 0.5) * 2 * init_poses_noise[0]
-        noise_rotation = (torch.rand_like(poses[:, :, 3:]) - 0.5) * 2 * init_poses_noise[1]
-        noise = torch.cat([noise_translation, noise_rotation], dim=-1)
-        poses = poses + noise
-        poses[:, :, 3:] = F.normalize(poses[:, :, 3:], p=2, dim=-1)
-        poses[:, :poses_anchored_num, :] = anchor_poses
-
-        # init edges
+            depth_for_phi_init = None
+        coords_phi, coords_r_theta  = self.PatchGraph.extract_features(frames, depth_gt=depth_for_phi_init) 
+        
+        # add initial noise to poses 
+        if init_poses_noise is None: 
+            poses = poses_gt[:, :self.init_frames, :]
+        else:
+            poses_noised = add_noise(poses_gt, init_poses_noise, 1)
+            poses = poses_noised[:, :self.init_frames, :]
+        
+        # init edges in graph 
         self.PatchGraph.init_edges(self.init_frames, device)
 
         # --- Iterate over sequence --- 
@@ -117,19 +112,15 @@ class DPSO_train(nn.Module):
             if i >= self.init_frames: 
                 
                 if freeze_poses:
-                    new_pose = poses_gt[:, i, :]
-                    noise_translation = (torch.rand_like(new_pose[:, :3]) - 0.5) * 2 * init_poses_noise[0]
-                    noise_rotation = (torch.rand_like(new_pose[:, 3:]) - 0.5) * 2 * init_poses_noise[1]
-                    noise = torch.cat([noise_translation, noise_rotation], dim=-1)
-                    new_pose = new_pose + noise
-                    new_pose[:, 3:] = F.normalize(new_pose[:, 3:], p=2, dim=-1)
-
+                    new_pose = poses_gt[:, i, :].unsqueeze(1)
+                    new_pose = add_noise(poses_gt, init_poses_noise, 0)
+                    new_pose.squeeze(1)
                 else:
                     x1, x2 = poses[:, i-2, :], poses[:, i-1, :]
                     t1, t2, t3 = timestamp[:, i-2], timestamp[:, i-1], timestamp[:, i]
                     new_pose = approx_movement(x1, x2, t1, t2, t3, 
                                             motion_model=self.motion_appro_model)
-                 
+                
                 poses = torch.cat([poses, new_pose.unsqueeze(1)], dim=1)
 
                 self.PatchGraph.create_new_edges(i, device)
@@ -140,8 +131,6 @@ class DPSO_train(nn.Module):
 
             # torch.cuda.synchronize()
             # t1 = time.time()
-
-            # --- Optimization --- 
             
             # --- Correlation --- 
             corr, ctx, patches_idx, tgt_frames_idx, valid_mask = self.PatchGraph.corr(poses, coords_phi, coords_eps=1e-2, device=device)
@@ -151,7 +140,7 @@ class DPSO_train(nn.Module):
             corr = corr * valid_mask.view(-1, 1)
 
             # check if any active edge exist
-            val_edges = torch.sum(valid_mask)
+            # val_edges = torch.sum(valid_mask)
             # if debug_logger: print(f'   - optim iter: {k}, valid edges: {val_edges}')
             
             # torch.cuda.synchronize()
@@ -162,7 +151,7 @@ class DPSO_train(nn.Module):
             h, correction = self.UpdateOperator(h, None, corr, ctx, src_frames_idx, tgt_frames_idx, patches_idx, device)
             
             delta, weights_s = correction
-
+            delta = delta * self.encoder_downsize
             self.PatchGraph.update_hidden_state(h)
             
             # torch.cuda.synchronize()
@@ -187,11 +176,13 @@ class DPSO_train(nn.Module):
             weights_ba = weights_ba * valid_mask.view(-1, 1) # force weights of non valid edges to zero. 
             
             BA = BundleAdjustment(poses.detach(),
-                                coords_r_theta.detach(), coords_phi.detach(), 
-                                src_frames_idx.detach(), tgt_frames_idx.detach(), patches_idx.detach(),
-                                delta.detach(), weights_ba.detach(),
-                                self.physic2fls_scale_factor.view(1, 1, 2), 
-                                ba_freeze_poses, damping = True)
+                                  coords_r_theta.detach(), coords_phi.detach(), 
+                                  src_frames_idx.detach(), tgt_frames_idx.detach(), patches_idx.detach(),
+                                  delta.detach(), weights_ba.detach(), ba_freeze_poses,
+                                  self.model_config, self.sonar_config,
+                                  damping = True)
+            
+         
             BA.to(device)
 
             with torch.no_grad():
@@ -204,12 +195,7 @@ class DPSO_train(nn.Module):
             # torch.cuda.synchronize()
             # t4 = time.time()
 
-            # --- Reprojection error ---
-            # physic2fls_scale_factor = torch.tensor([self.sonar_param.resolution.bins / (self.sonar_param.range.max - self.sonar_param.range.min),
-            #                                         self.sonar_param.resolution.beams / self.sonar_param.fov.horizontal], device = device).view(1, 2)
-            
-            
-                            
+            # --- Reprojection error ---                        
             b, n, p, _ = coords_r_theta.shape
             coords_r_theta_expand = coords_r_theta.view(b*n*p, 2)[patches_idx]
 
@@ -236,8 +222,9 @@ class DPSO_train(nn.Module):
             
             origin_points = torch.cat([coords_r_theta_expand, ref_phi], dim=1).detach() # detach(), bec its reference val to loss!
 
-            ref_projection = project_points(origin_points, origin_poses, target_poses)        
-            ref_projection = ref_projection[:, :2] * self.physic2fls_scale_factor
+            ref_projection = project_points(origin_points, origin_poses, target_poses)
+            self.PatchGraph.scale_phisical2fls(ref_projection)[:, :2]       
+            # ref_projection = ref_projection[:, :2] * self.physic2fls_scale_factor
 
             # --- predicted poses + delta -> reprojection ---
 
@@ -249,9 +236,10 @@ class DPSO_train(nn.Module):
 
             origin_points = torch.cat([coords_r_theta_expand, pred_phi_expand], dim=1).detach()
 
-            pred_projection = project_points(origin_points, pred_origin_poses, pred_target_poses)    
-            pred_projection = pred_projection[:, :2] * self.physic2fls_scale_factor + delta
-            # pred_projection = coords_r_theta_expand * physic2fls_scale_factor + delta 
+            pred_projection = project_points(origin_points, pred_origin_poses, pred_target_poses) 
+
+            pred_projection - self.PatchGraph.scale_phisical2fls(pred_projection)[:, :2] + delta
+            # pred_projection = pred_projection[:, :2] * self.physic2fls_scale_factor + delta
             
             output_iter.append((poses, ref_projection, pred_projection, valid_mask, weights_s, delta.clone().detach()))
             

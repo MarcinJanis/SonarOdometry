@@ -9,19 +9,17 @@ import pypose as pp
 class BundleAdjustment(nn.Module):
     def __init__(self, 
                  init_poses, 
-                 init_patch_coords_r_theta, 
-                 init_patch_coords_phi, 
+                 init_patch_coords_r_theta, init_patch_coords_phi, 
                  source_frame_idx, target_frame_idx, patch_idx,
-                 delta, weights,
-                 physic2fls_scale_factor, freeze_poses, 
+                 delta, weights, freeze_poses, 
+                 model_config, sonar_config, 
                  damping = False):
         
         super().__init__()
 
         # --- init ---
         self.device = init_poses.device
-        # self.sonar_param = sonar_param
-
+    
         self.damping = damping
 
 
@@ -31,13 +29,17 @@ class BundleAdjustment(nn.Module):
         self.damping_trans_weight = 2.63 / 50 # 9.329494828396749 
         self.damping_rot_weight = 356.51 / 50# 2608.996360840966 
 
+        # freeze_poses - not optimized poses number
         if freeze_poses < 1:
             freeze_poses = 1
-        self.freeze_poses = freeze_poses # not optimized poses number
+        self.freeze_poses = freeze_poses 
         
         # physical to fls units scaling 
-
-        self.physic2fls_scale_factor = physic2fls_scale_factor
+        self.r_min = sonar_config.range.min
+        self.r_max = sonar_config.range.max
+        self.fov_horizontal = sonar_config.fov.horizontal
+        self.fls_h = model_config.FLS_INPUT_HEIGHT
+        self.fls_w = model_config.FLS_INPUT_WIDTH
 
         # save input shape:
         self.b, self.n_total, self.p, _ = init_patch_coords_r_theta.shape
@@ -53,7 +55,6 @@ class BundleAdjustment(nn.Module):
 
     
         # --- define not optimized parameters --- 
-
         self.patch_coords_r_theta = init_patch_coords_r_theta.view(1, self.edges_total, 2)
         
         # get initial poses as optimization base, saved as SE3 objects
@@ -63,18 +64,16 @@ class BundleAdjustment(nn.Module):
 
         # --- define parameters to optimize --- 
 
-        # define optimize parameters
         if freeze_poses >= self.act_n:
             self.optimize_poses = False
         else:
+            # translation and rotation correction 
             self.optimize_poses = True
             num_optim = self.act_n - self.freeze_poses # number os poses to be optimized
-
-            # translation and rotation correction - optimized parameters
             self.trans_correction = nn.Parameter(torch.zeros(self.b, num_optim, 3, device=self.device))
             self.rot_correction = nn.Parameter(torch.zeros(self.b, num_optim, 3, device=self.device))
         
-        # phi angle - optimized parameter
+        # phi angle 
         patch_coords_phi = init_patch_coords_phi.view(1, self.edges_total, 1)
         self.elevation_angle = nn.Parameter(patch_coords_phi) 
 
@@ -93,10 +92,10 @@ class BundleAdjustment(nn.Module):
         source_coords = torch.cat([patch_coords, elevation_angle], dim = 2)
     
         target_coords = project_points(source_coords.squeeze(0), source_poses.squeeze(0), target_poses.squeeze(0))
-        target_coords = target_coords.unsqueeze(0)
 
         # rescale reprojected points to fls/pixel units, add delta
-        self.coords_baseline = target_coords[:, :, :2] * self.physic2fls_scale_factor + delta
+        # self.coords_baseline = target_coords[:, :, :2] * self.physic2fls_scale_factor + delta
+        self.coords_baseline = self.scale_phisical2fls(target_coords[:, :2]) + delta
 
         # weights for optimization
         self.weights = weights
@@ -143,24 +142,20 @@ class BundleAdjustment(nn.Module):
         projected_coords = project_points(source_coords.squeeze(0), 
                                           source_poses.squeeze(0).tensor(), 
                                           target_poses.squeeze(0).tensor())
-        projected_coords = projected_coords.unsqueeze(0)
-
         # --- projection error ---
         
+        projected_coords_fls = self.scale_phisical2fls(projected_coords)
+        project_err = self.coords_baseline - projected_coords_fls 
+        
         # reprojection err - r, distance 
-        projection_err_r = projected_coords[:, :, 0] * self.physic2fls_scale_factor[:, :, 0] - self.coords_baseline[:, :, 0]
-        
-        # reprojection err - theta, azimuth 
-        # atan2 to forced projection err to (-pi, pi) range
-        projection_err_theta_raw = projected_coords[:, :, 1] - (self.coords_baseline[:, :, 1] / self.physic2fls_scale_factor[:, :, 1])
-        projection_err_theta_raw = torch.atan2(torch.sin(projection_err_theta_raw), 
-                                               torch.cos(projection_err_theta_raw))
-
-        projection_err_theta = projection_err_theta_raw * self.physic2fls_scale_factor[:, :, 1]
-        
-        project_err = torch.stack([projection_err_r, projection_err_theta], dim=2)
-        
+        # projection_err_r = projected_coords[:, :, 0] * self.physic2fls_scale_factor[:, :, 0] - self.coords_baseline[:, :, 0]
+        # # reprojection err - theta, azimuth 
+        # # atan2 to forced projection err to (-pi, pi) range
+        # projection_err_theta_raw = projected_coords[:, :, 1] - (self.coords_baseline[:, :, 1] / self.physic2fls_scale_factor[:, :, 1])
+        # projection_err_theta = projection_err_theta_raw * self.physic2fls_scale_factor[:, :, 1]
+        # project_err = torch.stack([projection_err_r, projection_err_theta], dim=2)
         # add weights, err scale
+
         weighted_err = project_err * self.weights
         
         return weighted_err
@@ -212,9 +207,8 @@ class BundleAdjustment(nn.Module):
                 scheduler.step()
 
                 if disp_stats:
-
-                    r_err_mean = err[:, :, 0].abs().mean().item()
-                    theta_err_mean = err[:, :, 1].abs().mean().item()
+                    r_err_mean = err[:, 0].abs().mean().item()
+                    theta_err_mean = err[:, 1].abs().mean().item()
                     print(f'Loss {i} iter: {current_loss:.4f} | r err: {r_err_mean:.4f} | theta err: {theta_err_mean:.4f}')
 
                     # print(f'Loss {i} iter: {current_loss:.4f} | r err: {err[:, 0].abs().mean().item():.4f} | theta err: {err[:, 1].abs().mean().item():.4f}')
@@ -252,3 +246,28 @@ class BundleAdjustment(nn.Module):
 
         return pose_optimized, elevation_optimized
     
+
+
+    def scale_fls2phisical(self, coords):
+
+        # range r 
+        r_norm = coords[:, 0] / self.fls_h
+        r = r_norm * (self.r_max - self.r_min) + self.r_min
+
+        # azimuth angle theta 
+        theta_norm = coords[:, 1] / self.fls_w - 0.5
+        theta = theta_norm * self.fov_horizontal 
+        
+        return torch.stack([r, theta], dim = 1)
+
+    def scale_phisical2fls(self, coords):
+
+        # range r 
+        r_norm = (coords[:, 0] - self.r_min) / (self.r_max - self.r_min)
+        r = r_norm * self.fls_h
+
+        # azimuth angle theta 
+        theta_norm = coords[:, 1] / self.fov_horizontal 
+        theta = (theta_norm + 0.5) * self.fls_w
+        
+        return torch.stack([r, theta], dim = 1)
