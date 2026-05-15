@@ -235,7 +235,7 @@ class Graph(nn.Module):
 
         out_of_range = (tgt_cooords[:,0] < (self.r_min - coords_eps)) | (tgt_cooords[:,0] > (self.r_max + coords_eps))
         out_of_range = out_of_range | (torch.abs(tgt_cooords[:,1]) > theta_max + coords_eps)
-        out_of_range = out_of_range | (torch.abs(tgt_cooords[:,2]) > phi_max + coords_eps)
+        # out_of_range = out_of_range | (torch.abs(tgt_cooords[:,2]) > phi_max + coords_eps)
         valid_mask = ~out_of_range
 
         valid_edges_num = self.i.shape[0] # all adges at this moment are treated as valid 

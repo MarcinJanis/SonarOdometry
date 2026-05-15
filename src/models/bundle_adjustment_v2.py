@@ -160,25 +160,124 @@ class BundleAdjustment(nn.Module):
         
         return weighted_err
 
-    def run(self, max_iter, patience=10, min_delta = 1e-3, lr_elev=0.01, lr_rot=0.005, lr_trans=0.01, disp_stats=False):
+    # def run(self, max_iter, patience=10, min_delta = 1e-3, lr_elev=0.01, lr_rot=0.005, lr_trans=0.01, disp_stats=False):
 
-        # set learning rates for each parameters
+    #     # set learning rates for each parameters
+    #     param_groups = [
+    #         {'params': [self.elevation_angle], 'lr': lr_elev}
+    #     ]
+
+    #     if self.optimize_poses or self.freeze_poses == 0:
+    #         param_groups.append({'params': [self.trans_correction], 'lr': lr_trans})
+    #         param_groups.append({'params': [self.rot_correction], 'lr': lr_rot})
+
+    #     optimizer = torch.optim.Adam(param_groups)
+    #     # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5)
+    #     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9)
+
+    #     best_loss = float('inf')
+    #     best_elev_angle = None
+    #     best_delta_pose = None
+
+    #     cntr = 0
+
+    #     with torch.enable_grad(): 
+    #         for i in range(max_iter):   
+    #             optimizer.zero_grad()
+    #             err = self.forward()
+                
+    #             # --- smooth L1 loss ---
+    #             #  (L1 for big err, L2 for small err)
+    #             loss = F.smooth_l1_loss(err, torch.zeros_like(err), beta=2.5)
+
+    #             # --- Add prior/damper for optimizer ---
+                
+    #             # to force back from too big changes, 
+    #             # add to loss punishment, proportional to changed distance
+    #             if self.damping and self.optimize_poses: 
+    #                 prior_trans = torch.mean(self.trans_correction**2) * self.damping_trans_weight 
+    #                 priot_rot = torch.mean(self.rot_correction**2) * self.damping_rot_weight 
+
+    #                 loss = loss + prior_trans + priot_rot
+
+    #             loss.backward()
+
+    #             torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=1.0)
+    #             optimizer.step()
+    #             current_loss = loss.item()
+    #             # scheduler.step(current_loss)
+    #             scheduler.step()
+
+    #             if disp_stats:
+    #                 r_err_mean = err[:, 0].abs().mean().item()
+    #                 theta_err_mean = err[:, 1].abs().mean().item()
+    #                 print(f'Loss {i} iter: {current_loss:.4f} | r err: {r_err_mean:.4f} | theta err: {theta_err_mean:.4f}')
+
+    #                 # print(f'Loss {i} iter: {current_loss:.4f} | r err: {err[:, 0].abs().mean().item():.4f} | theta err: {err[:, 1].abs().mean().item():.4f}')
+
+    #             if current_loss + min_delta < best_loss:
+    #                 best_loss = current_loss
+    #                 cntr = 0
+    #                 with torch.no_grad():
+    #                     if self.optimize_poses:
+    #                         best_delta_pose = torch.cat([self.trans_correction.clone(), self.rot_correction.clone()], dim=-1)
+    #                     best_elev_angle = self.elevation_angle.clone()
+    #             else:
+    #                 cntr += 1
+    #                 if cntr > patience:
+    #                     break
+        
+    #     if best_delta_pose is None:
+    #         if self.optimize_poses:
+    #             best_delta_pose = torch.cat([self.trans_correction, self.rot_correction], dim=-1)
+    #         best_elev_angle = self.elevation_angle
+
+    #     # post processing optimized values
+
+    #     elevation_optimized = best_elev_angle.detach().view(self.b, self.n_total, self.p, 1)
+    #     if self.optimize_poses:
+    #         best_delta_poses_se3 = pp.se3(best_delta_pose.detach()).Exp()
+    #         base_poses = self.init_poses_se3[:, self.freeze_poses:, :]
+    #         new_poses_se3 = base_poses @ best_delta_poses_se3
+    #         frozen_poses = self.init_poses_se3[:, :self.freeze_poses, :]
+
+    #         # pose_optimized = torch.cat([frozen_poses, new_poses_se3], dim=1)
+    #         pose_optimized = torch.cat([frozen_poses.tensor(), new_poses_se3.tensor()], dim=1)
+    #     else:
+    #         pose_optimized = self.init_poses_se3.tensor()
+
+    #     return pose_optimized, elevation_optimized
+    
+    def run(self, max_iter, patience=10, min_delta=1e-3, lr_elev=0.01, lr_rot=0.005, lr_trans=0.01, disp_stats=False):
+
+        # Ustawiamy grupy parametrów z ich docelowym "max_lr", 
+        # do którego OneCycleLR będzie dążył podczas fazy rozgrzewki (warmup).
         param_groups = [
-            {'params': [self.elevation_angle], 'lr': lr_elev}
+            {'params': [self.elevation_angle], 'lr': lr_elev, 'max_lr': lr_elev}
         ]
 
         if self.optimize_poses or self.freeze_poses == 0:
-            param_groups.append({'params': [self.trans_correction], 'lr': lr_trans})
-            param_groups.append({'params': [self.rot_correction], 'lr': lr_rot})
+            param_groups.append({'params': [self.trans_correction], 'lr': lr_trans, 'max_lr': lr_trans})
+            param_groups.append({'params': [self.rot_correction], 'lr': lr_rot, 'max_lr': lr_rot})
 
-        optimizer = torch.optim.Adam(param_groups)
-        # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5)
-        scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9)
+        # ZMIANA 1: Zmniejszone beta2 w Adamie z 0.999 na 0.99. 
+        # Szybsze zapominanie starych gradientów - bardzo ważne w nieliniowym Bundle Adjustment.
+        optimizer = torch.optim.Adam(param_groups, betas=(0.9, 0.99))
+
+        # ZMIANA 2: OneCycleLR zamiast ExponentialLR.
+        # pct_start=0.15 oznacza, że przez pierwsze 15% iteracji max_iter LR będzie 
+        # płynnie rosnąć od blisko zera do max_lr, a potem powoli opadać.
+        scheduler = torch.optim.lr_scheduler.OneCycleLR(
+            optimizer, 
+            max_lr=[group['max_lr'] for group in param_groups], 
+            total_steps=max_iter,
+            pct_start=0.15,
+            anneal_strategy='cos'
+        )
 
         best_loss = float('inf')
         best_elev_angle = None
         best_delta_pose = None
-
         cntr = 0
 
         with torch.enable_grad(): 
@@ -187,31 +286,35 @@ class BundleAdjustment(nn.Module):
                 err = self.forward()
                 
                 # --- smooth L1 loss ---
-                #  (L1 for big err, L2 for small err)
                 loss = F.smooth_l1_loss(err, torch.zeros_like(err), beta=2.5)
 
                 # --- Add prior/damper for optimizer ---
-                
-                # to force back from too big changes, 
-                # add to loss punishment, proportional to changed distance
                 if self.damping and self.optimize_poses: 
                     prior_trans = torch.mean(self.trans_correction**2) * self.damping_trans_weight 
-                    priot_rot = torch.mean(self.rot_correction**2) * self.damping_rot_weight 
-
-                    loss = loss + prior_trans + priot_rot
+                    prior_rot = torch.mean(self.rot_correction**2) * self.damping_rot_weight 
+                    loss = loss + prior_trans + prior_rot
 
                 loss.backward()
+
+                # ZMIANA 3: Gradient Clipping.
+                # Zabezpiecza przed eksplozją gradientu w pierwszych kilku iteracjach, 
+                # co jest kluczowe przy tak głębokich transformacjach trygonometrycznych.
+                torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=1.0)
+
                 optimizer.step()
-                current_loss = loss.item()
-                # scheduler.step(current_loss)
+                
+                # ZMIANA 4: OneCycleLR aktualizujemy CO ITERACJĘ (nie co epokę).
                 scheduler.step()
+                
+                current_loss = loss.item()
 
                 if disp_stats:
                     r_err_mean = err[:, 0].abs().mean().item()
                     theta_err_mean = err[:, 1].abs().mean().item()
-                    print(f'Loss {i} iter: {current_loss:.4f} | r err: {r_err_mean:.4f} | theta err: {theta_err_mean:.4f}')
-
-                    # print(f'Loss {i} iter: {current_loss:.4f} | r err: {err[:, 0].abs().mean().item():.4f} | theta err: {err[:, 1].abs().mean().item():.4f}')
+                    
+                    # Wypisujemy też aktualny learning rate dla pierwszej grupy, żebyś widział jak działa OneCycleLR
+                    current_lr = optimizer.param_groups[0]['lr']
+                    print(f'Iter {i:3d} | Loss: {current_loss:.4f} | r err: {r_err_mean:.4f} | theta err: {theta_err_mean:.4f} | LR: {current_lr:.5f}')
 
                 if current_loss + min_delta < best_loss:
                     best_loss = current_loss
@@ -223,6 +326,7 @@ class BundleAdjustment(nn.Module):
                 else:
                     cntr += 1
                     if cntr > patience:
+                        print(f"Early stopping at iteration {i}")
                         break
         
         if best_delta_pose is None:
@@ -230,7 +334,7 @@ class BundleAdjustment(nn.Module):
                 best_delta_pose = torch.cat([self.trans_correction, self.rot_correction], dim=-1)
             best_elev_angle = self.elevation_angle
 
-        # post processing optimized values
+        # --- post processing optimized values ---
 
         elevation_optimized = best_elev_angle.detach().view(self.b, self.n_total, self.p, 1)
         if self.optimize_poses:
@@ -239,13 +343,11 @@ class BundleAdjustment(nn.Module):
             new_poses_se3 = base_poses @ best_delta_poses_se3
             frozen_poses = self.init_poses_se3[:, :self.freeze_poses, :]
 
-            # pose_optimized = torch.cat([frozen_poses, new_poses_se3], dim=1)
             pose_optimized = torch.cat([frozen_poses.tensor(), new_poses_se3.tensor()], dim=1)
         else:
             pose_optimized = self.init_poses_se3.tensor()
 
         return pose_optimized, elevation_optimized
-    
 
 
     def scale_fls2phisical(self, coords):
