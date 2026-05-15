@@ -379,12 +379,14 @@ We want to find how a small change in $\phi^s$ affects the 3D point in the targe
 
 
 Using the chain rule, we can split this into two parts:
+
 $$
 \frac{\partial P^t}{\partial \phi^s} = 
 \frac{\partial P^t}{\partial P^s} \cdot \frac{\partial P^s}{\partial \phi^s}
 $$
 
 First expression:
+
 $$
 \frac{\partial P^t}{\partial P^s} =
 \frac{\partial (\mathbf{R}_{ts} P^s + \mathbf{t}_{ts})}{\partial P^s} = 
@@ -394,7 +396,9 @@ $$
 
 Second expression:
 We take the definition of the inverse projection from Section 1 (NED frame):
-$$P^s = \begin{bmatrix} x^s \\ y^s \\ z^s \end{bmatrix} = 
+
+$$
+P^s = \begin{bmatrix} x^s \\ y^s \\ z^s \end{bmatrix} = 
 \begin{bmatrix} 
 r^s \cos\phi^s \cos\theta^s \\ 
 r^s \cos\phi^s \sin\theta^s \\ 
@@ -409,17 +413,20 @@ $$
 r^s (-\sin\phi^s) \cos\theta^s = 
 -r^s \sin\phi^s \cos\theta^s
 $$
+
 $$
 \frac{\partial y^s}{\partial \phi^s} = 
 r^s (-\sin\phi^s) \sin\theta^s = 
 -r^s \sin\phi^s \sin\theta^s
 $$
+
 $$
 \frac{\partial z^s}{\partial \phi^s} = 
 r^s \cos\phi^s
 $$
 
 Putting this into a column vector:
+
 $$
 \frac{\partial P^s}{\partial \phi^s} = 
 \begin{bmatrix} 
@@ -430,6 +437,7 @@ r^s \cos\phi^s
 $$
 
 Compising these two expression we get:
+
 $$
 \frac{\partial P^t}{\partial \phi^s} = 
 \mathbf{R}_{ts} 
@@ -444,14 +452,19 @@ $$
 5. Putting all together:
 
 Target pose Jacobian: (Size $2 \times 6$):
+
 $$ 
 \mathbf{J}_{\mathbf{T}_t} = \frac{\partial e}{\partial \delta \boldsymbol{\xi}_t} = -\mathbf{J}_\Pi \ [-\mathbf{I}_{3\times3} \ | \ (P^t)^\wedge] 
 $$
+
 Source pose Jacobin (size $2 \times 6$):
+
 $$ 
 \mathbf{J}_{\mathbf{T}_s} = \frac{\partial e}{\partial \delta \boldsymbol{\xi}_s} = -\mathbf{J}_\Pi \ \mathbf{R}_{ts} [\mathbf{I}_{3\times3} \ | \ -(P^s)^\wedge] 
 $$
+
 Elevation angle jacobian ( Size) $2 \times 1$):
+
 $$ 
 \mathbf{J}_{\phi^s} = \frac{\partial e}{\partial \phi^s} = -\mathbf{J}_\Pi \ \mathbf{R}_{ts} \begin{bmatrix} -r^s \sin\phi^s \cos\theta^s \\ -r^s \sin\phi^s \sin\theta^s \\ r^s \cos\phi^s \end{bmatrix} 
 $$
