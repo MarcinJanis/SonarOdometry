@@ -175,7 +175,11 @@ class BundleAdjustment(nn.Module):
                     best_loss = current_loss
                 
                 H_ll = J_l.transpose(1, 2) @ J_l # (E, 1, 1)
+                # ====== This:
                 H_ll_inv = 1.0 / (H_ll + lambda_lm) # (E, 1, 1)
+                # or this: 
+                # H_ll_inv = 1.0 / (H_ll + lambda_lm * H_ll)
+
                 
                 H_pl = J_p.transpose(1, 2) @ J_l # (E, 36, 1)
                 H_pp = J_p.transpose(1, 2) @ J_p # (E, 36, 36)
@@ -235,3 +239,5 @@ class BundleAdjustment(nn.Module):
         theta_norm = coords[:, 1] / self.fov_horizontal 
         theta = (theta_norm + 0.5) * self.fls_w
         return torch.stack([r, theta], dim=1)
+
+
