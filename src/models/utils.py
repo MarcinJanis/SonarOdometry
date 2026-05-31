@@ -222,7 +222,41 @@ def depth_to_elev_angle(depth, r):
 
     return gt_elevation
 
+def precise_elev_angle_from_dvl(coords_r_theta, poses, dvl_altitude):
 
+    b, n, p, _ = coords_r_theta.shape
+    
+    r = coords_r_theta[..., 0]          # [B, N, P]
+    theta = coords_r_theta[..., 1]      # [B, N, P]
+
+    # get orientation
+    se3_poses = pp.SE3(poses) 
+    R_matrix = se3_poses.rotation().matrix() # [B, N, 3, 3]
+
+    R_z1 = R_matrix[:, :, 2, 0].unsqueeze(-1).expand(b, n, p)
+    R_z2 = R_matrix[:, :, 2, 1].unsqueeze(-1).expand(b, n, p)
+    R_z3 = R_matrix[:, :, 2, 2].unsqueeze(-1).expand(b, n, p)
+    
+    # expand depth for all patches
+    if dvl_altitude.dim() == 2:
+        dvl_altitude = dvl_altitude.unsqueeze(-1)
+    alt_expand = dvl_altitude.expand(b, n, p)
+
+    # Get coefficient 
+    A = R_z1 * torch.cos(theta) + R_z2 * torch.sin(theta)
+    B_coeff = R_z3
+
+    # C = (-alt_expand) / (r + 1e-8)
+    C = (alt_expand) / (r + 1e-8)
+
+    hypotenuse = torch.sqrt(A**2 + B_coeff**2 + 1e-8)
+
+    sin_argument = torch.clamp(C / hypotenuse, -1.0, 1.0)
+    
+    gamma = torch.atan2(A, B_coeff)
+    phi = torch.asin(sin_argument) - gamma
+
+    return phi.unsqueeze(-1) # return shape [B, N, P, 1]
 
 # ===    Quaterions algebra   ===
 # Note: It is assumed that real coponent of quaterion is on the last position! 

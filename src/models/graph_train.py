@@ -5,7 +5,7 @@ import torch.nn.functional as F
 import math 
 
 from .patchifier import Patchifier
-from .utils import project_points, depth_to_elev_angle
+from .utils import project_points, depth_to_elev_angle, precise_elev_angle_from_dvl
 
 
 class Graph(nn.Module):
@@ -58,7 +58,7 @@ class Graph(nn.Module):
         self.frame_n = 0 # Frames cnte
         
 
-    def extract_features(self, frames, depth_gt = None):
+    def extract_features(self, frames, depth_gt = None, poses_gt = None):
 
         device = frames.device
 
@@ -69,8 +69,8 @@ class Graph(nn.Module):
         coords_r_theta = self.scale_fls2phisical(coords.view(b*n*p, 2)) # coords of patches (r, theta)
         self.coords_r_theta = coords_r_theta.view(b, n, p, 2)
         
-        coords_phi = self.init_phi(b, n, p, device, depth_gt) # coords of patches (phi) - init
-
+        coords_phi = self.init_phi(device, poses_gt, depth_gt) # coords of patches (phi) - init
+        
         self.patches_f = patches_f # patches features
         self.patches_c = patches_c # patches context features
 
@@ -82,15 +82,24 @@ class Graph(nn.Module):
 
         return coords_phi, self.coords_r_theta
 
-    def init_phi(self, b, n, p, device, depth_gt):
-
+    def init_phi(self, device, poses_gt, depth_gt):
+        b, n, p , _ = self.coords_r_theta.shape
         if not depth_gt is None:
-            b, n, p , _ = self.coords_r_theta.shape
-            depth_gt = depth_gt.expand(b, n, p)
-            # print(depth_gt.shape, self.coords_r_theta[:, :, :, 0].shape)
-            ref_phi = depth_to_elev_angle(depth_gt, self.coords_r_theta[:, :, :, 0])
-            coords_phi = ref_phi.unsqueeze(1)
+          
             # print(coords_phi.shape)
+
+            # phi.unsqueeze(-1) # Zwraca [B, N, P, 1] 
+            # print('init_phi', poses_gt.shape)
+
+            coords_phi_2 = precise_elev_angle_from_dvl(self.coords_r_theta, poses_gt, depth_gt)
+
+            depth_gt_e = depth_gt.expand(b, n, p)
+            ref_phi = depth_to_elev_angle(depth_gt_e, self.coords_r_theta[:, :, :, 0])
+            coords_phi = ref_phi.unsqueeze(-1)
+            # print(coords_phi.shape)
+            # print(coords_phi_2.shape)
+            # print(coords_phi_2 - coords_phi)
+
 
         elif self.phi_init_mode == 'rand':
             coords_phi = (torch.rand((b, n, p, 1), device=device, dtype=torch.float) - 0.5) * self.fov_vertical # (self.phi_max - self.phi_min) + self.phi_min
@@ -203,7 +212,8 @@ class Graph(nn.Module):
         tgt_frame_idx = self.j 
 
         # src poses, coords and tgt poses
-        poses_flat = poses.view(b*n_act, 7)
+        # poses_flat = poses.view(b*n_act, 7)
+        poses_flat = poses.reshape(b*n_act, 7)
  
         src_poses = poses_flat[src_frame_idx]
         tgt_poses = poses_flat[tgt_frame_idx]
@@ -228,7 +238,7 @@ class Graph(nn.Module):
 
         out_of_range = (tgt_cooords[:,0] < (self.r_min - coords_eps)) | (tgt_cooords[:,0] > (self.r_max + coords_eps))
         out_of_range = out_of_range | (torch.abs(tgt_cooords[:,1]) > theta_max + coords_eps)
-        out_of_range = out_of_range | (torch.abs(tgt_cooords[:,2]) > phi_max + coords_eps)
+        # out_of_range = out_of_range | (torch.abs(tgt_cooords[:,2]) > phi_max + coords_eps)
         valid_mask = ~out_of_range
 
         valid_edges_num = self.i.shape[0] # all adges at this moment are treated as valid 

@@ -319,68 +319,68 @@ class DataGenerator():
                 transparent=False       
             )
 
-    def evaluate(self):
+    # def evaluate(self):
         
-        traj_len = [len(traj) for traj in self.predict_traj.values()]
-        traj_len.append(self.get_len())
-        n_max = min(traj_len)
+    #     traj_len = [len(traj) for traj in self.predict_traj.values()]
+    #     traj_len.append(self.get_len())
+    #     n_max = min(traj_len)
+    #     start, end = 0, 1
+    #     start_idx =  int(start * n_max)
+    #     end_idx = int(end * n_max)
 
-        start_idx =  int(start * n_max)
-        end_idx = int(end * n_max)
+    #     # --- gt data --- 
+    #     pose_gt = self.pose.iloc[start_idx:end_idx].values
+    #     pose_gt = self.calibration.pose(pose_gt)
 
-        # --- gt data --- 
-        pose_gt = self.pose.iloc[start_idx:end_idx].values
-        pose_gt = self.calibration.pose(pose_gt)
+    #     predict_traj = list(self.predict_traj.values())
+    #     predict_traj_lbl =  list(self.predict_traj.keys())
 
-        predict_traj = list(self.predict_traj.values())
-        predict_traj_lbl =  list(self.predict_traj.keys())
-
-        # --- predicted data ---
+    #     # --- predicted data ---
         
-        predict_traj = list(self.predict_traj.values())
-        predict_traj_lbl =  list(self.predict_traj.keys())
+    #     predict_traj = list(self.predict_traj.values())
+    #     predict_traj_lbl =  list(self.predict_traj.keys())
         
-        for k in range(len(predict_traj)):
+    #     for k in range(len(predict_traj)):
             
-            traj = predict_traj[k].iloc[start_idx:end_idx].values
-            name = predict_traj_lbl[k]
-            metrics_reduced = eval_metrics(traj, pose_gt, reduction = 'mean')
-            metrics_data = eval_metrics(traj, pose_gt, reduction = 'None')
-            steps = np.arange(metrics_data['num_steps'])
+    #         traj = predict_traj[k].iloc[start_idx:end_idx].values
+    #         name = predict_traj_lbl[k]
+    #         metrics_reduced = eval_metrics(traj, pose_gt, reduction = 'mean')
+    #         metrics_data = eval_metrics(traj, pose_gt, reduction = 'None')
+    #         steps = np.arange(metrics_data['num_steps'])
             
-            fig1, ax1 = plt.subplots(figsize=(20, 20))
-            ax1.plot(steps, metrics_data['ATE'], color='red')
-            ax1.plot(steps, metrics_data['RPE_translation'], color='green')
-            ax1.set_title(f"Błąd pozycji")
-            ax1.minorticks_on()
-            ax1.grid(which='major', linestyle='-', linewidth='0.5', color='black', alpha=0.7)
-            ax1.grid(which='minor', linestyle=':', linewidth='0.3', color='black', alpha=0.5)
-            ax1.legend()
+    #         fig1, ax1 = plt.subplots(figsize=(20, 20))
+    #         ax1.plot(steps, metrics_data['ATE'], color='red')
+    #         ax1.plot(steps, metrics_data['RPE_translation'], color='green')
+    #         ax1.set_title(f"Błąd pozycji")
+    #         ax1.minorticks_on()
+    #         ax1.grid(which='major', linestyle='-', linewidth='0.5', color='black', alpha=0.7)
+    #         ax1.grid(which='minor', linestyle=':', linewidth='0.3', color='black', alpha=0.5)
+    #         ax1.legend()
 
-            fig2, ax2 = plt.subplots(figsize=(20, 20))
-            ax2.plot(steps, metrics_data['ARE'], color='red')
-            ax2.plot(steps, metrics_data['RPE_rotation'], color='green')
-            ax2.set_title(f"Błąd rotacji")
-            ax2.minorticks_on()
-            ax2.grid(which='major', linestyle='-', linewidth='0.5', color='black', alpha=0.7)
-            ax2.grid(which='minor', linestyle=':', linewidth='0.3', color='black', alpha=0.5)
-            ax2.legend()
+    #         fig2, ax2 = plt.subplots(figsize=(20, 20))
+    #         ax2.plot(steps, metrics_data['ARE'], color='red')
+    #         ax2.plot(steps, metrics_data['RPE_rotation'], color='green')
+    #         ax2.set_title(f"Błąd rotacji")
+    #         ax2.minorticks_on()
+    #         ax2.grid(which='major', linestyle='-', linewidth='0.5', color='black', alpha=0.7)
+    #         ax2.grid(which='minor', linestyle=':', linewidth='0.3', color='black', alpha=0.5)
+    #         ax2.legend()
             
-            print('='*50)
-            print(''*20, 'Evaluation metrics', )
-            print('='*50)
-            print('Position error:')
-            print('    Absolute Trajectory Error:')
-            print(f'        mean: {:.2}, std: {:.2}')
-            print('    Relative Pose Error:')
-            print(f'        mean: {:.2}, std: {:.2}')
-            print('Rotation error:')
-            print('    Absolute Rotation Error:')
-            print(f'        mean: {:.2}, std: {:.2}')
-            print('    Relative Rotation Error:')
-            print(f'        mean: {:.2}, std: {:.2}')
+    #         print('='*50)
+    #         print(''*20, 'Evaluation metrics', )
+    #         print('='*50)
+    #         print('Position error:')
+    #         print('    Absolute Trajectory Error:')
+    #         print(f'        mean: {:.2}, std: {:.2}')
+    #         print('    Relative Pose Error:')
+    #         print(f'        mean: {:.2}, std: {:.2}')
+    #         print('Rotation error:')
+    #         print('    Absolute Rotation Error:')
+    #         print(f'        mean: {:.2}, std: {:.2}')
+    #         print('    Relative Rotation Error:')
+    #         print(f'        mean: {:.2}, std: {:.2}')
 
-        plt.show()
+    #     plt.show()
 
             
         

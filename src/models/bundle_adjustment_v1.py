@@ -27,7 +27,7 @@ class BundleAdjustment(nn.Module):
         # damping_trans_weight = scale [pix/m] / (2 * max_permissible_trans)
         # damping_trans_weight = scale [pix/rad] / (2 * max_permissible_rot)
         self.damping_trans_weight = 2.63 / 50 # 9.329494828396749 
-        self.damping_rot_weight = 356.51 / 50# 2608.996360840966 
+        self.damping_rot_weight = 356.51 / 50 # 2608.996360840966 
 
         # freeze_poses - not optimized poses number
         if freeze_poses < 1:
@@ -250,11 +250,15 @@ class BundleAdjustment(nn.Module):
                         projected_coords_fls = self.scale_phisical2fls(projected_coords)
                         project_err = self.coords_baseline - projected_coords_fls 
 
-                        # UWAGA: Utrzymujemy to samo zbalansowanie błędów co ustaliliśmy wcześniej!
-                        err_r = project_err[:, :, 0:1] * 10.0
-                        err_th = project_err[:, :, 1:2] * 1.0
-                        weighted_err = torch.cat([err_r, err_th], dim=2) * self.weights
-                        err = weighted_err.squeeze(0) # Kształt: [Liczba_Krawędzi, 2]
+                        # # UWAGA: Utrzymujemy to samo zbalansowanie błędów co ustaliliśmy wcześniej!
+                        # err_r = project_err[:, :, 0:1] * 10.0
+                        # err_th = project_err[:, :, 1:2] * 1.0
+                        # weighted_err = torch.cat([err_r, err_th], dim=2) * self.weights
+                        # err = weighted_err.squeeze(0) # Kształt: [Liczba_Krawędzi, 2]
+
+                        err_r = project_err[:, 0:1] * 10.0
+                        err_th = project_err[:, 1:2] * 1.0
+                        err = torch.cat([err_r, err_th], dim=1) * self.weights
 
                         # 3. EXACT JACOBIANS DLA KAŻDEJ KRAWĘDZI
                         # Ponieważ każda krawędź ma własny wpis w phi_edges_leaf, sum() zrzuca

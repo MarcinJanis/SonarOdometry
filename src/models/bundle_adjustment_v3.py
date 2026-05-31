@@ -232,7 +232,6 @@ class BundleAdjustment(nn.Module):
 
         return pose_optimized, elevation_optimized
 
-
     def scale_phisical2fls(self, coords):
         r_norm = (coords[:, 0] - self.r_min) / (self.r_max - self.r_min)
         r = r_norm * self.fls_h

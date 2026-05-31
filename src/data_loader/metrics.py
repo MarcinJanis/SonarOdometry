@@ -17,7 +17,7 @@ def eval_metrics(pred, gt, reduction = 'mean'):
     gt_se3 = pp.SE3(gt)
 
     # --- ABSOLUTE ERROR --- 
-    absolute_pose_error_unreduced = (pred_se3.Inv() * gt_se3)
+    absolute_pose_error_unreduced = (pred_se3.Inv() @ gt_se3)
     # Absolute trajectory error - unreduced
     ATE = absolute_pose_error_unreduced.translation().norm(dim=-1)
     # Absolute rotation error - unreduced
@@ -41,6 +41,13 @@ def eval_metrics(pred, gt, reduction = 'mean'):
             'RPE_translation': torch.mean(RPE_trans),
             'RPE_rotation': torch.mean(RPE_rot)
         }
+    # elif reduction == 'mse':
+    #     metrics = {
+    #         'ATE': F.mse_loss(ATE),
+    #         'ARE': F.mse_loss(ARE),
+    #         'RPE_translation': F.mse_loss(RPE_trans),
+    #         'RPE_rotation': F.mse_loss(RPE_rot)
+    #     }
     else:
         metrics = {
             'ATE': ATE,
