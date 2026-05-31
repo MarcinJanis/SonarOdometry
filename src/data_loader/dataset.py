@@ -32,10 +32,10 @@ class SonarSimDataset(Dataset):
             seq_path = dir.path
 
             if seq_name == 'aracati' or seq_name == 'train2': continue
-
+            
             csv_path = os.path.join(seq_path, 'sequence.csv')
             fls_path = os.path.join(seq_path, 'fls')
-
+        
             time = pd.read_csv(csv_path, usecols=['timestamp'])
             pose = pd.read_csv(csv_path, usecols=['pos_x', 'pos_y', 'pos_z', 'quat_x', 'quat_y', 'quat_z', 'quat_w'])
             depth = pd.read_csv(csv_path, usecols=['dvl_alt'])

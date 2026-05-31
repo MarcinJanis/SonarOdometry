@@ -30,7 +30,7 @@ class SonarSimDataModule(pl.LightningDataModule):
             self.val_dataset = SonarSimDataset(val_pth, self.window_size, transform=self.transforms, revert_sequence_p = 0.0, fls_resolution=self.fls_resolution)
         
         if stage == "test" or stage is None:
-            test_pth = os.path.join(self.root_dir, 'val')
+            test_pth = os.path.join(self.root_dir)
             self.test_dataset = SonarSimDataset(test_pth, self.window_size, transform=self.transforms, revert_sequence_p = 0.0, fls_resolution=self.fls_resolution)
         
     def train_dataloader(self):
@@ -43,7 +43,7 @@ class SonarSimDataModule(pl.LightningDataModule):
 
     def test_dataloader(self):
         return DataLoader(self.test_dataset, batch_size=self.val_batch_size, 
-                          shuffle=False, num_workers=self.num_workers)
+                          shuffle=True, num_workers=self.num_workers)
 
 
 
