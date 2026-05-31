@@ -35,7 +35,7 @@ ___
 │         ├── BA_test.ipynb                 # Test and visualisation of bundle adjustment module
 │         ├── graph_training_test.ipynb     # Visualisation of reprojection and trajectory prediction
 │         ├── key_points.ipynb              # Visualisation of patches selection 
-│         ── sonar_noise.ipynb              # Analysis of sonar noise
+│         └─ sonar_noise.ipynb              # Analysis of sonar noise
 |                     
 ├── src/   
 │   ├── data_loader/   
