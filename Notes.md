@@ -1,7 +1,3 @@
-Dzień dobry, przygotowałem wizualizacje i analizę modelu, zgodnie z ostatnią rozmową.
-
-Kod jest na GitHubie: https://github.com/MarcinJanis/SonarOdometry
-
 Dataset jest do pobrania na dysku: https://drive.google.com/drive/u/2/folders/1BgosYlaRkQkSa43Jpgb6hoGK88n3bXLL.
 
 Są tam dwa pliki: pełen dataset (SonarOdometryDataset.tar.gz) oraz mniejsza próbka do testowania (SonarOdometryDataset_sample.zip)
