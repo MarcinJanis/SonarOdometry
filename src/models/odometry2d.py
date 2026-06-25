@@ -106,9 +106,10 @@ class sonar_odometry(nn.Module):
         
         
         # --- math points with loftr ---
-        matches = self.match_points({'image0': self.prev_frame, 'mask0': self.polar2cart_mask,
-                                     'image1': new_frame, 'mask1': self.polar2cart_mask,
-                                    })
+        with torch.no_grad():
+            matches = self.match_points({'image0': self.prev_frame, 'mask0': self.polar2cart_mask,
+                                         'image1': new_frame, 'mask1': self.polar2cart_mask,
+                                        })
         
         pts1 = matches['keypoints0']
         pts2 = matches['keypoints1']
