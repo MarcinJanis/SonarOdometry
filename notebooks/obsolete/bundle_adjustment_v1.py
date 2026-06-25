@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .utils import transform_cart2polar, transform_polar2cart, project_points
+from ...src.models.utils import transform_cart2polar, transform_polar2cart, project_points
 
 import pypose as pp
 

@@ -42,7 +42,7 @@ class DataGenerator():
         self.predict_traj = {}
         self.pts3d = None
 
-    def get_sample(self, idx, return_visu=False):
+    def get_sample(self, idx, return_visu=False, return_depth=False):
 
         # get sonar frame
         frame_pth = os.path.join(self.fls_path, f'{idx}.png')
@@ -57,17 +57,25 @@ class DataGenerator():
         frame = frame.unsqueeze(0) # add batch size
 
         # get other data    
+
         t = torch.tensor(self.time.iloc[idx].values, dtype = torch.float, device = self.device)
+
         pose_gt = torch.tensor(self.pose.iloc[idx].values, dtype = torch.float, device = self.device)
         pose_gt[3:7] = F.normalize(pose_gt[3:7], p=2, dim=-1)
-
         pose_gt = self.calibration.pose(pose_gt)
+
+        depth = torch.tensor(self.depth.iloc[idx].values, dtype = torch.float, device = self.device)
         
+        out = [t, frame, pose_gt]
+
         if return_visu:
             frame_np = frame.cpu().numpy() * 255
-            return t, frame, pose_gt, frame_np
-        else:
-            return t, frame, pose_gt
+            out.append(frame_np)
+
+        if return_depth: 
+            out.append(depth)
+
+        return out 
             
 
     def get_len(self):
