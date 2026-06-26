@@ -166,7 +166,7 @@ class sonar_odometry(nn.Module):
         # 
         if M is not None and inlier_mask is not None:
             inlier_mask = inlier_mask.ravel().astype(bool)
-            theta = np.arctan2(M[1, 0], M[0, 0])
+            theta = - np.arctan2(M[1, 0], M[0, 0])
             tx, ty = M[0, 2], M[1, 2]
             n_in  = inlier_mask.sum()
 
