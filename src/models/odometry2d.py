@@ -52,7 +52,7 @@ class sonar_odometry(nn.Module):
         self.polar2cart_grid = None
         
 
-    def set_init_state(self, init_pose, init_frame):
+    def set_init_state(self, init_x, init_y, init_frame):
 
         # --- generate sampling grid once to speed up ---
         b, c, h, w = init_frame.shape
@@ -94,11 +94,15 @@ class sonar_odometry(nn.Module):
         self.polar2cart_mask = valid_mask.unsqueeze(0).expand(b, -1, -1).float()
         
         
-        # --- save first data as init state --- 
-        self.prev_pose = init_pose
+        # --- save first data as init state ---
+        # pose as homogenus translation matrix
+        self.prev_pose = np.array([[1, 0, init_x], 
+                                   [0, 1, init_y], 
+                                   [0, 0, 1]])
+        
         self.prev_frame = self.polar2car(init_frame)
 
-
+    @torch.no_grad()
     def forward(self, frame, depth, return_visu = False):
 
         # --- convert new frame to carthesian ---
@@ -106,10 +110,10 @@ class sonar_odometry(nn.Module):
         
         
         # --- math points with loftr ---
-        with torch.no_grad():
-            matches = self.match_points({'image0': self.prev_frame, 'mask0': self.polar2cart_mask,
-                                         'image1': new_frame, 'mask1': self.polar2cart_mask,
-                                        })
+        
+        matches = self.match_points({'image0': self.prev_frame, 'mask0': self.polar2cart_mask,
+                                     'image1': new_frame, 'mask1': self.polar2cart_mask,
+                                    })
         
         pts1 = matches['keypoints0']
         pts2 = matches['keypoints1']
@@ -167,10 +171,9 @@ class sonar_odometry(nn.Module):
             local_translation = np.array([[ np.cos(theta), -np.sin(theta), tx],
                                           [ np.sin(theta),  np.cos(theta), ty], 
                                           [ 0,              0,             1]])
-            
+
             new_pose = self.prev_pose @ local_translation
-
-
+            
         else:
             inlier_mask = np.zeros(len(pts1_np), dtype=bool)
             new_pose = self.prev_pose
@@ -181,6 +184,7 @@ class sonar_odometry(nn.Module):
         
         if not return_visu: 
             self.prev_frame = new_frame
+            self.prev_pose =  new_pose
             return (global_x, global_y), global_azimuth
         
         else: 
@@ -193,15 +197,16 @@ class sonar_odometry(nn.Module):
             frames_np_rgb = cv2.cvtColor(frames_np, cv2.COLOR_GRAY2RGB)
 
             visu = {'combined_imgs':frames_np_rgb,
-                    'pts1':pts1,
-                    'pts2':pts2,
+                    'pts1':pts1.detach().cpu().numpy(),
+                    'pts2':pts2.detach().cpu().numpy(),
                     'pts2_offset':(0, w)}
 
             self.prev_frame = new_frame
+            self.prev_pose =  new_pose
             return (global_x, global_y), global_azimuth, visu 
         
 
-
+    @torch.no_grad()
     def polar2car(self, frame, out_shape=None):
 
         # Sample pixels with grid, padd with zeros
@@ -221,7 +226,7 @@ class sonar_odometry(nn.Module):
 
         # scale factor 
         scale = (self.r_max - self.r_min) / out_h
-        
+         
         # Pixels -> Physicals (maters)
         x = (u - out_w / 2.0) * scale
         y = (out_h - v) * scale + self.r_min
