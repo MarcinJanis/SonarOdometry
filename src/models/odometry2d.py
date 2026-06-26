@@ -213,6 +213,10 @@ class sonar_odometry(nn.Module):
 
         # Sample pixels with grid, padd with zeros
         out_img = F.grid_sample(frame, self.polar2cart_grid, mode='bilinear', padding_mode='zeros', align_corners=True)
+
+        if self.polar2cart_mask is not None:
+            out_img = out_img * self.polar2cart_mask.unsqueeze(1)
+            
         return out_img
 
     
