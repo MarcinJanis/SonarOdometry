@@ -62,8 +62,8 @@ class sonar_odometry(nn.Module):
         out_w = 2 * h
 
         # Inverse remapping 
-        y = torch.arange(out_h, device=device, dtype=torch.float32)
-        x = torch.arange(out_w, device=device, dtype=torch.float32)
+        y = torch.arange(out_h, device=self.device, dtype=torch.float32)
+        x = torch.arange(out_w, device=self.device, dtype=torch.float32)
         y, x = torch.meshgrid(y, x, indexing='ij')
 
         # Recenter
