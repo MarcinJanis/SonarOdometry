@@ -127,31 +127,33 @@ class sonar_odometry(nn.Module):
         # --- compensate depth change ---
 
         # transform to real-world values
-        pts1_r = self.scale_px2physcial(pts1)
-        pts2_r = self.scale_px2physcial(pts2)
+        # pts1_r = self.scale_px2physcial(pts1)
+        # pts2_r = self.scale_px2physcial(pts2)
 
-        # calc distance from sonar to points (acustic ray path)
-        ray1 = torch.sqrt(pts1_r[:, 0]**2 + pts1_r[:, 1]**2)
-        ray2 = torch.sqrt(pts2_r[:, 0]**2 + pts2_r[:, 1]**2)
+        # # calc distance from sonar to points (acustic ray path)
+        # ray1 = torch.sqrt(pts1_r[:, 0]**2 + pts1_r[:, 1]**2)
+        # ray2 = torch.sqrt(pts2_r[:, 0]**2 + pts2_r[:, 1]**2)
 
-        # filtration (discard point swhen acustic ray path is smaller than depth)
-        valid_mask = (ray1 > depth) & (ray2 > depth)
-        pts1_r = pts1_r[valid_mask]
-        pts2_r = pts2_r[valid_mask]
-        ray1 = ray1[valid_mask]
-        ray2 = ray2[valid_mask]
+        # # filtration (discard point swhen acustic ray path is smaller than depth)
+        # valid_mask = (ray1 > depth) & (ray2 > depth)
+        # pts1_r = pts1_r[valid_mask]
+        # pts2_r = pts2_r[valid_mask]
+        # ray1 = ray1[valid_mask]
+        # ray2 = ray2[valid_mask]
         
-        # calc real distance over ground
-        r1 = torch.sqrt(ray1**2 - depth**2)
-        r2 = torch.sqrt(ray2**2 - depth**2)
+        # # calc real distance over ground
+        # r1 = torch.sqrt(ray1**2 - depth**2)
+        # r2 = torch.sqrt(ray2**2 - depth**2)
 
-        # extract translation and rotation
-        pts1_r_scaled = pts1_r * (r1 / ray1).unsqueeze(1)
-        pts2_r_scaled = pts2_r * (r2 / ray2).unsqueeze(1)
+        # # extract translation and rotation
+        # pts1_r_scaled = pts1_r * (r1 / ray1).unsqueeze(1)
+        # pts2_r_scaled = pts2_r * (r2 / ray2).unsqueeze(1)
     
         # --- extract transform matrix - RANSAC ---  
-        pts1_np = pts1_r_scaled.cpu().numpy()
-        pts2_np = pts2_r_scaled.cpu().numpy()
+        # pts1_np = pts1_r_scaled.cpu().numpy()
+        # pts2_np = pts2_r_scaled.cpu().numpy()
+        pts1_np = pts1.cpu().numpy()
+        pts2_np = pts2_r.cpu().numpy()
 
         M, inlier_mask = cv2.estimateAffinePartial2D(
             pts2_np, pts1_np,
