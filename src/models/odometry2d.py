@@ -128,8 +128,8 @@ class sonar_odometry(nn.Module):
         # --- compensate depth change ---
 
         # transform to real-world values
-        # pts1_r = self.scale_px2physcial(pts1)
-        # pts2_r = self.scale_px2physcial(pts2)
+        pts1_r = self.scale_px2physcial(pts1)
+        pts2_r = self.scale_px2physcial(pts2)
 
         # # calc distance from sonar to points (acustic ray path)
         # ray1 = torch.sqrt(pts1_r[:, 0]**2 + pts1_r[:, 1]**2)
@@ -151,9 +151,8 @@ class sonar_odometry(nn.Module):
         # pts2_r_scaled = pts2_r * (r2 / ray2).unsqueeze(1)
     
         # --- extract transform matrix - RANSAC ---  
-        # pts1_np = pts1_r_scaled.cpu().numpy()
-        # pts2_np = pts2_r_scaled.cpu().numpy()
-        pts1_np = pts1.cpu().numpy()
+       
+        pts1_np = pts1_r.cpu().numpy()
         pts2_np = pts2_r.cpu().numpy()
 
         M, inlier_mask = cv2.estimateAffinePartial2D(
