@@ -156,7 +156,7 @@ class sonar_odometry(nn.Module):
         pts2_np = pts2_r_scaled.cpu().numpy()
 
         M, inlier_mask = cv2.estimateAffinePartial2D(
-            pts1_np, pts2_np,
+            pts2_np, pts1_np,
             method=cv2.RANSAC,
             ransacReprojThreshold=self.ransac_thresh,   
             maxIters=3000,
