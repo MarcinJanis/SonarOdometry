@@ -86,7 +86,7 @@ class sonar_odometry(nn.Module):
 
         # Crate grid with shape (b, out_h, out_w, 2)
 
-        grid = torch.stack((norm_theta, norm_r), dim=-1).unsqueeze(0)
+        grid = torch.stack((norm_theta, -norm_r), dim=-1).unsqueeze(0)
         self.polar2cart_grid = grid.expand(b, -1, -1, -1) 
 
         # crate valid pixels mask 
