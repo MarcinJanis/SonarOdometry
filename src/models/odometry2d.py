@@ -62,8 +62,8 @@ class sonar_odometry(nn.Module):
         out_w = 2 * h
 
         # Inverse remapping 
-        y = torch.arange(out_h, device=init_frame.device, dtype=torch.float32)
-        x = torch.arange(out_w, device=init_frame.device, dtype=torch.float32)
+        y = torch.arange(out_h, device=device, dtype=torch.float32)
+        x = torch.arange(out_w, device=device, dtype=torch.float32)
         y, x = torch.meshgrid(y, x, indexing='ij')
 
         # Recenter
@@ -86,8 +86,8 @@ class sonar_odometry(nn.Module):
 
         # Crate grid with shape (b, out_h, out_w, 2)
 
-        grid = torch.stack((norm_theta, -norm_r), dim=-1).unsqueeze(0)
-        self.polar2cart_grid = grid.expand(b, -1, -1, -1) 
+        # grid = torch.stack((norm_theta, -norm_r), dim=-1).unsqueeze(0)
+        self.polar2cart_grid = torch.stack((norm_theta, -norm_r), dim=-1).unsqueeze(0) # grid.expand(b, -1, -1, -1) 
 
         # crate valid pixels mask 
                 
