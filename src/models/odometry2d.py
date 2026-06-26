@@ -52,7 +52,7 @@ class sonar_odometry(nn.Module):
         self.polar2cart_grid = None
         
 
-    def set_init_state(self, init_x, init_y, init_frame):
+    def set_init_state(self, init_x, init_y, init_azimuth, init_frame):
 
         # --- generate sampling grid once to speed up ---
         b, c, h, w = init_frame.shape
@@ -97,8 +97,8 @@ class sonar_odometry(nn.Module):
         
         # --- save first data as init state ---
         # pose as homogenus translation matrix
-        self.prev_pose = np.array([[1, 0, init_x], 
-                                   [0, 1, init_y], 
+        self.prev_pose = np.array([[np.cos(init_azimuth), -np.sin(init_azimuth), init_x], 
+                                   [np.sin(init_azimuth), np.cos(init_azimuth), init_y], 
                                    [0, 0, 1]])
         
         self.prev_frame = self.polar2car(init_frame)
