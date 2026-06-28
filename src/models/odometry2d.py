@@ -172,9 +172,10 @@ class sonar_odometry(nn.Module):
         # 
         if M is not None and inlier_mask is not None:
             inlier_mask = inlier_mask.ravel().astype(bool)
-            theta = np.arctan2(M[1, 0], M[0, 0])
-            # tx, ty = M[0, 2], M[1, 2]
-            ty, tx = M[0, 2], M[1, 2]
+         
+            theta = -np.arctan2(M[1, 0], M[0, 0]) 
+            ty, tx = -M[0, 2], M[1, 2]
+            
             n_in  = inlier_mask.sum()
 
             local_translation = np.array([[ np.cos(theta), -np.sin(theta), tx],
@@ -195,21 +196,24 @@ class sonar_odometry(nn.Module):
         # --- key frame detection --- 
         key_frame_detected = True 
         if self.key_frames:
-            displacement = np.sqrt(global_x**2 + global_y**2)
+            dx = global_x - self.prev_pose[0, 2]
+            dy = global_y - self.prev_pose[1, 2]
+            displacement = np.sqrt(dx**2 + dy**2)
+            
             if displacement >= self.key_frames_min_dist:
                 key_frame_detected = True
             else: 
                 key_frame_detected = False
 
+        out_pose = (global_x, global_y)
         
         if not return_visu: 
             if key_frame_detected:
                 self.prev_frame = new_frame
                 self.prev_pose =  new_pose
-            return (global_x, global_y), global_azimuth
+            return out_pose, global_azimuth
         
         else: 
-
             # --- visualisation --- 
             b, c, h, w = new_frame.shape
             frame1_np = self.prev_frame.squeeze(0).permute(1, 2, 0).cpu().numpy()
@@ -225,9 +229,9 @@ class sonar_odometry(nn.Module):
             if key_frame_detected:
                 self.prev_frame = new_frame
                 self.prev_pose =  new_pose
+                
+            return out_pose, global_azimuth, visu   
 
-            return (global_x, global_y), global_azimuth, visu 
-        
 
     @torch.no_grad()
     def polar2car(self, frame, out_shape=None):
