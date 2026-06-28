@@ -9,26 +9,27 @@ import cv2
 from box import Box
 import yaml
 
-from .utils import project_points, approx_movement, depth_to_elev_angle, add_noise, ExtrinsicsCalib
+from .utils import ExtrinsicsCalib
 
 
 class sonar_odometry(nn.Module):
 
-    def __init__(self, model_config, sonar_config, device):
+    def __init__(self, model_config, sonar_config, device, 
+                 depth_compesation = True,
+                 key_frames = True):
         super().__init__()
 
         self.device = device 
 
-        # with open(model_cfg, "r") as f:
-        #     model_config = Box(yaml.safe_load(f))
-
-        # with open(sonar_cfg, "r") as f:
-        #     sonar_config = Box(yaml.safe_load(f))   
-
         self.calib = ExtrinsicsCalib(T = [sonar_config.position.x, sonar_config.position.y, sonar_config.position.z],
                                      R = [sonar_config.position.roll, sonar_config.position.pitch, sonar_config.position.yaw])
 
-        # --- init parameters ---
+        # --- init parameters --- 
+        self.depth_compesation = depth_compesation
+
+        self.key_frames = key_frames
+        self.key_frames_min_dist = model_config.key_frames_min_dist # [m]
+
         self.pts_match_thresh = model_config.pts_match_thresh # [-]
         self.ransac_thresh = model_config.ransac_thresh # [m]
 
@@ -125,31 +126,36 @@ class sonar_odometry(nn.Module):
         pts1 = pts1[valid_matches]
         pts2 = pts2[valid_matches]
 
-        # --- compensate depth change ---
-
         # transform to real-world values
         pts1_r = self.scale_px2physcial(pts1)
         pts2_r = self.scale_px2physcial(pts2)
-
-        # calc distance from sonar to points (acustic ray path)
-        ray1 = torch.sqrt(pts1_r[:, 0]**2 + pts1_r[:, 1]**2)
-        ray2 = torch.sqrt(pts2_r[:, 0]**2 + pts2_r[:, 1]**2)
-
-        # filtration (discard point swhen acustic ray path is smaller than depth)
-        valid_mask = (ray1 > depth) & (ray2 > depth)
-        pts1_r = pts1_r[valid_mask]
-        pts2_r = pts2_r[valid_mask]
-        ray1 = ray1[valid_mask]
-        ray2 = ray2[valid_mask]
         
-        # calc real distance over ground
-        r1 = torch.sqrt(ray1**2 - depth**2)
-        r2 = torch.sqrt(ray2**2 - depth**2)
+        # --- compensate depth change ---
+        if self.depth_compesation:
+        
+            # calc distance from sonar to points (acustic ray path)
+            ray1 = torch.sqrt(pts1_r[:, 0]**2 + pts1_r[:, 1]**2)
+            ray2 = torch.sqrt(pts2_r[:, 0]**2 + pts2_r[:, 1]**2)
 
-        # extract translation and rotation
-        pts1_r_scaled = pts1_r * (r1 / ray1).unsqueeze(1)
-        pts2_r_scaled = pts2_r * (r2 / ray2).unsqueeze(1)
-    
+            # filtration (discard point swhen acustic ray path is smaller than depth)
+            valid_mask = (ray1 > depth) & (ray2 > depth)
+            pts1_r = pts1_r[valid_mask]
+            pts2_r = pts2_r[valid_mask]
+            ray1 = ray1[valid_mask]
+            ray2 = ray2[valid_mask]
+            
+            # calc real distance over ground
+            r1 = torch.sqrt(ray1**2 - depth**2)
+            r2 = torch.sqrt(ray2**2 - depth**2)
+
+            # extract translation and rotation
+            pts1_r_scaled = pts1_r * (r1 / ray1).unsqueeze(1)
+            pts2_r_scaled = pts2_r * (r2 / ray2).unsqueeze(1)
+        else:
+            pts1_r_scaled = pts1_r
+            pts2_r_scaled = pts2_r
+
+
         # --- extract transform matrix - RANSAC ---  
        
         pts1_np = pts1_r_scaled.cpu().numpy()
@@ -184,10 +190,22 @@ class sonar_odometry(nn.Module):
         global_x = new_pose[0, 2]
         global_y = new_pose[1, 2]
         global_azimuth = np.arctan2(new_pose[1, 0], new_pose[0, 0])
+
+
+        # --- key frame detection --- 
+        key_frame_detected = True 
+        if self.key_frames:
+            displacement = np.sqrt(global_x**2 + global_y**2)
+            if displacement >= self.key_frames_min_dist:
+                key_frame_detected = True
+            else: 
+                key_frame_detected = False
+
         
         if not return_visu: 
-            self.prev_frame = new_frame
-            self.prev_pose =  new_pose
+            if key_frame_detected:
+                self.prev_frame = new_frame
+                self.prev_pose =  new_pose
             return (global_x, global_y), global_azimuth
         
         else: 
@@ -203,9 +221,11 @@ class sonar_odometry(nn.Module):
                     'pts1':pts1.detach().cpu().numpy(),
                     'pts2':pts2.detach().cpu().numpy(),
                     'pts2_offset':(0, w)}
+            
+            if key_frame_detected:
+                self.prev_frame = new_frame
+                self.prev_pose =  new_pose
 
-            self.prev_frame = new_frame
-            self.prev_pose =  new_pose
             return (global_x, global_y), global_azimuth, visu 
         
 

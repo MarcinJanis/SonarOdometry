@@ -7,6 +7,8 @@ from scipy.spatial.transform import Rotation as R
 
 def eval_metrics(pred, gt, reduction = 'mean'):
 
+    # torch + pypose
+
     b, n, _ = pred.shape
     pred = pred.view(b*n, -1)
     gt = gt[:, :n, :] # if less pred poses than gt
@@ -59,3 +61,42 @@ def eval_metrics(pred, gt, reduction = 'mean'):
 
     return metrics 
 
+
+
+
+def eval_metrics_2d(pred, gt):
+
+    # numpy 
+
+    # pred (n, 2)
+    # gt (n, 2)
+
+    abs_traj_l2 = np.linalg.norm((gt - pred), axis = 1) 
+    ATE = np.sqrt(np.mean(abs_traj_l2**2))
+
+    relative_step_pred = pred[1:, :] - pred[:-1, :]
+    relative_step_gt = gt[1:, :] - gt[:-1, :]
+    rel_traj_l2 = np.linalg.norm((relative_step_gt - relative_step_pred), axis = 1) 
+    RPE = np.sqrt(np.mean(rel_traj_l2**2))
+
+    return ATE, RPE
+
+
+# --- test ---
+
+gt_test = np.array([
+    [0.0, 0.0],
+    [1.0, 0.0],
+    [2.0, 0.0],
+    [3.0, 0.0],
+    [4.0, 0.0],
+])
+theta = np.deg2rad(5.0)  
+R = np.array([[np.cos(theta), -np.sin(theta)],
+              [np.sin(theta),  np.cos(theta)]])
+t = np.array([1.0, 0.5])
+pred_test = (gt_test @ R.T) + t
+
+ATE, RPE = eval_metrics_2d(pred_test, gt_test)
+
+print(f'Ate: {ATE}, expected')
