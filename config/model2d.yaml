@@ -1,6 +1,8 @@
 FLS_INPUT_HEIGHT: 800 # orginal img: 800 
 FLS_INPUT_WIDTH: 768 # orginal img: 768 
 
-pts_match_thresh: 0.4 # [-]
+pts_match_thresh: 0.5 # [-]
 
 ransac_thresh: 0.15 # [m]
+
+key_frames_min_dist: 0.15 # [m]
