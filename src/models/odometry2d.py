@@ -173,15 +173,15 @@ class sonar_odometry(nn.Module):
         if M is not None and inlier_mask is not None:
             inlier_mask = inlier_mask.ravel().astype(bool)
          
-            theta = np.arctan2(M[1, 0], M[0, 0])
+            theta = - np.arctan2(M[1, 0], M[0, 0])
     
-            tx_sonar = M[0, 2] 
-            ty_sonar = M[1, 2] 
+            tx = M[0, 2] 
+            ty = M[1, 2] 
             n_in  = inlier_mask.sum()
 
-            # mapping axis 
-            tx = ty_sonar
-            ty = tx_sonar
+            # # mapping axis 
+            # tx = ty_sonar
+            # ty = tx_sonar
 
             local_translation = np.array([[ np.cos(theta), -np.sin(theta), tx],
                                           [ np.sin(theta),  np.cos(theta), ty], 
