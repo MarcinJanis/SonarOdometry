@@ -52,7 +52,7 @@ class sonar_odometry(nn.Module):
 
         self.polar2cart_grid = None
 
-        self.skip_frames = 0
+        self.skip_frames = 1
         
 
     def set_init_state(self, init_x, init_y, init_azimuth, init_frame):
@@ -177,13 +177,13 @@ class sonar_odometry(nn.Module):
          
             theta = - np.arctan2(M[1, 0], M[0, 0])
     
-            tx = M[0, 2] 
-            ty = M[1, 2] 
+            tx_sonar = M[0, 2] 
+            ty_sonar = M[1, 2] 
             inliers_num  = inlier_mask.sum()
 
             # # mapping axis 
-            # tx = ty_sonar
-            # ty = tx_sonar
+            tx = ty_sonar
+            ty = - tx_sonar
 
             local_translation = np.array([[ np.cos(theta), -np.sin(theta), tx],
                                           [ np.sin(theta),  np.cos(theta), ty], 
@@ -240,6 +240,7 @@ class sonar_odometry(nn.Module):
                     'pts2':pts2.detach().cpu().numpy(),
                     'pts2_offset':(0, w),
                     'inlier_num': inliers_num,
+                    'mean_matched_confidence': np.mean(confidence.detach().cpu().numpy())
                     }
                     
             if key_frame_detected:
@@ -253,7 +254,7 @@ class sonar_odometry(nn.Module):
                 self.skip_frames += 1
                 
             visu['skipped_frames'] = frames_skipped
-            
+
             return out_pose, global_azimuth, visu   
 
 
