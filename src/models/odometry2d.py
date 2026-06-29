@@ -51,6 +51,8 @@ class sonar_odometry(nn.Module):
         self.mask = None
 
         self.polar2cart_grid = None
+
+        self.skip_frames = 0
         
 
     def set_init_state(self, init_x, init_y, init_azimuth, init_frame):
@@ -177,7 +179,7 @@ class sonar_odometry(nn.Module):
     
             tx = M[0, 2] 
             ty = M[1, 2] 
-            n_in  = inlier_mask.sum()
+            inliers_num  = inlier_mask.sum()
 
             # # mapping axis 
             # tx = ty_sonar
@@ -216,6 +218,13 @@ class sonar_odometry(nn.Module):
             if key_frame_detected:
                 self.prev_frame = new_frame
                 self.prev_pose =  new_pose
+
+                frames_skipped = self.skip_frames
+                self.skip_frames = 1
+
+            else:
+                frames_skipped = self.skip_frames
+                self.skip_frames += 1
             return out_pose, global_azimuth
         
         else: 
@@ -229,12 +238,22 @@ class sonar_odometry(nn.Module):
             visu = {'combined_imgs':frames_np_rgb,
                     'pts1':pts1.detach().cpu().numpy(),
                     'pts2':pts2.detach().cpu().numpy(),
-                    'pts2_offset':(0, w)}
-            
+                    'pts2_offset':(0, w),
+                    'inlier_num': inliers_num,
+                    }
+                    
             if key_frame_detected:
                 self.prev_frame = new_frame
                 self.prev_pose =  new_pose
+
+                frames_skipped = self.skip_frames
+                self.skip_frames = 1
+            else:
+                frames_skipped = self.skip_frames
+                self.skip_frames += 1
                 
+            visu['skipped_frames'] = frames_skipped
+            
             return out_pose, global_azimuth, visu   
 
 
