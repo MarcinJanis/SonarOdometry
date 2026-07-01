@@ -16,7 +16,9 @@ class sonar_odometry(nn.Module):
 
     def __init__(self, model_config, sonar_config, device, 
                  depth_compesation = True,
-                 key_frames = True):
+                 key_frames = True,
+                 input_img_format = 'polar'):
+        
         super().__init__()
 
         self.device = device 
@@ -29,6 +31,9 @@ class sonar_odometry(nn.Module):
 
         self.key_frames = key_frames
         self.key_frames_min_dist = model_config.key_frames_min_dist # [m]
+        self.key_frames_min_rot = model_config.key_frames_min_rot # [rad]
+
+        self.inliers_low_threshold = model_config.inliers_low_threshold
 
         self.pts_match_thresh = model_config.pts_match_thresh # [-]
         self.ransac_thresh = model_config.ransac_thresh # [m]
@@ -41,6 +46,7 @@ class sonar_odometry(nn.Module):
         self.r_max = sonar_config.range.max
         self.theta_max = sonar_config.fov.horizontal
 
+        self.input_img_format = input_img_format
         # --- init modules ---
         pretrained = 'outdoor'
         self.match_points = LoFTR(pretrained=pretrained).to(device).eval()
@@ -55,7 +61,7 @@ class sonar_odometry(nn.Module):
         self.skip_frames = 1
         
 
-    def set_init_state(self, init_x, init_y, init_azimuth, init_frame):
+    def set_init_state(self, init_x, init_y, init_azimuth, init_frame, polar2cart_mask = None):
 
         # --- generate sampling grid once to speed up ---
         b, c, h, w = init_frame.shape
@@ -93,25 +99,33 @@ class sonar_odometry(nn.Module):
         self.polar2cart_grid = torch.stack((norm_theta, -norm_r), dim=-1).unsqueeze(0) # grid.expand(b, -1, -1, -1) 
 
         # crate valid pixels mask 
-                
-        valid_mask = (norm_theta >= -1.0) & (norm_theta <= 1.0) & (norm_r >= -1.0) & (norm_r <= 1.0)
-        self.polar2cart_mask = valid_mask.unsqueeze(0).expand(b, -1, -1).float()
-        
-        
+        if self.input_img_format == 'polar':
+            valid_mask = (norm_theta >= -1.0) & (norm_theta <= 1.0) & (norm_r >= -1.0) & (norm_r <= 1.0)
+            self.polar2cart_mask = valid_mask.unsqueeze(0).expand(b, -1, -1).float()
+        elif not polar2cart_mask is None: 
+            self.polar2cart_mask = polar2cart_mask # shape (h, w), dtype bool 
+        else:
+            self.polar2cart_mask = torch.ones((h, w), dtype = torch.bool, device = init_frame.device)
+
         # --- save first data as init state ---
         # pose as homogenus translation matrix
         self.prev_pose = np.array([[np.cos(init_azimuth), -np.sin(init_azimuth), init_x], 
                                    [np.sin(init_azimuth), np.cos(init_azimuth), init_y], 
                                    [0, 0, 1]])
         
-        self.prev_frame = self.polar2car(init_frame)
+        if self.input_img_format == 'polar':
+            self.prev_frame = self.polar2car(init_frame)
+        else:
+            self.prev_frame = init_frame
 
     @torch.no_grad()
     def forward(self, frame, depth, return_visu = False):
 
         # --- convert new frame to carthesian ---
-        new_frame = self.polar2car(frame)
-        
+        if self.input_img_format == 'polar':
+            new_frame = self.polar2car(frame)
+        else: 
+            new_frame = frame
         
         # --- math points with loftr ---
         
@@ -179,7 +193,8 @@ class sonar_odometry(nn.Module):
     
             tx_sonar = M[0, 2] 
             ty_sonar = M[1, 2] 
-            inliers_num  = inlier_mask.sum()
+
+            inliers_p  = inlier_mask.sum() / pts1.shape[0]
 
             # # mapping axis 
             tx = ty_sonar
@@ -203,14 +218,24 @@ class sonar_odometry(nn.Module):
         # --- key frame detection --- 
         key_frame_detected = True 
         if self.key_frames:
+            # translation
             dx = global_x - self.prev_pose[0, 2]
             dy = global_y - self.prev_pose[1, 2]
             displacement = np.sqrt(dx**2 + dy**2)
+            # rotation
+            prev_azimuth = np.arctan2(self.prev_pose[1, 0], self.prev_pose[0, 0])
+            azimuth_diff = np.abs(np.arctan2(np.sin(global_azimuth - prev_azimuth), 
+                                             np.cos(global_azimuth - prev_azimuth)))
             
-            if displacement >= self.key_frames_min_dist:
+            if (displacement >= self.key_frames_min_dist or 
+                azimuth_diff >= self.key_frames_min_rot or
+                inliers_p  <= self.inliers_low_threshold):
                 key_frame_detected = True
             else: 
                 key_frame_detected = False
+
+
+            
 
         out_pose = (global_x, global_y)
         
@@ -239,7 +264,7 @@ class sonar_odometry(nn.Module):
                     'pts1':pts1.detach().cpu().numpy(),
                     'pts2':pts2.detach().cpu().numpy(),
                     'pts2_offset':(0, w),
-                    'inlier_num': inliers_num,
+                    'inlier_num': inliers_p,
                     'mean_matched_confidence': np.mean(confidence.detach().cpu().numpy())
                     }
                     
@@ -293,7 +318,24 @@ class sonar_odometry(nn.Module):
     
         
 
+    def fls_filter(frame):
 
-    
+        # convert troch tensor to numpy array
+        device = frame.device 
+        _, _, c, h, w = frame.shape
+        frame_reshaped = frame.view(h, w).unsqueeze(-1)
+        frame_np = frame.detach().cpu().numpy
 
+        # median filter 
+        blured = cv2.medianBlur(frame_np, ksize=5)
 
+        # CLAHE 
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        filtered_frame = clahe.apply(blured)
+
+        # restore tensor form 
+        frame_torch = torch.tensor(filtered_frame)
+        frame_reshaped = frame_torch.view(1, 1, 1, h, w)
+        frame_reshaped.to(device)
+
+        return frame_reshaped

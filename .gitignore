@@ -221,3 +221,6 @@ DONOTUPLOAD.md
 bundle_adjustment_maths_equations.md
 *.zip
 *.ckpt
+
+data/aracati2017
+
