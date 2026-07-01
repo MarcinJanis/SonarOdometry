@@ -215,8 +215,8 @@ class sonar_odometry(nn.Module):
 
             elif self.ref_frame_orient == 'aracati':
                 theta = np.arctan2(M[1, 0], M[0, 0])
-                tx = tx_sonar
-                ty = ty_sonar
+                tx = - ty_sonar
+                ty = - tx_sonar
     
             local_translation = np.array([[ np.cos(theta), -np.sin(theta), tx],
                                           [ np.sin(theta),  np.cos(theta), ty], 
