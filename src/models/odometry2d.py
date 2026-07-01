@@ -61,7 +61,7 @@ class sonar_odometry(nn.Module):
         self.skip_frames = 1
         
 
-    def set_init_state(self, init_x, init_y, init_azimuth, init_frame, polar2cart_mask = None):
+    def set_init_state(self, init_x, init_y, init_azimuth, init_frame, carth_mask = None):
 
         # --- generate sampling grid once to speed up ---
         b, c, h, w = init_frame.shape
@@ -102,10 +102,18 @@ class sonar_odometry(nn.Module):
         if self.input_img_format == 'polar':
             valid_mask = (norm_theta >= -1.0) & (norm_theta <= 1.0) & (norm_r >= -1.0) & (norm_r <= 1.0)
             self.polar2cart_mask = valid_mask.unsqueeze(0).expand(b, -1, -1).float()
-        elif not polar2cart_mask is None: 
-            self.polar2cart_mask = polar2cart_mask # shape (h, w), dtype bool 
+
+        elif not carth_mask is None:
+            self.polar2cart_mask = carth_mask # desire shape (b, h, w), dtype float, 0/1
+
         else:
-            self.polar2cart_mask = torch.ones((h, w), dtype = torch.bool, device = init_frame.device)
+            init_frame_np = init_frame.view(h, w).detach().cpu().numpy()
+            mask = (init_frame_np == 0.0).astype(np.uint8)
+            # morph clean
+            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+            cleaned_mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+            mask_torch = torch.tensor(cleaned_mask, device = init_frame.device, dtype = torch.float)
+            self.polar2cart_mask = mask_torch.unsqueeze(0)
 
         # --- save first data as init state ---
         # pose as homogenus translation matrix
@@ -233,9 +241,6 @@ class sonar_odometry(nn.Module):
                 key_frame_detected = True
             else: 
                 key_frame_detected = False
-
-
-            
 
         out_pose = (global_x, global_y)
         
