@@ -11,4 +11,4 @@ ransac_thresh: 0.4 # [m]
 key_frames_min_dist: 1.0 # [m]
 key_frames_min_rot: 0.085 # [rad]
 
-inliers_low_threshold: 0.35
+inliers_low_threshold: 0.1
