@@ -69,6 +69,8 @@ class sonar_odometry(nn.Module):
         b, c, h, w = init_frame.shape
         out_h, out_w = h, 2 * h
 
+        self.cart_frame_size = (out_h, out_w)
+
         # Inverse remapping grid generation
         y = torch.arange(out_h, device=self.device, dtype=torch.float32)
         x = torch.arange(out_w, device=self.device, dtype=torch.float32)
