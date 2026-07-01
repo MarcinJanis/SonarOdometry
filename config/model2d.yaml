@@ -4,11 +4,11 @@ FLS_INPUT_WIDTH: 768 # orginal img: 768 or 384
 ARACATI_FLS_INPUT_HEIGHT: 424 # orginal img: 1553 
 ARACATI_FLS_INPUT_WIDTH: 776 # orginal img: 768 or 384
 
-pts_match_thresh: 0.3 # [-]
+pts_match_thresh: 0.55 # [-]
 
-ransac_thresh: 0.15 # [m]
+ransac_thresh: 0.4 # [m]
 
-key_frames_min_dist: 0.15 # [m]
-key_frames_min_rot: 0.035 # [rad]
+key_frames_min_dist: 1.0 # [m]
+key_frames_min_rot: 0.085 # [rad]
 
 inliers_low_threshold: 0.35
