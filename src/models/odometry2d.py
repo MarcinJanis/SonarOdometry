@@ -43,9 +43,13 @@ class sonar_odometry(nn.Module):
         self.pts_match_thresh = model_config.pts_match_thresh # [-]
         self.ransac_thresh = model_config.ransac_thresh # [m]
 
-        self.polar_frame_size = (model_config.FLS_INPUT_HEIGHT, model_config.FLS_INPUT_WIDTH)
-        self.cart_frame_size = (model_config.FLS_INPUT_HEIGHT, 2*model_config.FLS_INPUT_HEIGHT)
-
+        if self.input_img_format == 'polar':
+            # self.polar_frame_size = (model_config.POLAR_FLS_INPUT_HEIGHT, model_config.POLAR_FLS_INPUT_WIDTH)
+            self.cart_frame_size = (model_config.POLAR_FLS_INPUT_HEIGHT, 2*model_config.POLAR_FLS_INPUT_HEIGHT)
+        else:
+            # self.polar_frame_size = (model_config.CART_FLS_INPUT_HEIGHT, model_config.CART_FLS_INPUT_WIDTH)
+            self.cart_frame_size = (model_config.CART_FLS_INPUT_HEIGHT, model_config.CART_FLS_INPUT_WIDTH)
+    
 
         self.r_min = sonar_config.range.min
         self.r_max = sonar_config.range.max
