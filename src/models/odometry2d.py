@@ -17,7 +17,9 @@ class sonar_odometry(nn.Module):
     def __init__(self, model_config, sonar_config, device, 
                  depth_compesation = True,
                  key_frames = True,
-                 input_img_format = 'polar'):
+                 input_img_format = 'polar',
+                 ref_frame_orient = 'sim' # 'sim', 'aracati'
+                 ):
         
         super().__init__()
 
@@ -27,6 +29,9 @@ class sonar_odometry(nn.Module):
                                      R = [sonar_config.position.roll, sonar_config.position.pitch, sonar_config.position.yaw])
 
         # --- init parameters --- 
+
+        self.ref_frame_orient = ref_frame_orient
+
         self.depth_compesation = depth_compesation
 
         self.key_frames = key_frames
@@ -193,21 +198,26 @@ class sonar_odometry(nn.Module):
             confidence=0.999,
         )
 
-        # 
+
         if M is not None and inlier_mask is not None:
             inlier_mask = inlier_mask.ravel().astype(bool)
-         
-            theta = - np.arctan2(M[1, 0], M[0, 0])
-    
+
             tx_sonar = M[0, 2] 
             ty_sonar = M[1, 2] 
 
             inliers_p  = inlier_mask.sum() / pts1.shape[0]
 
             # # mapping axis 
-            tx = ty_sonar
-            ty = - tx_sonar
+            if self.ref_frame_orient == 'sim':
+                theta = - np.arctan2(M[1, 0], M[0, 0])
+                tx = ty_sonar
+                ty = - tx_sonar
 
+            elif self.ref_frame_orient == 'aracati':
+                theta = np.arctan2(M[1, 0], M[0, 0])
+                tx = tx_sonar
+                ty = ty_sonar
+    
             local_translation = np.array([[ np.cos(theta), -np.sin(theta), tx],
                                           [ np.sin(theta),  np.cos(theta), ty], 
                                           [ 0,              0,             1]])
