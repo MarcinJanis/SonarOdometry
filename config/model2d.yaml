@@ -1,8 +1,8 @@
-FLS_INPUT_HEIGHT: 800 # orginal img: 800 or 400
-FLS_INPUT_WIDTH: 768 # orginal img: 768 or 384
+POLAR_FLS_INPUT_HEIGHT: 800 # orginal img: 800 or 400
+POLAR_FLS_INPUT_WIDTH: 768 # orginal img: 768 or 384
 
-ARACATI_FLS_INPUT_HEIGHT: 424 # orginal img: 1553 
-ARACATI_FLS_INPUT_WIDTH: 776 # orginal img: 768 or 384
+CART_FLS_INPUT_HEIGHT: 424 # orginal img: 1553 
+CART_FLS_INPUT_WIDTH: 776 # orginal img: 768 or 384
 
 pts_match_thresh: 0.55 # [-]
 
