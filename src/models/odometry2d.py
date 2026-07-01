@@ -199,15 +199,17 @@ class sonar_odometry(nn.Module):
         )
 
 
+        # --- extract transform matrix - RANSAC ---  
         if M is not None and inlier_mask is not None:
             inlier_mask = inlier_mask.ravel().astype(bool)
 
             tx_sonar = M[0, 2] 
             ty_sonar = M[1, 2] 
 
-            inliers_p  = inlier_mask.sum() / pts1.shape[0]
+            inliers_abs = int(inlier_mask.sum())
+            inliers_p = inliers_abs / pts1.shape[0] if pts1.shape[0] > 0 else 0.0
 
-            # # mapping axis 
+            # mapping axis 
             if self.ref_frame_orient == 'sim':
                 theta = - np.arctan2(M[1, 0], M[0, 0])
                 tx = ty_sonar
@@ -227,6 +229,8 @@ class sonar_odometry(nn.Module):
         else:
             inlier_mask = np.zeros(len(pts1_np), dtype=bool)
             new_pose = self.prev_pose
+            # Awaryjne wartości dla logowania
+            tx_sonar, ty_sonar, tx, ty, theta, inliers_p, inliers_abs = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0
 
         global_x = new_pose[0, 2]
         global_y = new_pose[1, 2]
@@ -235,6 +239,9 @@ class sonar_odometry(nn.Module):
 
         # --- key frame detection --- 
         key_frame_detected = True 
+        displacement = 0.0
+        azimuth_diff = 0.0
+        
         if self.key_frames:
             # translation
             dx = global_x - self.prev_pose[0, 2]
@@ -279,8 +286,19 @@ class sonar_odometry(nn.Module):
                     'pts1':pts1.detach().cpu().numpy(),
                     'pts2':pts2.detach().cpu().numpy(),
                     'pts2_offset':(0, w),
-                    'inlier_num': inliers_p,
-                    'mean_matched_confidence': np.mean(confidence.detach().cpu().numpy())
+                    'inliers_ratio': inliers_p,
+                    'inliers_abs': inliers_abs,
+                    'matches_total': len(pts1),
+                    'mean_matched_confidence': float(np.mean(confidence.detach().cpu().numpy())) if len(confidence) > 0 else 0.0,
+                    'key_frame_detected': key_frame_detected,
+                    'tx_sonar': float(tx_sonar),
+                    'ty_sonar': float(ty_sonar),
+                    'tx_mapped': float(tx),
+                    'ty_mapped': float(ty),
+                    'theta': float(theta),
+                    'displacement': float(displacement),
+                    'azimuth_diff': float(azimuth_diff),
+                    'global_pose': (float(global_x), float(global_y), float(global_azimuth))
                     }
                     
             if key_frame_detected:
@@ -295,8 +313,7 @@ class sonar_odometry(nn.Module):
                 
             visu['skipped_frames'] = frames_skipped
 
-            return out_pose, global_azimuth, visu   
-
+            return out_pose, global_azimuth, visu
 
     @torch.no_grad()
     def polar2car(self, frame, out_shape=None):
