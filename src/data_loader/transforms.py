@@ -90,7 +90,7 @@ class RayArtifacts(nn.Module):
 
 
 SonarDatasetTranforms = v2.Compose([
-    RayArtifacts(0.0, 0.03, 0, 10, num_rays=4, probability=0.85),
+    RayArtifacts(0.0, 0.02, 0, 10, num_rays=4, probability=0.5),
     v2.GaussianBlur(kernel_size=(7, 5), sigma=(1.0, 2.0)),
     SpeckleNoise(concentration=SPECKLE_NOISE_CONCENTRATION, rate=SPECKLE_NOISE_RATE)])
 
