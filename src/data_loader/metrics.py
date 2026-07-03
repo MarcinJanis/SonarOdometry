@@ -117,22 +117,3 @@ def eval_metrics_2d(pred, gt):
     
     return metrics
 
-
-# --- test ---
-
-gt_test = np.array([
-    [0.0, 0.0],
-    [1.0, 0.0],
-    [2.0, 0.0],
-    [3.0, 0.0],
-    [4.0, 0.0],
-])
-theta = np.deg2rad(5.0)  
-R = np.array([[np.cos(theta), -np.sin(theta)],
-              [np.sin(theta),  np.cos(theta)]])
-t = np.array([1.0, 0.5])
-pred_test = (gt_test @ R.T) + t
-
-ATE, RPE = eval_metrics_2d(pred_test, gt_test)
-
-print(f'Ate: {ATE}, expected')
