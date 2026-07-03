@@ -250,42 +250,58 @@ class sonar_odometry(nn.Module):
         else:
             raw_new_pose = self.current_pose
 
-        # --- DERIVE EFFECTIVE LOCAL TRANSFORMATION FROM CONSENSUS ---
-        _, _, latest_kf_pose = self.sliding_window[-1]
-        
-        R_kf = latest_kf_pose[0:2, 0:2]
-        t_kf = latest_kf_pose[0:2, 2]
+        # --- DERIVE EFFECTIVE FRAME-TO-FRAME STEP (For Kinematic Gating) ---
+        R_curr = self.current_pose[0:2, 0:2]
+        t_curr = self.current_pose[0:2, 2]
         R_new = raw_new_pose[0:2, 0:2]
         t_new = raw_new_pose[0:2, 2]
 
-        R_rel = R_kf.T @ R_new
-        t_rel = R_kf.T @ (t_new - t_kf)
+        R_step = R_curr.T @ R_new
+        t_step = R_curr.T @ (t_new - t_curr)
 
-        theta_effective = float(np.arctan2(R_rel[1, 0], R_rel[0, 0]))
-        tx_effective = float(t_rel[0])
-        ty_effective = float(t_rel[1])
+        step_theta = float(np.arctan2(R_step[1, 0], R_step[0, 0]))
+        step_tx = float(t_step[0])
+        step_ty = float(t_step[1])
+
+        # --- DERIVE DISTANCE FROM KEYFRAME (For Visualisation & KeyFrame Logic) ---
+        _, _, latest_kf_pose = self.sliding_window[-1]
+        R_kf = latest_kf_pose[0:2, 0:2]
+        t_kf = latest_kf_pose[0:2, 2]
+        
+        R_rel_kf = R_kf.T @ R_new
+        t_rel_kf = R_kf.T @ (t_new - t_kf)
+        
+        theta_effective = float(np.arctan2(R_rel_kf[1, 0], R_rel_kf[0, 0]))
+        tx_effective = float(t_rel_kf[0])
+        ty_effective = float(t_rel_kf[1])
 
         # --- SANITY CHECKS (GATING) ---
         inliers_p_latest = latest_visu_match['inliers_p'] if latest_visu_match is not None else 0.0
         inliers_abs_latest = latest_visu_match['inliers_abs'] if latest_visu_match is not None else 0
 
-        is_kinematically_valid = (abs(tx_effective) < self.max_trans_step) and \
-                                 (abs(ty_effective) < self.max_trans_step) and \
-                                 (abs(theta_effective) < self.max_rot_step)
+        # Sprawdzamy fizyczność kroku (Klatka do Klatki), a nie dystans do KeyFrame!
+        is_kinematically_valid = (abs(step_tx) < self.max_trans_step) and \
+                                 (abs(step_ty) < self.max_trans_step) and \
+                                 (abs(step_theta) < self.max_rot_step)
                                  
         is_statistically_valid = (inliers_abs_latest >= self.min_inliers_abs) and \
                                  (inliers_p_latest >= self.min_inliers_ratio)
         
         step_is_valid = is_kinematically_valid and is_statistically_valid and (len(est_x_list) > 0)
 
+        # Inicjalizacja licznika odrzuconych klatek (jeśli brak)
+        if not hasattr(self, 'blind_frames'):
+            self.blind_frames = 0
+
         if step_is_valid:
             new_pose = raw_new_pose
+            self.blind_frames = 0  # Krok poprawny, resetujemy błędy
         else:
-            # Fallback: Zero Velocity Model (odrzucamy śmieci, wstrzymujemy trajektorię)
+            # Odrzucamy śmieci, wstrzymujemy trajektorię
             new_pose = self.current_pose
             global_x, global_y = new_pose[0, 2], new_pose[1, 2]
             global_azimuth = np.arctan2(new_pose[1, 0], new_pose[0, 0])
-            theta_effective, tx_effective, ty_effective = 0.0, 0.0, 0.0
+            self.blind_frames += 1 # Notujemy odrzucenie klatki
 
         # --- KEY FRAME DETECTION & RECOVERY MECHANISM --- 
         dx = global_x - latest_kf_pose[0, 2]
@@ -299,31 +315,27 @@ class sonar_odometry(nn.Module):
         
         if self.key_frames:
             if step_is_valid:
-                # Normalna praca: wymuszamy aktualizację referencji gdy dystans lub kąt są przekroczone
-                # LUB gdy jakość zaczyna spadać (np. poniżej 12%), ale nie jest jeszcze tragiczna.
+                # Normalna praca
                 if (displacement >= self.key_frames_min_dist or 
                     azimuth_diff >= self.key_frames_min_rot or
                     inliers_p_latest <= self.inliers_low_threshold):
                     key_frame_detected = True
             else:
-                # RECOVERY MECHANISM: jesteśmy w deadlocku (odrzucono zbyt wiele klatek).
-                # Wymuszamy stworzenie nowej Klatki Kluczowej na siłę z bieżących, zaszumionych danych,
-                # aby pozwolić algorytmowi wyjść ze ślepego zaułka.
-                if self.skip_frames >= self.max_skip_frames:
+                # RECOVERY: wymuszamy referencję z zaszumionych danych tylko jeśli odrzuciliśmy N klatek Z RZĘDU
+                if self.blind_frames >= self.max_skip_frames:
                     key_frame_detected = True
+                    self.blind_frames = 0 # resetujemy po recovery
 
         out_pose = (global_x, global_y)
-        frames_skipped = self.skip_frames
+        frames_skipped_visu = self.blind_frames
 
         if key_frame_detected:
             self.sliding_window.append((new_frame, self.polar2cart_mask, new_pose))
             if len(self.sliding_window) > self.window_size:
                 self.sliding_window.pop(0)
             self.current_pose = new_pose
-            self.skip_frames = 1
         else:
             self.current_pose = new_pose
-            self.skip_frames += 1
 
         if not return_visu: 
             return out_pose, global_azimuth
@@ -357,7 +369,7 @@ class sonar_odometry(nn.Module):
                 'tx_mapped': float(tx_effective), 'ty_mapped': float(ty_effective), 'theta': float(theta_effective),
                 'displacement': float(displacement), 'azimuth_diff': float(azimuth_diff),
                 'global_pose': (float(global_x), float(global_y), float(global_azimuth)),
-                'skipped_frames': frames_skipped,
+                'skipped_frames': frames_skipped_visu,
                 'window_matches_count': f"{len(est_x_list)}/{len(self.sliding_window)}",
                 'individual_estimates': list(zip(est_x_list, est_y_list, est_yaw_list))
             }
