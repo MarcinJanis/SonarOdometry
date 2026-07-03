@@ -1,4 +1,4 @@
-imimport torch
+import torch
 import torch.nn.functional as F
 import torch.nn as nn 
 from kornia.feature import LoFTR
