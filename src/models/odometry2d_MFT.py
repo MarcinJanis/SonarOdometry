@@ -61,6 +61,13 @@ class sonar_odometry(nn.Module):
         self.max_rot_step = getattr(model_config, 'max_rot_step', 0.15)
         self.min_inliers_abs = getattr(model_config, 'min_inliers_abs', 25)
 
+        self.max_trans_step = getattr(model_config, 'max_trans_step', 0.5) 
+        self.max_rot_step = getattr(model_config, 'max_rot_step', 0.20)
+        self.min_inliers_abs = getattr(model_config, 'min_inliers_abs', 15)
+        self.min_inliers_ratio = getattr(model_config, 'min_inliers_ratio', 0.07)
+        self.max_skip_frames = getattr(model_config, 'max_skip_frames', 3)
+
+                     
         self.input_img_format = input_img_format
         if self.input_img_format == 'polar':
             self.cart_frame_size = (model_config.POLAR_FLS_INPUT_HEIGHT, 2 * model_config.POLAR_FLS_INPUT_HEIGHT)
@@ -263,7 +270,7 @@ class sonar_odometry(nn.Module):
         ty_effective = float(t_rel[1])
 
         # --- SANITY CHECKS (GATING) ---
-        inliers_p_latest = latest_visu_match['inliers_p'] if latest_visu_match else 0.0
+        nliers_p_latest = latest_visu_match['inliers_p'] if latest_visu_match else 0.0
         inliers_abs_latest = latest_visu_match['inliers_abs'] if latest_visu_match else 0
 
         is_kinematically_valid = (abs(tx_effective) < self.max_trans_step) and \
@@ -271,20 +278,20 @@ class sonar_odometry(nn.Module):
                                  (abs(theta_effective) < self.max_rot_step)
                                  
         is_statistically_valid = (inliers_abs_latest >= self.min_inliers_abs) and \
-                                 (inliers_p_latest >= self.inliers_low_threshold)
+                                 (inliers_p_latest >= self.min_inliers_ratio)
         
         step_is_valid = is_kinematically_valid and is_statistically_valid and (len(est_x_list) > 0)
 
         if step_is_valid:
             new_pose = raw_new_pose
         else:
-            # Odometry Fallback: Zero Velocity Model assumption when blinded by noise
+            # Fallback: Zero Velocity Model (lub model stałej prędkości, jeśli posiadasz)
             new_pose = self.current_pose
             global_x, global_y = new_pose[0, 2], new_pose[1, 2]
             global_azimuth = np.arctan2(new_pose[1, 0], new_pose[0, 0])
             theta_effective, tx_effective, ty_effective = 0.0, 0.0, 0.0
 
-        # --- KEY FRAME DETECTION --- 
+        # --- KEY FRAME DETECTION & RECOVERY MECHANISM --- 
         dx = global_x - latest_kf_pose[0, 2]
         dy = global_y - latest_kf_pose[1, 2]
         displacement = np.sqrt(dx**2 + dy**2)
@@ -293,13 +300,20 @@ class sonar_odometry(nn.Module):
         azimuth_diff = np.abs(np.arctan2(np.sin(global_azimuth - prev_azimuth), np.cos(global_azimuth - prev_azimuth)))
 
         key_frame_detected = False
-        if self.key_frames and step_is_valid:
-            # Tworzymy klatkę kluczową TYLKO jeśli krok jest wiarygodny.
-            # Dodatkowy warunek utraty inlierów wyzwala nową KF, ale tylko jeśli jakość nie spadła poniżej twardego limitu statystycznego.
-            if (displacement >= self.key_frames_min_dist or 
-                azimuth_diff >= self.key_frames_min_rot or
-                (inliers_p_latest <= self.inliers_low_threshold and inliers_p_latest > self.inliers_low_threshold * 0.8)): # Histereza
-                key_frame_detected = True
+        
+        if self.key_frames:
+            if step_is_valid:
+                # Normalna praca: twórz klatkę, gdy odjeżdżamy za daleko, za bardzo się obracamy, 
+                # LUB inliery spadają poniżej progu ostrzegawczego (np. 12%), ale wciąż są ważne (powyżej 7%).
+                if (displacement >= self.key_frames_min_dist or 
+                    azimuth_diff >= self.key_frames_min_rot or
+                    inliers_p_latest <= self.inliers_low_threshold):
+                    key_frame_detected = True
+            else:
+                # RECOVERY MECHANISM: Jesteśmy w trybie ślepoty. 
+                # Jeśli odrzuciliśmy zbyt wiele klatek, wymuszamy reset, aby nie doprowadzić do paraliżu (deadlocka).
+                if self.skip_frames >= self.max_skip_frames:
+                    key_frame_detected = True
 
         out_pose = (global_x, global_y)
         frames_skipped = self.skip_frames
@@ -318,6 +332,7 @@ class sonar_odometry(nn.Module):
             return out_pose, global_azimuth
         else: 
             # --- Visualisation Preparation --- 
+            # (Pozostaw tę część bez zmian, zachowując dodaną flagę 'step_is_valid')
             b, c, h, w = new_frame.shape
             if latest_visu_match is not None:
                 frame1_np = latest_visu_match['ref_frame'].squeeze(0).permute(1, 2, 0).cpu().numpy()
@@ -341,7 +356,7 @@ class sonar_odometry(nn.Module):
                 'inliers_ratio': inliers_p_latest, 'inliers_abs': v_inliers_abs,
                 'matches_total': len(pts1_visu), 'mean_matched_confidence': conf_visu,
                 'key_frame_detected': key_frame_detected,
-                'step_is_valid': step_is_valid, # New flag added for debugging
+                'step_is_valid': step_is_valid,
                 'tx_sonar': float(v_raw_tx_sonar), 'ty_sonar': float(v_raw_ty_sonar),
                 'tx_mapped': float(tx_effective), 'ty_mapped': float(ty_effective), 'theta': float(theta_effective),
                 'displacement': float(displacement), 'azimuth_diff': float(azimuth_diff),
