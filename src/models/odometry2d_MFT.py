@@ -237,7 +237,7 @@ class sonar_odometry(nn.Module):
                         'inliers_p': inliers_p, 'inliers_abs': inliers_abs, 'ref_frame': ref_frame,
                         'raw_tx_sonar': tx_sonar, 'raw_ty_sonar': ty_sonar
                     }
-
+        
         # --- CALCULATE CONSENSUS POSE (Robot Base Frame) ---
         if len(est_x_list) > 0:
             global_x = np.median(est_x_list)
@@ -251,6 +251,7 @@ class sonar_odometry(nn.Module):
             raw_new_pose = self.current_pose
 
         # --- DERIVE EFFECTIVE FRAME-TO-FRAME STEP (For Kinematic Gating) ---
+        # TUTAJ BYŁ BŁĄD: Liczymy krok względem ostatniej AKCEPTOWANEJ pozy, a nie KeyFrame'a.
         R_curr = self.current_pose[0:2, 0:2]
         t_curr = self.current_pose[0:2, 2]
         R_new = raw_new_pose[0:2, 0:2]
@@ -267,64 +268,68 @@ class sonar_odometry(nn.Module):
         _, _, latest_kf_pose = self.sliding_window[-1]
         R_kf = latest_kf_pose[0:2, 0:2]
         t_kf = latest_kf_pose[0:2, 2]
-        
+
         R_rel_kf = R_kf.T @ R_new
         t_rel_kf = R_kf.T @ (t_new - t_kf)
-        
+
         theta_effective = float(np.arctan2(R_rel_kf[1, 0], R_rel_kf[0, 0]))
         tx_effective = float(t_rel_kf[0])
         ty_effective = float(t_rel_kf[1])
 
         # --- SANITY CHECKS (GATING) ---
-        inliers_p_latest = latest_visu_match['inliers_p'] if latest_visu_match is not None else 0.0
-        inliers_abs_latest = latest_visu_match['inliers_abs'] if latest_visu_match is not None else 0
-
-        # Sprawdzamy fizyczność kroku (Klatka do Klatki), a nie dystans do KeyFrame!
-        is_kinematically_valid = (abs(step_tx) < self.max_trans_step) and \
-                                 (abs(step_ty) < self.max_trans_step) and \
-                                 (abs(step_theta) < self.max_rot_step)
-                                 
-        is_statistically_valid = (inliers_abs_latest >= self.min_inliers_abs) and \
-                                 (inliers_p_latest >= self.min_inliers_ratio)
-        
-        step_is_valid = is_kinematically_valid and is_statistically_valid and (len(est_x_list) > 0)
-
-        # Inicjalizacja licznika odrzuconych klatek (jeśli brak)
         if not hasattr(self, 'blind_frames'):
             self.blind_frames = 0
 
+        inliers_p_latest = latest_visu_match['inliers_p'] if latest_visu_match is not None else 0.0
+        inliers_abs_latest = latest_visu_match['inliers_abs'] if latest_visu_match is not None else 0
+
+        # 1. Statistical Gating (Twardy warunek jakości dopasowania - eliminuje halucynacje z szumu)
+        is_statistically_valid = (inliers_abs_latest >= self.min_inliers_abs) and \
+                                 (inliers_p_latest >= self.min_inliers_ratio)
+
+        # 2. Trust Bypass (Jeśli mamy potężną liczbę inlierów, np. >= 30, to jest to fizyczne dno, a nie szum. Ufamy bezwzględnie)
+        is_highly_trusted = (inliers_abs_latest >= 30)
+
+        # 3. Dynamic Kinematic Gating (Limit rośnie, jeśli opuściliśmy klatki i robot miał czas odjechać)
+        multiplier = min(self.blind_frames + 1, getattr(self, 'max_skip_frames', 3) + 1)
+        allowed_trans = self.max_trans_step * multiplier
+        allowed_rot = self.max_rot_step * multiplier
+
+        is_kinematically_valid = (abs(step_tx) < allowed_trans) and \
+                                 (abs(step_ty) < allowed_trans) and \
+                                 (abs(step_theta) < allowed_rot)
+
+        # DECYZJA (Bramkowanie)
+        step_is_valid = (len(est_x_list) > 0) and is_statistically_valid and \
+                        (is_highly_trusted or is_kinematically_valid)
+
         if step_is_valid:
             new_pose = raw_new_pose
-            self.blind_frames = 0  # Krok poprawny, resetujemy błędy
+            self.blind_frames = 0 # Udało się, resetujemy licznik ślepoty
         else:
-            # Odrzucamy śmieci, wstrzymujemy trajektorię
+            # Fallback: Zero Velocity Model (zamrażamy trajektorię odrzucając skok w nadprzestrzeń)
             new_pose = self.current_pose
-            global_x, global_y = new_pose[0, 2], new_pose[1, 2]
-            global_azimuth = np.arctan2(new_pose[1, 0], new_pose[0, 0])
-            self.blind_frames += 1 # Notujemy odrzucenie klatki
+            self.blind_frames += 1
 
-        # --- KEY FRAME DETECTION & RECOVERY MECHANISM --- 
+        global_x, global_y = new_pose[0, 2], new_pose[1, 2]
+        global_azimuth = np.arctan2(new_pose[1, 0], new_pose[0, 0])
+
+        # --- KEY FRAME DETECTION ---
         dx = global_x - latest_kf_pose[0, 2]
         dy = global_y - latest_kf_pose[1, 2]
         displacement = np.sqrt(dx**2 + dy**2)
-        
+
         prev_azimuth = np.arctan2(latest_kf_pose[1, 0], latest_kf_pose[0, 0])
         azimuth_diff = np.abs(np.arctan2(np.sin(global_azimuth - prev_azimuth), np.cos(global_azimuth - prev_azimuth)))
 
         key_frame_detected = False
-        
-        if self.key_frames:
-            if step_is_valid:
-                # Normalna praca
-                if (displacement >= self.key_frames_min_dist or 
-                    azimuth_diff >= self.key_frames_min_rot or
-                    inliers_p_latest <= self.inliers_low_threshold):
-                    key_frame_detected = True
-            else:
-                # RECOVERY: wymuszamy referencję z zaszumionych danych tylko jeśli odrzuciliśmy N klatek Z RZĘDU
-                if self.blind_frames >= self.max_skip_frames:
-                    key_frame_detected = True
-                    self.blind_frames = 0 # resetujemy po recovery
+
+        # Dodajemy nową klatkę referencyjną TYLKO jeśli obecny krok jest poprawny (bezpieczna ewolucja mapy)
+        if self.key_frames and step_is_valid:
+            if (displacement >= self.key_frames_min_dist or
+                azimuth_diff >= self.key_frames_min_rot or
+                inliers_p_latest <= self.inliers_low_threshold):
+                key_frame_detected = True
 
         out_pose = (global_x, global_y)
         frames_skipped_visu = self.blind_frames
@@ -337,10 +342,10 @@ class sonar_odometry(nn.Module):
         else:
             self.current_pose = new_pose
 
-        if not return_visu: 
+        if not return_visu:
             return out_pose, global_azimuth
-        else: 
-            # --- Visualisation Preparation --- 
+        else:
+            # --- Visualisation Preparation ---
             b, c, h, w = new_frame.shape
             if latest_visu_match is not None:
                 frame1_np = latest_visu_match['ref_frame'].squeeze(0).permute(1, 2, 0).cpu().numpy()
@@ -374,7 +379,6 @@ class sonar_odometry(nn.Module):
                 'individual_estimates': list(zip(est_x_list, est_y_list, est_yaw_list))
             }
             return out_pose, global_azimuth, visu
-
     @torch.no_grad()
     def polar2car(self, frame, out_shape=None):
         out_img = F.grid_sample(frame, self.polar2cart_grid, mode='bilinear', padding_mode='zeros', align_corners=True)
