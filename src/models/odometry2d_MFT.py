@@ -1,4 +1,4 @@
-import torch
+imimport torch
 import torch.nn.functional as F
 import torch.nn as nn 
 from kornia.feature import LoFTR
@@ -56,18 +56,14 @@ class sonar_odometry(nn.Module):
         self.pts_match_thresh = model_config.pts_match_thresh # [-]
         self.ransac_thresh = model_config.ransac_thresh # [m]
 
-        # New gating parameters (fallback to defaults if not in config)
-        self.max_trans_step = getattr(model_config, 'max_trans_step', 0.4)
-        self.max_rot_step = getattr(model_config, 'max_rot_step', 0.15)
-        self.min_inliers_abs = getattr(model_config, 'min_inliers_abs', 25)
-
-        self.max_trans_step = getattr(model_config, 'max_trans_step', 0.5) 
+        # --- NEW GATING & RECOVERY PARAMETERS ---
+        # Ustawiamy domyślne, bezpieczne wartości na wypadek ich braku w pliku YAML
+        self.max_trans_step = getattr(model_config, 'max_trans_step', 0.5)
         self.max_rot_step = getattr(model_config, 'max_rot_step', 0.20)
         self.min_inliers_abs = getattr(model_config, 'min_inliers_abs', 15)
         self.min_inliers_ratio = getattr(model_config, 'min_inliers_ratio', 0.07)
         self.max_skip_frames = getattr(model_config, 'max_skip_frames', 3)
 
-                     
         self.input_img_format = input_img_format
         if self.input_img_format == 'polar':
             self.cart_frame_size = (model_config.POLAR_FLS_INPUT_HEIGHT, 2 * model_config.POLAR_FLS_INPUT_HEIGHT)
@@ -270,8 +266,8 @@ class sonar_odometry(nn.Module):
         ty_effective = float(t_rel[1])
 
         # --- SANITY CHECKS (GATING) ---
-        nliers_p_latest = latest_visu_match['inliers_p'] if latest_visu_match else 0.0
-        inliers_abs_latest = latest_visu_match['inliers_abs'] if latest_visu_match else 0
+        inliers_p_latest = latest_visu_match['inliers_p'] if latest_visu_match is not None else 0.0
+        inliers_abs_latest = latest_visu_match['inliers_abs'] if latest_visu_match is not None else 0
 
         is_kinematically_valid = (abs(tx_effective) < self.max_trans_step) and \
                                  (abs(ty_effective) < self.max_trans_step) and \
@@ -285,7 +281,7 @@ class sonar_odometry(nn.Module):
         if step_is_valid:
             new_pose = raw_new_pose
         else:
-            # Fallback: Zero Velocity Model (lub model stałej prędkości, jeśli posiadasz)
+            # Fallback: Zero Velocity Model (odrzucamy śmieci, wstrzymujemy trajektorię)
             new_pose = self.current_pose
             global_x, global_y = new_pose[0, 2], new_pose[1, 2]
             global_azimuth = np.arctan2(new_pose[1, 0], new_pose[0, 0])
@@ -303,15 +299,16 @@ class sonar_odometry(nn.Module):
         
         if self.key_frames:
             if step_is_valid:
-                # Normalna praca: twórz klatkę, gdy odjeżdżamy za daleko, za bardzo się obracamy, 
-                # LUB inliery spadają poniżej progu ostrzegawczego (np. 12%), ale wciąż są ważne (powyżej 7%).
+                # Normalna praca: wymuszamy aktualizację referencji gdy dystans lub kąt są przekroczone
+                # LUB gdy jakość zaczyna spadać (np. poniżej 12%), ale nie jest jeszcze tragiczna.
                 if (displacement >= self.key_frames_min_dist or 
                     azimuth_diff >= self.key_frames_min_rot or
                     inliers_p_latest <= self.inliers_low_threshold):
                     key_frame_detected = True
             else:
-                # RECOVERY MECHANISM: Jesteśmy w trybie ślepoty. 
-                # Jeśli odrzuciliśmy zbyt wiele klatek, wymuszamy reset, aby nie doprowadzić do paraliżu (deadlocka).
+                # RECOVERY MECHANISM: jesteśmy w deadlocku (odrzucono zbyt wiele klatek).
+                # Wymuszamy stworzenie nowej Klatki Kluczowej na siłę z bieżących, zaszumionych danych,
+                # aby pozwolić algorytmowi wyjść ze ślepego zaułka.
                 if self.skip_frames >= self.max_skip_frames:
                     key_frame_detected = True
 
@@ -332,7 +329,6 @@ class sonar_odometry(nn.Module):
             return out_pose, global_azimuth
         else: 
             # --- Visualisation Preparation --- 
-            # (Pozostaw tę część bez zmian, zachowując dodaną flagę 'step_is_valid')
             b, c, h, w = new_frame.shape
             if latest_visu_match is not None:
                 frame1_np = latest_visu_match['ref_frame'].squeeze(0).permute(1, 2, 0).cpu().numpy()
