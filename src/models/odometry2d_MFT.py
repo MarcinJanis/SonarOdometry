@@ -106,25 +106,38 @@ class sonar_odometry(nn.Module):
             init_frame = self.fls_filter(init_frame)
 
         b, c, h, w = init_frame.shape
+        out_h, out_w = h, 2 * h
 
-        self.cart_frame_size = (h, 2 * h)
+        self.cart_frame_size = (out_h, out_w)
 
-        y = torch.arange(h, device=self.device, dtype=torch.float32)
-        x = torch.arange(2 * h, device=self.device, dtype=torch.float32)
+        y = torch.arange(out_h, device=self.device, dtype=torch.float32)
+        x = torch.arange(out_w, device=self.device, dtype=torch.float32)
         y, x = torch.meshgrid(y, x, indexing='ij')
-        x = x - (2 * h) / 2.0
-        y = h - y
+        x = x - out_w / 2.0
+        y = out_h - y
 
-        scale = (self.r_max - self.r_min) / h
+        scale = (self.r_max - self.r_min) / out_h
         x_r = x * scale
         y_r = y * scale + self.r_min
         r = torch.sqrt(x_r**2 + y_r**2)
         theta = torch.atan2(x_r, torch.clamp(y_r, min=1e-5))
+        
         norm_theta = theta / (self.theta_max / 2.0)
         norm_r = (r - self.r_min) / (self.r_max - self.r_min) * 2.0 - 1.0
 
         self.polar2cart_grid = torch.stack((norm_theta, -norm_r), dim=-1).unsqueeze(0) 
-        self.polar2cart_mask = torch.ones((1, h, 2*h), device=self.device)
+        
+        if self.input_img_format == 'polar':
+            valid_mask = (norm_theta >= -1.0) & (norm_theta <= 1.0) & (norm_r >= -1.0) & (norm_r <= 1.0)
+            self.polar2cart_mask = valid_mask.unsqueeze(0).expand(b, -1, -1).float()
+        elif carth_mask is not None:
+            self.polar2cart_mask = carth_mask 
+        else:
+            init_frame_np = init_frame.view(h, w).detach().cpu().numpy()
+            mask = (init_frame_np == 0.0).astype(np.uint8)
+            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+            cleaned_mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+            self.polar2cart_mask = torch.tensor(cleaned_mask, device=init_frame.device, dtype=torch.float).unsqueeze(0)
 
         init_pose = np.array([[np.cos(init_azimuth), -np.sin(init_azimuth), init_x], 
                               [np.sin(init_azimuth),  np.cos(init_azimuth), init_y], 
@@ -133,6 +146,8 @@ class sonar_odometry(nn.Module):
         first_frame = self.polar2car(init_frame)
         self.current_pose = init_pose
         self.sliding_window = [(first_frame, self.polar2cart_mask, init_pose)]
+        
+        # Kopia dla kaskadowego dopasowania (fallback)
         self.last_frame_data = (first_frame, self.polar2cart_mask, init_pose)
         
         self.blind_frames = 0
