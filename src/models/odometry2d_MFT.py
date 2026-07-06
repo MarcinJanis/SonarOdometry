@@ -57,8 +57,8 @@ class sonar_odometry(nn.Module):
         # CVM State (Model Stałej Prędkości)
         self.last_step_tx, self.last_step_ty, self.last_step_theta = 0.0, 0.0, 0.0
         self.blind_frames = 0
-        self.cvm_decay = 0.85 # Współczynnik hamowania w przypadku utraty cech
-
+        self.cvm_decay = getattr(model_config, 'cvm_decay', 0.85)
+                     
         # Sonar congifuration
         self.input_img_format = input_img_format
         if self.input_img_format == 'polar':
