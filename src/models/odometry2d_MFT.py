@@ -6,11 +6,6 @@ from kornia.feature import LoFTR
 import numpy as np 
 import cv2 
 
-from box import Box
-import yaml
-
-from .utils import ExtrinsicsCalib
-
 class sonar_odometry(nn.Module):
 
     def __init__(self, model_config, sonar_config, device, 
@@ -78,7 +73,10 @@ class sonar_odometry(nn.Module):
         self.match_points = LoFTR(pretrained='outdoor').to(device).eval()
         self.window_size = 3 
         self.sliding_window = [] 
+        
         self.current_pose = None
+        self.last_frame_data = None # Cache dla klatki t-1 (Fallback kaskadowy)
+        
         self.polar2cart_grid = None
         self.polar2cart_mask = None
 
@@ -89,12 +87,10 @@ class sonar_odometry(nn.Module):
         out_frames = []
         for i in range(b):
             frame_np = frame[i, 0].detach().cpu().numpy()
-            # Przejście na uint8 dla OpenCV
             frame_uint8 = np.clip(frame_np * 255.0, 0, 255).astype(np.uint8)
             blured = cv2.medianBlur(frame_uint8, ksize=5)
             clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
             filtered = clahe.apply(blured)
-            # Powrót do floata dla sieci
             filtered_float = filtered.astype(np.float32) / 255.0
             out_frames.append(torch.tensor(filtered_float, device=device).unsqueeze(0))
         return torch.stack(out_frames, dim=0)
@@ -105,7 +101,6 @@ class sonar_odometry(nn.Module):
 
         b, c, h, w = init_frame.shape
 
-        # create sampling grid to polar -> carthesian conversion
         self.cart_frame_size = (h, 2 * h)
 
         y = torch.arange(h, device=self.device, dtype=torch.float32)
@@ -132,8 +127,62 @@ class sonar_odometry(nn.Module):
         first_frame = self.polar2car(init_frame)
         self.current_pose = init_pose
         self.sliding_window = [(first_frame, self.polar2cart_mask, init_pose)]
+        self.last_frame_data = (first_frame, self.polar2cart_mask, init_pose)
+        
         self.blind_frames = 0
         self.last_step_tx, self.last_step_ty, self.last_step_theta = 0.0, 0.0, 0.0
+
+    def _match_and_estimate(self, ref_frame, ref_mask, ref_pose, new_frame, depth):
+        """ Helper method do wyliczania dopasowań i estymacji pozy """
+        matches = self.match_points({'image0': ref_frame, 'mask0': ref_mask, 'image1': new_frame, 'mask1': self.polar2cart_mask})
+        pts1, pts2, confidence = matches['keypoints0'], matches['keypoints1'], matches['confidence']
+        valid_matches = confidence > self.pts_match_thresh
+        pts1, pts2 = pts1[valid_matches], pts2[valid_matches]
+        
+        if len(pts1) < 3: return None 
+
+        pts1_r, pts2_r = self.scale_px2physcial(pts1), self.scale_px2physcial(pts2)
+        
+        if self.depth_compesation:
+            ray1, ray2 = torch.sqrt(pts1_r[:, 0]**2 + pts1_r[:, 1]**2), torch.sqrt(pts2_r[:, 0]**2 + pts2_r[:, 1]**2)
+            valid_mask = (ray1 > depth) & (ray2 > depth)
+            pts1_r = pts1_r[valid_mask] * ((torch.sqrt(ray1[valid_mask]**2 - depth**2) / ray1[valid_mask]).unsqueeze(1))
+            pts2_r = pts2_r[valid_mask] * ((torch.sqrt(ray2[valid_mask]**2 - depth**2) / ray2[valid_mask]).unsqueeze(1))
+
+        pts1_np, pts2_np = pts1_r.cpu().numpy(), pts2_r.cpu().numpy()
+        if len(pts1_np) < 3: return None
+
+        M, inlier_mask = cv2.estimateAffinePartial2D(pts2_np, pts1_np, method=cv2.RANSAC, ransacReprojThreshold=self.ransac_thresh, maxIters=3000, confidence=0.999)
+
+        if M is not None and inlier_mask is not None:
+            inlier_mask = inlier_mask.ravel().astype(bool)
+            inliers_abs = int(inlier_mask.sum())
+            
+            if inliers_abs >= self.min_inliers_abs:
+                angle = np.arctan2(M[1, 0], M[0, 0])
+                R_mat = np.array([[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]])
+                diffs = pts1_np[inlier_mask] - (R_mat @ pts2_np[inlier_mask].T).T
+                
+                raw_tx_sonar, raw_ty_sonar = (float(np.median(diffs[:, 0])), float(np.median(diffs[:, 1])))
+                
+                theta = -angle if self.ref_frame_orient == 'sim' else angle
+                tx, ty = (raw_ty_sonar, -raw_tx_sonar) if self.ref_frame_orient == 'sim' else (-raw_ty_sonar, -raw_tx_sonar)
+                
+                local_T = np.array([[np.cos(theta), -np.sin(theta), tx], [np.sin(theta), np.cos(theta), ty], [0, 0, 1]])
+                est_pose = ref_pose @ (self.T_R_S_2d @ local_T @ self.T_S_R_2d)
+                
+                return {
+                    'est_pose': est_pose,
+                    'pts1': pts1, 
+                    'pts2': pts2, 
+                    'confidence': confidence,
+                    'inliers_abs': inliers_abs, 
+                    'inliers_p': inliers_abs / len(pts1) if len(pts1) > 0 else 0,
+                    'ref_frame': ref_frame,
+                    'raw_tx_sonar': raw_tx_sonar, 
+                    'raw_ty_sonar': raw_ty_sonar
+                }
+        return None
 
     @torch.no_grad()
     def forward(self, frame, depth, return_visu=False):
@@ -142,67 +191,32 @@ class sonar_odometry(nn.Module):
 
         new_frame = self.polar2car(frame) if self.input_img_format == 'polar' else frame
         
-        est_x_list, est_y_list, est_yaw_list = [], [], []
+        est_poses = []
         latest_visu_match = None 
 
+        # 1. SLIDING WINDOW MATCHING (Keyframes)
         for i, (ref_frame, ref_mask, ref_pose) in enumerate(self.sliding_window):
-            matches = self.match_points({'image0': ref_frame, 'mask0': ref_mask, 'image1': new_frame, 'mask1': self.polar2cart_mask})
-            pts1, pts2, confidence = matches['keypoints0'], matches['keypoints1'], matches['confidence']
-            valid_matches = confidence > self.pts_match_thresh
-            pts1, pts2 = pts1[valid_matches], pts2[valid_matches]
-            
-            if len(pts1) < 3: continue 
+            match_res = self._match_and_estimate(ref_frame, ref_mask, ref_pose, new_frame, depth)
+            if match_res is not None:
+                est_poses.append(match_res)
+                if i == len(self.sliding_window) - 1:
+                    latest_visu_match = match_res
 
-            pts1_r, pts2_r = self.scale_px2physcial(pts1), self.scale_px2physcial(pts2)
-            
-            if self.depth_compesation:
-                ray1, ray2 = torch.sqrt(pts1_r[:, 0]**2 + pts1_r[:, 1]**2), torch.sqrt(pts2_r[:, 0]**2 + pts2_r[:, 1]**2)
-                valid_mask = (ray1 > depth) & (ray2 > depth)
-                pts1_r = pts1_r[valid_mask] * ((torch.sqrt(ray1[valid_mask]**2 - depth**2) / ray1[valid_mask]).unsqueeze(1))
-                pts2_r = pts2_r[valid_mask] * ((torch.sqrt(ray2[valid_mask]**2 - depth**2) / ray2[valid_mask]).unsqueeze(1))
+        # 2. CASCADE FALLBACK (Kaskadowe Dopasowywanie do klatki t-1)
+        if len(est_poses) == 0 and self.last_frame_data is not None:
+            ref_frame, ref_mask, ref_pose = self.last_frame_data
+            match_res = self._match_and_estimate(ref_frame, ref_mask, ref_pose, new_frame, depth)
+            if match_res is not None:
+                est_poses.append(match_res)
+                latest_visu_match = match_res
 
-            pts1_np, pts2_np = pts1_r.cpu().numpy(), pts2_r.cpu().numpy()
-            if len(pts1_np) < 3: continue
-
-            M, inlier_mask = cv2.estimateAffinePartial2D(pts2_np, pts1_np, method=cv2.RANSAC, ransacReprojThreshold=self.ransac_thresh, maxIters=3000, confidence=0.999)
-
-            if M is not None and inlier_mask is not None:
-                inlier_mask = inlier_mask.ravel().astype(bool)
-                inliers_abs = int(inlier_mask.sum())
-                
-                if inliers_abs >= self.min_inliers_abs:
-                    angle = np.arctan2(M[1, 0], M[0, 0])
-                    R_mat = np.array([[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]])
-                    diffs = pts1_np[inlier_mask] - (R_mat @ pts2_np[inlier_mask].T).T
-                    
-                    # Czysta rotacja i translacja z punktu widzenia Sonaru 
-                    raw_tx_sonar, raw_ty_sonar = (float(np.median(diffs[:, 0])), float(np.median(diffs[:, 1])))
-                    
-                    theta = -angle if self.ref_frame_orient == 'sim' else angle
-                    tx, ty = (raw_ty_sonar, -raw_tx_sonar) if self.ref_frame_orient == 'sim' else (-raw_ty_sonar, -raw_tx_sonar)
-                    
-                    local_T = np.array([[np.cos(theta), -np.sin(theta), tx], [np.sin(theta), np.cos(theta), ty], [0, 0, 1]])
-                    est_pose = ref_pose @ (self.T_R_S_2d @ local_T @ self.T_S_R_2d)
-                    
-                    est_x_list.append(est_pose[0, 2])
-                    est_y_list.append(est_pose[1, 2])
-                    est_yaw_list.append(np.arctan2(est_pose[1, 0], est_pose[0, 0]))
-                    
-                    if i == len(self.sliding_window) - 1:
-                        latest_visu_match = {
-                            'pts1': pts1, 
-                            'pts2': pts2, 
-                            'inliers_p': inlier_mask.sum()/len(pts1), 
-                            'inliers_abs': inliers_abs, 
-                            'ref_frame': ref_frame,
-                            'confidence': confidence,
-                            'raw_tx_sonar': raw_tx_sonar,
-                            'raw_ty_sonar': raw_ty_sonar
-                        }
-
-        # --- GATING LOGIC & CVM ---
+        # 3. GATING & CVM LOGIC
         use_cvm = False
-        if len(est_x_list) > 0:
+        if len(est_poses) > 0:
+            est_x_list = [p['est_pose'][0, 2] for p in est_poses]
+            est_y_list = [p['est_pose'][1, 2] for p in est_poses]
+            est_yaw_list = [np.arctan2(p['est_pose'][1, 0], p['est_pose'][0, 0]) for p in est_poses]
+            
             median_x, median_y = np.median(est_x_list), np.median(est_y_list)
             median_azimuth = np.arctan2(np.sum(np.sin(est_yaw_list)), np.sum(np.cos(est_yaw_list)))
             
@@ -214,12 +228,18 @@ class sonar_odometry(nn.Module):
             t_step = R_curr.T @ (raw_new_pose[0:2, 2] - t_curr)
             step_theta = float(np.arctan2(raw_new_pose[1, 0], raw_new_pose[0, 0]) - np.arctan2(R_curr[1, 0], R_curr[0, 0]))
             
+            # Normalizacja kąta
+            step_theta = np.arctan2(np.sin(step_theta), np.cos(step_theta))
+            
             multiplier = min(self.blind_frames + 1, self.max_skip_frames + 1)
-            is_valid = (abs(t_step[0]) < self.max_trans_step * multiplier) and (abs(t_step[1]) < self.max_trans_step * multiplier)
+            
+            is_valid = (abs(t_step[0]) < self.max_trans_step * multiplier) and \
+                       (abs(t_step[1]) < self.max_trans_step * multiplier) and \
+                       (abs(step_theta) < self.max_rot_step * multiplier)
             
             if is_valid:
                 new_pose = raw_new_pose
-                self.last_step_tx, self.last_step_ty, self.last_step_theta = float(t_step[0]), float(t_step[1]), step_theta
+                self.last_step_tx, self.last_step_ty, self.last_step_theta = float(t_step[0]), float(t_step[1]), float(step_theta)
                 self.blind_frames = 0
             else:
                 use_cvm = True
@@ -229,7 +249,7 @@ class sonar_odometry(nn.Module):
         if use_cvm:
             self.blind_frames += 1
             
-            # Decay (wygaszanie CVM z każdą klatką braku dopasowań)
+            # Damping/Tłumienie: Wygaszanie CVM z każdą kolejną ślepą klatką
             self.last_step_tx *= self.cvm_decay
             self.last_step_ty *= self.cvm_decay
             self.last_step_theta *= self.cvm_decay
@@ -239,33 +259,38 @@ class sonar_odometry(nn.Module):
                               [0, 0, 1]])
             new_pose = self.current_pose @ cvm_T
 
-        # --- UPDATE GLOBALS FROM TRUE ACCEPTED STATE (Fixes "jumping") ---
         global_x, global_y = float(new_pose[0, 2]), float(new_pose[1, 2])
         global_azimuth = float(np.arctan2(new_pose[1, 0], new_pose[0, 0]))
 
-        # --- KEYFRAME LOGIC ---
+        # 4. KEYFRAME LOGIC (Z wymuszonym Resetem)
         _, _, latest_kf_pose = self.sliding_window[-1]
         dist = np.sqrt((global_x - latest_kf_pose[0, 2])**2 + (global_y - latest_kf_pose[1, 2])**2)
         
         prev_azimuth = np.arctan2(latest_kf_pose[1, 0], latest_kf_pose[0, 0])
         azimuth_diff = np.abs(np.arctan2(np.sin(global_azimuth - prev_azimuth), np.cos(global_azimuth - prev_azimuth)))
         
-        # KF wymuszany zarówno gdy odjechaliśmy za daleko (dist), obróciliśmy się (azimuth_diff) lub ratujemy się po CVM
+        # Wymuszamy klatkę kluczową w przypadku timeout'u (blind_frames), 
+        # aby zresetować bazę wizualną po utracie stabilności
         key_frame_detected = (dist >= self.key_frames_min_dist or 
                               azimuth_diff >= self.key_frames_min_rot or 
                               self.blind_frames >= self.max_skip_frames)
         
         if key_frame_detected:
             self.sliding_window.append((new_frame, self.polar2cart_mask, new_pose))
-            if len(self.sliding_window) > self.window_size: self.sliding_window.pop(0)
-            if self.blind_frames >= self.max_skip_frames: self.blind_frames = 0
+            if len(self.sliding_window) > self.window_size: 
+                self.sliding_window.pop(0)
+            
+            # Jeśli wymusiliśmy reset z powodu ślepoty, ucinamy naliczanie
+            if self.blind_frames >= self.max_skip_frames: 
+                self.blind_frames = 0
 
+        # Zawsze zapisujemy klatkę do Cache na potrzeby fallbacku
+        self.last_frame_data = (new_frame, self.polar2cart_mask, new_pose)
         self.current_pose = new_pose
 
         if not return_visu:
             return (global_x, global_y), global_azimuth
         else:
-            # Relative transformation to keyframe for debug ---
             R_kf, t_kf = latest_kf_pose[0:2, 0:2], latest_kf_pose[0:2, 2]
             R_new, t_new = new_pose[0:2, 0:2], new_pose[0:2, 2]
 
@@ -295,6 +320,15 @@ class sonar_odometry(nn.Module):
             frame2_np = new_frame.squeeze(0).permute(1, 2, 0).cpu().numpy()
             combined_img_gray = np.concatenate((frame1_np, frame2_np), axis=1)
             frames_np_rgb = cv2.cvtColor(combined_img_gray, cv2.COLOR_GRAY2RGB) if combined_img_gray.shape[-1] == 1 else combined_img_gray
+            
+            # Zapobieganie błędom przy pakowaniu do listy jeśli est_poses jest puste
+            if len(est_poses) > 0:
+                est_x_list = [p['est_pose'][0, 2] for p in est_poses]
+                est_y_list = [p['est_pose'][1, 2] for p in est_poses]
+                est_yaw_list = [np.arctan2(p['est_pose'][1, 0], p['est_pose'][0, 0]) for p in est_poses]
+                individual_estimates = list(zip(est_x_list, est_y_list, est_yaw_list))
+            else:
+                individual_estimates = []
 
             visu = {
                 'combined_imgs': frames_np_rgb,
@@ -316,8 +350,8 @@ class sonar_odometry(nn.Module):
                 'azimuth_diff': float(azimuth_diff),
                 'global_pose': (global_x, global_y, global_azimuth),
                 'skipped_frames': self.blind_frames,
-                'window_matches_count': f"{len(est_x_list)}/{len(self.sliding_window)}",
-                'individual_estimates': list(zip(est_x_list, est_y_list, est_yaw_list))
+                'window_matches_count': f"{len(est_poses)}/{len(self.sliding_window)}",
+                'individual_estimates': individual_estimates
             }
             return (global_x, global_y), global_azimuth, visu
 
