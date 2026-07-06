@@ -12,7 +12,7 @@ class sonar_odometry(nn.Module):
                  depth_compesation=True,
                  key_frames=True,
                  input_img_format='polar',
-                 ref_frame_orient='sim',
+                 ref_frame_orient='sim', # 'sim', 'aracati'
                  use_fls_filter=True):
         
         super().__init__()
@@ -46,20 +46,19 @@ class sonar_odometry(nn.Module):
         self.pts_match_thresh = model_config.pts_match_thresh
         self.ransac_thresh = model_config.ransac_thresh
         
-        # --- ZMODYFIKOWANY GATING I SMOOTHING ---
-        self.max_tx_step = getattr(model_config, 'max_tx_step', 0.25) # Duży luz do przodu/tyłu
-        self.max_ty_step = getattr(model_config, 'max_ty_step', 0.08) # Rygorystyczna blokada ruchu bocznego!
-        self.max_rot_step = getattr(model_config, 'max_rot_step', 0.10) 
+        # --- ZOPTYMALIZOWANY GATING ---
+        # Zastępujemy max_trans_step dwoma parametrami: X (przód) i Y (bok)
+        self.max_tx_step = getattr(model_config, 'max_tx_step', 0.25)
+        self.max_ty_step = getattr(model_config, 'max_ty_step', 0.08) # Rygorystyczny limit ślizgania!
+        self.max_rot_step = getattr(model_config, 'max_rot_step', 0.10)
         
         self.min_inliers_abs = getattr(model_config, 'min_inliers_abs', 12)
         self.min_inliers_ratio = getattr(model_config, 'min_inliers_ratio', 0.06)
-        self.max_skip_frames = getattr(model_config, 'max_skip_frames', 3)
-
-        # CVM State & Smoothing
+        
+        # CVM State
         self.last_step_tx, self.last_step_ty, self.last_step_theta = 0.0, 0.0, 0.0
         self.blind_frames = 0
         self.cvm_decay = getattr(model_config, 'cvm_decay', 0.95)
-        self.smoothing_factor = getattr(model_config, 'smoothing_factor', 0.5) # Wygładzanie (0.0=brak, 0.9=duża bezwładność)
                      
         # Sonar configuration
         self.input_img_format = input_img_format
@@ -77,13 +76,12 @@ class sonar_odometry(nn.Module):
         self.sliding_window = [] 
         
         self.current_pose = None
-        self.last_frame_data = None
+        self.last_frame_data = None 
         
         self.polar2cart_grid = None
         self.polar2cart_mask = None
 
     def fls_filter(self, frame):
-        """ Przeprojektowana filtracja dedykowana pod LoFTR i szum plamkowy """
         device = frame.device 
         b, c, h, w = frame.shape
         out_frames = []
@@ -91,13 +89,10 @@ class sonar_odometry(nn.Module):
             frame_np = frame[i, 0].detach().cpu().numpy()
             frame_uint8 = np.clip(frame_np * 255.0, 0, 255).astype(np.uint8)
             
-            # 1. Mocniejszy Median Blur do ubicia twardego szumu plamkowego
-            blured = cv2.medianBlur(frame_uint8, ksize=5)
-            # 2. Gaussian Blur dla uformowania spójnych, gładkich blobów
-            gaussian = cv2.GaussianBlur(blured, (5, 5), 0)
-            # 3. CLAHE dla odzyskania lokalnego kontrastu
-            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-            filtered = clahe.apply(gaussian)
+            blured = cv2.medianBlur(frame_uint8, ksize=3)
+            bilateral = cv2.bilateralFilter(blured, d=5, sigmaColor=25, sigmaSpace=5)
+            clahe = cv2.createCLAHE(clipLimit=1.5, tileGridSize=(8, 8))
+            filtered = clahe.apply(bilateral)
             
             filtered_float = filtered.astype(np.float32) / 255.0
             out_frames.append(torch.tensor(filtered_float, device=device).unsqueeze(0))
@@ -180,11 +175,10 @@ class sonar_odometry(nn.Module):
             inliers_p = inliers_abs / len(pts1_np) if len(pts1_np) > 0 else 0.0
             
             if inliers_abs >= self.min_inliers_abs and inliers_p >= self.min_inliers_ratio:
+                # ODCZYT TRANSLACJI BEZPOŚREDNIO Z MACIERZY AFFINICZNEJ (Brak błędu dźwigni medianowej)
                 angle = np.arctan2(M[1, 0], M[0, 0])
-                R_mat = np.array([[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]])
-                diffs = pts1_np[inlier_mask] - (R_mat @ pts2_np[inlier_mask].T).T
-                
-                raw_tx_sonar, raw_ty_sonar = (float(np.median(diffs[:, 0])), float(np.median(diffs[:, 1])))
+                raw_tx_sonar = float(M[0, 2])
+                raw_ty_sonar = float(M[1, 2])
                 
                 theta = -angle if self.ref_frame_orient == 'sim' else angle
                 tx, ty = (raw_ty_sonar, -raw_tx_sonar) if self.ref_frame_orient == 'sim' else (-raw_ty_sonar, -raw_tx_sonar)
@@ -241,31 +235,17 @@ class sonar_odometry(nn.Module):
             step_theta = float(np.arctan2(raw_new_pose[1, 0], raw_new_pose[0, 0]) - np.arctan2(R_curr[1, 0], R_curr[0, 0]))
             step_theta = np.arctan2(np.sin(step_theta), np.cos(step_theta))
             
-            multiplier = min(self.blind_frames + 1, self.max_skip_frames + 1)
+            multiplier = self.blind_frames + 1
             
-            # --- ANIZOTROPOWY GATING ---
-            # Tolerancja dla Y nie posiada mnożnika! Nie pozwalamy na boczne ślizgi.
+            # --- ZŁOTY ŚRODEK GATINGU ---
+            # Tolerancja boczna (Y) NIE ROŚNIE z czasem. Ucina boczne halucynacje.
             is_valid = (abs(t_step[0]) < self.max_tx_step * multiplier) and \
                        (abs(t_step[1]) < self.max_ty_step) and \
                        (abs(step_theta) < self.max_rot_step * multiplier)
             
             if is_valid:
-                # --- EMA SMOOTHING (Likwiduje poszarpanie) ---
-                if self.blind_frames == 0 and self.smoothing_factor > 0.0:
-                    smoothed_tx = self.smoothing_factor * self.last_step_tx + (1.0 - self.smoothing_factor) * float(t_step[0])
-                    smoothed_ty = self.smoothing_factor * self.last_step_ty + (1.0 - self.smoothing_factor) * float(t_step[1])
-                    smoothed_theta = self.smoothing_factor * self.last_step_theta + (1.0 - self.smoothing_factor) * step_theta
-                else:
-                    smoothed_tx, smoothed_ty, smoothed_theta = float(t_step[0]), float(t_step[1]), float(step_theta)
-
-                self.last_step_tx, self.last_step_ty, self.last_step_theta = smoothed_tx, smoothed_ty, smoothed_theta
-                
-                # Budujemy nową pozę na podstawie WYGŁADZONEGO kroku lokalnego
-                local_T_smooth = np.array([[np.cos(smoothed_theta), -np.sin(smoothed_theta), smoothed_tx],
-                                           [np.sin(smoothed_theta),  np.cos(smoothed_theta), smoothed_ty],
-                                           [0,                       0,                      1]])
-                
-                new_pose = self.current_pose @ local_T_smooth
+                new_pose = raw_new_pose
+                self.last_step_tx, self.last_step_ty, self.last_step_theta = float(t_step[0]), float(t_step[1]), float(step_theta)
                 self.blind_frames = 0
             else:
                 use_cvm = True
@@ -274,6 +254,7 @@ class sonar_odometry(nn.Module):
 
         if use_cvm:
             self.blind_frames += 1
+            # Delikatne hamowanie zamiast twardego stopu
             self.last_step_tx *= self.cvm_decay
             self.last_step_ty *= self.cvm_decay
             self.last_step_theta *= self.cvm_decay
@@ -286,23 +267,22 @@ class sonar_odometry(nn.Module):
         global_x, global_y = float(new_pose[0, 2]), float(new_pose[1, 2])
         global_azimuth = float(np.arctan2(new_pose[1, 0], new_pose[0, 0]))
 
+        # --- LOGIKA KLATEK KLUCZOWYCH ---
         _, _, latest_kf_pose = self.sliding_window[-1]
         dist = np.sqrt((global_x - latest_kf_pose[0, 2])**2 + (global_y - latest_kf_pose[1, 2])**2)
         
         prev_azimuth = np.arctan2(latest_kf_pose[1, 0], latest_kf_pose[0, 0])
         azimuth_diff = np.abs(np.arctan2(np.sin(global_azimuth - prev_azimuth), np.cos(global_azimuth - prev_azimuth)))
         
-        key_frame_detected = (dist >= self.key_frames_min_dist or 
-                              azimuth_diff >= self.key_frames_min_rot or 
-                              self.blind_frames >= self.max_skip_frames)
+        # NAJWAŻNIEJSZE: Nowa klatka kluczowa powstaje TYLKO Z TWARDYCH DANYCH WIZUALNYCH (not use_cvm)
+        key_frame_detected = (not use_cvm) and (dist >= self.key_frames_min_dist or azimuth_diff >= self.key_frames_min_rot)
         
         if key_frame_detected:
             self.sliding_window.append((new_frame, self.polar2cart_mask, new_pose))
             if len(self.sliding_window) > self.window_size: 
                 self.sliding_window.pop(0)
-            if self.blind_frames >= self.max_skip_frames: 
-                self.blind_frames = 0
 
+        # Zawsze zapisujemy klatkę do Cache na potrzeby fallbacku
         self.last_frame_data = (new_frame, self.polar2cart_mask, new_pose)
         self.current_pose = new_pose
 
