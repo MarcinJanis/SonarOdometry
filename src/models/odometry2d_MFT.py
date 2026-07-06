@@ -81,16 +81,22 @@ class sonar_odometry(nn.Module):
         self.polar2cart_mask = None
 
     def fls_filter(self, frame):
-        """ Filtracja obrazu: MedianBlur + CLAHE by poprawić działanie LoFTR/RANSAC """
+        """ Filtracja obrazu: MedianBlur + Bilateral + CLAHE (Zapożyczone z zeszytu) """
         device = frame.device 
         b, c, h, w = frame.shape
         out_frames = []
         for i in range(b):
             frame_np = frame[i, 0].detach().cpu().numpy()
             frame_uint8 = np.clip(frame_np * 255.0, 0, 255).astype(np.uint8)
-            blured = cv2.medianBlur(frame_uint8, ksize=5)
-            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-            filtered = clahe.apply(blured)
+            
+            # 1. Zmiękczanie szumu plamkowego
+            blured = cv2.medianBlur(frame_uint8, ksize=3)
+            # 2. Filtr bilateralny z zachowaniem mocnych ech 
+            bilateral = cv2.bilateralFilter(blured, d=5, sigmaColor=25, sigmaSpace=5)
+            # 3. Wyrównanie kontrastu
+            clahe = cv2.createCLAHE(clipLimit=1.5, tileGridSize=(8, 8))
+            filtered = clahe.apply(bilateral)
+            
             filtered_float = filtered.astype(np.float32) / 255.0
             out_frames.append(torch.tensor(filtered_float, device=device).unsqueeze(0))
         return torch.stack(out_frames, dim=0)
