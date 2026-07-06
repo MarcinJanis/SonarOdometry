@@ -42,10 +42,13 @@ inliers_low_threshold: 0.10 # [ratio]
 # Maksymalny przesuw i obrót na JEDNĄ klatkę. Pozostawione bez zmian.
 max_trans_step: 0.4  # [m]
 max_rot_step: 0.1   # [rad]
+max_tx_step: 0.25 # Do przodu/tyłu dajemy mu oddychać (25 cm na klatkę)
+max_ty_step: 0.08 # Ucinamy brutalnie halucynacje boczne (zaledwie 8 cm na klatkę!)
+
 
 # Zmniejszono z 15 na 10. W trudnym szumie 10 mocnych inlierów to wystarczający
 # dowód na poprawne dopasowanie. Wymaganie 15 często zmuszało system do przejścia w CVM.
-min_inliers_abs: 10 # [punkty]
+min_inliers_abs: 12 # [punkty]
 min_inliers_ratio: 0.06 # [ratio] - obniżono z 0.07
 
 # Pozostawiono 3. Maksymalna ilość "ślepych" klatek, po których system wymusza reset bazy.
@@ -62,6 +65,10 @@ use_fls_filter: True # [bool]
 cvm_decay: 0.9 # [-]
 
 min_confidence: 0.12
+
+smoothing_factor: 0.5  # Połowa ruchu pochodzi z bezwładności, połowa z aktualnej ramki (Gładka trajektoria!)
+
+
 
 # POLAR_FLS_INPUT_HEIGHT: 400 #800 # orginal img: 800 or 400
 # POLAR_FLS_INPUT_WIDTH: 384 # 768 # orginal img: 768 or 384
