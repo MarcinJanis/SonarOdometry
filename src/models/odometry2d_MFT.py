@@ -23,27 +23,31 @@ class sonar_odometry(nn.Module):
         super().__init__()
         self.device = device 
 
-        self.calib = ExtrinsicsCalib(
-            T=[sonar_config.position.x, sonar_config.position.y, sonar_config.position.z],
-            R=[sonar_config.position.roll, sonar_config.position.pitch, sonar_config.position.yaw]
-        )
+        # self.calib = ExtrinsicsCalib(
+        #     T=[sonar_config.position.x, sonar_config.position.y, sonar_config.position.z],
+        #     R=[sonar_config.position.roll, sonar_config.position.pitch, sonar_config.position.yaw]
+        # )
 
+        # extrinsics calibration
         yaw_offset = sonar_config.position.yaw
         x_offset = sonar_config.position.x
         y_offset = sonar_config.position.y
         
+        # Trnasform Robot -> Sonar
         self.T_R_S_2d = np.array([
             [np.cos(yaw_offset), -np.sin(yaw_offset), x_offset],
             [np.sin(yaw_offset),  np.cos(yaw_offset), y_offset],
             [0,                   0,                  1]
         ])
+        # Transform Sonar -> Robot 
         self.T_S_R_2d = np.linalg.inv(self.T_R_S_2d)
-
-        self.ref_frame_orient = ref_frame_orient
-        self.depth_compesation = depth_compesation
-        self.key_frames = key_frames
         
-        # Parametry
+        # System configuration
+        self.ref_frame_orient = ref_frame_orient 
+        self.depth_compesation = depth_compesation
+        self.key_frames = key_frames 
+        
+        # Parameters
         self.key_frames_min_dist = model_config.key_frames_min_dist
         self.key_frames_min_rot = model_config.key_frames_min_rot
         self.inliers_low_threshold = model_config.inliers_low_threshold
