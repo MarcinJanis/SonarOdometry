@@ -42,7 +42,7 @@ inliers_low_threshold: 0.10 # [ratio]
 # Maksymalny przesuw i obrót na JEDNĄ klatkę. Pozostawione bez zmian.
 max_trans_step: 0.4  # [m]
 max_rot_step: 0.1   # [rad]
-max_tx_step: 0.25 # Do przodu/tyłu dajemy mu oddychać (25 cm na klatkę)
+max_tx_step: 0.3 # Do przodu/tyłu dajemy mu oddychać (25 cm na klatkę)
 max_ty_step: 0.08 # Ucinamy brutalnie halucynacje boczne (zaledwie 8 cm na klatkę!)
 
 
