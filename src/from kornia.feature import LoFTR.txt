@@ -1,0 +1,358 @@
+from kornia.feature import LoFTR
+
+# --- config ---
+start      = 0
+frames_num = 25
+stride     = 3
+conf_thresh = 0.4          # keep matches with confidence >= this
+pretrained  = 'outdoor'    # 'indoor' or 'outdoor'
+
+r_min     = sonar_config.range.min
+r_max     = sonar_config.range.max
+theta_max = sonar_config.fov.horizontal
+
+
+def frame_to_cart_tensor(frame, r_min, r_max, theta_max, device):
+    """Sonar frame tensor -> Cartesian grayscale tensor (1,1,H8,W8) padded to multiples of 8."""
+    frame_np = frame.detach()[0, 0, 0].cpu().numpy()         # (H, W) float [0,1]
+    h_pol, w_pol = frame_np.shape
+    out_shape = (h_pol, 2 * h_pol)
+
+    frame_u8_3ch = cv2.cvtColor((frame_np * 255).astype(np.uint8), cv2.COLOR_GRAY2BGR)
+    cart_bgr     = img_polar2cart(frame_u8_3ch, r_min, r_max, theta_max, out_shape=out_shape, bg=0)
+    cart_gray    = cv2.cvtColor(cart_bgr, cv2.COLOR_BGR2GRAY).astype(np.float32) / 255.0
+
+    H, W = cart_gray.shape
+    H8 = ((H + 7) // 8) * 8
+    W8 = ((W + 7) // 8) * 8
+
+    padded = np.zeros((H8, W8), dtype=np.float32)
+    padded[:H, :W] = cart_gray
+
+    mask = np.zeros((H8, W8), dtype=np.float32)
+    mask[:H, :W] = 1.0
+
+    tensor = torch.from_numpy(padded).unsqueeze(0).unsqueeze(0).to(device)  # (1,1,H8,W8)
+    mask_t = torch.from_numpy(mask).unsqueeze(0).to(device)                  # (1,H8,W8)
+    return tensor, mask_t, cart_bgr, (H, W)
+
+
+
+# --- load model ---
+loftr = LoFTR(pretrained=pretrained).to(device).eval()
+
+# --- collect frames ---
+frames_data = []
+with torch.no_grad():
+    for i in range(frames_num):
+        t, frame, pose, _ = data_generator.get_sample(start + i * stride, return_visu=True)
+        frame = denoise_sonar_frame(frame)
+        tensor, mask, cart_bgr, orig_hw = frame_to_cart_tensor(frame, r_min, r_max, theta_max, device)
+        frames_data.append({'tensor': tensor, 'mask': mask, 'img': cart_bgr, 'orig_hw': orig_hw})
+
+# --- match & visualise ---
+n_pairs = frames_num - 1
+fig, axes = plt.subplots(n_pairs, 1, figsize=(22, 7 * n_pairs))
+if n_pairs == 1:
+    axes = [axes]
+fig.suptitle(f'LoFTR  ({pretrained})  —  conf ≥ {conf_thresh}', fontsize=15)
+
+with torch.no_grad():
+    for pair_idx in range(n_pairs):
+        d1, d2 = frames_data[pair_idx], frames_data[pair_idx + 1]
+
+        out = loftr({
+            'image0': d1['tensor'], 'mask0': d1['mask'],
+            'image1': d2['tensor'], 'mask1': d2['mask'],
+        })
+
+        mkpts0 = out['keypoints0'].cpu().numpy()   # (N, 2)  x,y
+        mkpts1 = out['keypoints1'].cpu().numpy()
+        conf   = out['confidence'].cpu().numpy()   # (N,)
+
+        mask_conf = conf >= conf_thresh
+        mkpts0, mkpts1, conf = mkpts0[mask_conf], mkpts1[mask_conf], conf[mask_conf]
+
+        img1, img2 = d1['img'], d2['img']
+        w1 = img1.shape[1]
+        combined_rgb = cv2.cvtColor(np.concatenate([img1, img2], axis=1), cv2.COLOR_BGR2RGB)
+
+        ax = axes[pair_idx]
+        ax.imshow(combined_rgb)
+        ax.set_title(
+            f'Frame {start + pair_idx * stride}  →  Frame {start + (pair_idx + 1) * stride}'
+            f'   |   {len(mkpts0)} matches',
+            fontsize=11,
+        )
+        ax.axis('off')
+
+        # colour by confidence: bright yellow = high, dark purple = low
+        norm_conf = (conf - conf_thresh) / max(1.0 - conf_thresh, 1e-6)
+        colors = plt.cm.plasma(norm_conf)
+
+        for (x1, y1), (x2, y2), color in zip(mkpts0, mkpts1, colors):
+            ax.plot([x1, x2 + w1], [y1, y2], '-', color=color, linewidth=0.6, alpha=0.6)
+        ax.scatter(mkpts0[:, 0], mkpts0[:, 1],       c=colors, s=8, zorder=3)
+        ax.scatter(mkpts1[:, 0] + w1, mkpts1[:, 1],  c=colors, s=8, zorder=3)
+
+sm = plt.cm.ScalarMappable(cmap='plasma', norm=plt.Normalize(vmin=conf_thresh, vmax=1.0))
+fig.colorbar(sm, ax=axes, label='LoFTR confidence', shrink=0.4, pad=0.01)
+fig.tight_layout(rect=[0, 0.02, 1, 0.97])
+plt.show()
+
+
+# ── Estimate R, t from LoFTR matches (2-D planar motion via RANSAC) ──────────
+#
+# Sonar scans a horizontal 2-D plane → rigid body motion: rotation θ + translation (tx, ty).
+# Pipeline:
+#   1. pixel coords  →  physical coords [m]   (using sonar geometry)
+#   2. cv2.estimateAffinePartial2D (RANSAC)  →  2×3 matrix M
+#   3. decompose M  →  θ [deg], tx [m], ty [m]
+#   4. accumulate global poses and plot trajectory
+
+# physical scale: 1 pixel = scale metres
+_d0     = frames_data[0]
+_out_h  = _d0['orig_hw'][0]
+_out_w  = _d0['orig_hw'][1]
+_scale  = (r_max - r_min) / _out_h   # metres per pixel
+
+
+def px_to_phys(pts_px, out_h, out_w, scale, r_min):
+    """Cartesian pixel (x,y) → physical (x_m, y_m) [m], matches img_polar2cart geometry."""
+    x_m = (pts_px[:, 0] - out_w / 2) * scale
+    y_m = (out_h - pts_px[:, 1])      * scale + r_min
+    return np.stack([x_m, y_m], axis=1)
+
+
+# ── per-pair estimation ───────────────────────────────────────────────────────
+pair_results = []
+
+fig_v, axes_v = plt.subplots(n_pairs, 1, figsize=(22, 7 * n_pairs))
+if n_pairs == 1:
+    axes_v = [axes_v]
+fig_v.suptitle('LoFTR matches — inliers (green) / outliers (red)  +  R, t', fontsize=14)
+
+with torch.no_grad():
+    for pair_idx in range(n_pairs):
+        d1, d2 = frames_data[pair_idx], frames_data[pair_idx + 1]
+
+        out = loftr({
+            'image0': d1['tensor'], 'mask0': d1['mask'],
+            'image1': d2['tensor'], 'mask1': d2['mask'],
+        })
+
+        mkpts0 = out['keypoints0'].cpu().numpy()   # (N, 2)  x, y  [px]
+        mkpts1 = out['keypoints1'].cpu().numpy()
+        conf   = out['confidence'].cpu().numpy()
+
+        good  = conf >= conf_thresh
+        mkpts0, mkpts1 = mkpts0[good], mkpts1[good]
+
+        H, W = d1['orig_hw']
+
+        # pixel → physical [m]
+        pts1_m = px_to_phys(mkpts0, H, W, _scale, r_min)
+        pts2_m = px_to_phys(mkpts1, H, W, _scale, r_min)
+
+        # RANSAC rigid 2-D transform
+        M, inlier_mask = cv2.estimateAffinePartial2D(
+            pts1_m, pts2_m,
+            method=cv2.RANSAC,
+            ransacReprojThreshold=0.15,   # [m]
+            maxIters=3000,
+            confidence=0.999,
+        )
+
+        if M is not None and inlier_mask is not None:
+            inlier_mask = inlier_mask.ravel().astype(bool)
+            theta = np.arctan2(M[1, 0], M[0, 0])
+            tx, ty = M[0, 2], M[1, 2]
+            n_in  = inlier_mask.sum()
+
+            # 2-D rotation matrix  (3×3 homogeneous)
+            R_mat = np.array([[ np.cos(theta), -np.sin(theta)],
+                               [ np.sin(theta),  np.cos(theta)]])
+            t_vec = np.array([tx, ty])
+        else:
+            inlier_mask = np.zeros(len(mkpts0), dtype=bool)
+            theta, tx, ty, n_in = 0.0, 0.0, 0.0, 0
+            R_mat = np.eye(2)
+            t_vec = np.zeros(2)
+
+        pair_results.append(dict(
+            frames =(start + pair_idx * stride, start + (pair_idx + 1) * stride),
+            R=R_mat, t=t_vec,
+            theta_deg=np.degrees(theta), tx=tx, ty=ty,
+            n_matches=len(mkpts0), n_inliers=int(n_in),
+        ))
+
+        # ── visualise inliers / outliers ─────────────────────────────────────
+        w1  = d1['img'].shape[1]
+        vis = cv2.cvtColor(np.concatenate([d1['img'], d2['img']], axis=1), cv2.COLOR_BGR2RGB)
+        ax  = axes_v[pair_idx]
+        ax.imshow(vis)
+
+        for flag, (x1, y1), (x2, y2) in zip(inlier_mask, mkpts0, mkpts1):
+            c = (0.15, 0.85, 0.15, 0.7) if flag else (0.9, 0.15, 0.15, 0.35)
+            lw = 0.8 if flag else 0.4
+            ax.plot([x1, x2 + w1], [y1, y2], '-', color=c, linewidth=lw)
+
+        in_mask = inlier_mask
+        ax.scatter(mkpts0[in_mask, 0],        mkpts0[in_mask, 1],        c='lime',  s=10, zorder=4)
+        ax.scatter(mkpts1[in_mask, 0] + w1,   mkpts1[in_mask, 1],        c='lime',  s=10, zorder=4)
+        ax.scatter(mkpts0[~in_mask, 0],        mkpts0[~in_mask, 1],       c='red',   s=6,  zorder=3, alpha=0.5)
+        ax.scatter(mkpts1[~in_mask, 0] + w1,  mkpts1[~in_mask, 1],       c='red',   s=6,  zorder=3, alpha=0.5)
+
+        ax.set_title(
+            f'Frame {pair_results[-1]["frames"][0]} → {pair_results[-1]["frames"][1]}'
+            f'  |  inliers: {n_in}/{len(mkpts0)}'
+            f'  |  θ = {np.degrees(theta):+.2f}°'
+            f'  |  t = ({tx:+.3f}, {ty:+.3f}) m',
+            fontsize=11,
+        )
+        ax.axis('off')
+
+fig_v.tight_layout(rect=[0, 0.02, 1, 0.97])
+plt.show()
+
+# ── summary table ─────────────────────────────────────────────────────────────
+print(f'\n{"Frames":>12}  {"matches":>8}  {"inliers":>8}  {"θ [°]":>8}  {"tx [m]":>9}  {"ty [m]":>9}')
+print('─' * 70)
+for r in pair_results:
+    print(f'{r["frames"][0]:4d} → {r["frames"][1]:4d}  '
+          f'{r["n_matches"]:8d}  {r["n_inliers"]:8d}  '
+          f'{r["theta_deg"]:+8.3f}  {r["tx"]:+9.4f}  {r["ty"]:+9.4f}')
+
+# ── accumulated trajectory (dead-reckoning) ───────────────────────────────────
+pose = np.zeros(3)   # [x, y, theta]
+traj = [pose.copy()]
+
+for r in pair_results:
+    c, s = np.cos(pose[2]), np.sin(pose[2])
+    Rg   = np.array([[c, -s], [s, c]])
+    dt   = Rg @ r['t']
+    pose[:2]  += dt
+    pose[2]   += np.radians(r['theta_deg'])
+    traj.append(pose.copy())
+
+traj = np.array(traj)
+
+fig_t, ax_t = plt.subplots(figsize=(7, 7))
+ax_t.plot(traj[:, 0], traj[:, 1], 'o-', markersize=7)
+for i, (x, y, _) in enumerate(traj):
+    ax_t.annotate(str(start + i * stride), (x, y), textcoords='offset points', xytext=(5, 5), fontsize=9)
+ax_t.set_xlabel('x [m]')
+ax_t.set_ylabel('y [m]')
+ax_t.set_title('Accumulated trajectory (dead-reckoning from LoFTR R, t)')
+ax_t.set_aspect('equal')
+ax_t.grid(True)
+plt.tight_layout()
+plt.show()
+
+
+
+import pypose as pp
+
+# ── TUNE: axis mapping from sonar image frame to GT robot frame ───────────────
+#
+# Sonar image physical coords:  x_r = right,  y_r = forward  (range direction)
+# Typical robot/GT frame:       x   = forward, y   = left
+#
+
+coord_map  = np.array([[ 0, -1], [-1,  0]])   # ← change here
+theta_sign = -1                                 # ← +1 or -1 (flip yaw if needed)
+
+# ── collect GT absolute poses ─────────────────────────────────────────────────
+gt_poses = []
+with torch.no_grad():
+    for i in range(frames_num):
+        _, _, pose_gt, _ = data_generator.get_sample(start + i * stride, return_visu=True)
+        gt_poses.append(pose_gt.cpu())   # SE3: [tx, ty, tz, qx, qy, qz, qw]
+
+# ── relative GT poses: T_rel = T1^{-1} @ T2 ─────────────────────────────────
+def yaw_from_se3(t):
+    qx, qy, qz, qw = t[3], t[4], t[5], t[6]
+    return float(torch.atan2(2*(qw*qz + qx*qy), 1 - 2*(qy**2 + qz**2)))
+
+gt_rel = []
+for i in range(len(gt_poses) - 1):
+    rel = (pp.SE3(gt_poses[i]).Inv() @ pp.SE3(gt_poses[i + 1])).tensor()
+    gt_rel.append(dict(tx=float(rel[0]), ty=float(rel[1]),
+                       theta_deg=float(np.degrees(yaw_from_se3(rel)))))
+
+# ── apply coord_map to estimated values ──────────────────────────────────────
+def apply_map(pr, cm, ts):
+    t_mapped = cm @ np.array([pr['tx'], pr['ty']])
+    return dict(tx=t_mapped[0], ty=t_mapped[1],
+                theta_deg=ts * pr['theta_deg'])
+
+pair_mapped = [apply_map(pr, coord_map, theta_sign) for pr in pair_results]
+
+# ── comparison table ──────────────────────────────────────────────────────────
+print(f'{"Frames":>10}  {"θ_est":>9}  {"θ_gt":>9}  {"Δθ":>7}'
+      f'  {"tx_est":>9}  {"tx_gt":>9}  {"Δtx":>7}'
+      f'  {"ty_est":>9}  {"ty_gt":>9}  {"Δty":>7}')
+print(f'{"":>10}  {"[°]":>9}  {"[°]":>9}  {"[°]":>7}'
+      f'  {"[m]":>9}  {"[m]":>9}  {"[m]":>7}'
+      f'  {"[m]":>9}  {"[m]":>9}  {"[m]":>7}')
+print('─' * 105)
+for pr_m, gr, pr in zip(pair_mapped, gt_rel, pair_results):
+    print(f'{pr["frames"][0]:4d}→{pr["frames"][1]:4d}  '
+          f'{pr_m["theta_deg"]:+9.3f}  {gr["theta_deg"]:+9.3f}  {pr_m["theta_deg"]-gr["theta_deg"]:+7.3f}  '
+          f'{pr_m["tx"]:+9.4f}  {gr["tx"]:+9.4f}  {pr_m["tx"]-gr["tx"]:+7.4f}  '
+          f'{pr_m["ty"]:+9.4f}  {gr["ty"]:+9.4f}  {pr_m["ty"]-gr["ty"]:+7.4f}')
+
+# ── dead-reckoning ────────────────────────────────────────────────────────────
+def dead_reckon(rel_list, key_tx='tx', key_ty='ty', key_th='theta_deg'):
+    pose = np.zeros(3)
+    traj = [pose.copy()]
+    for r in rel_list:
+        c, s = np.cos(pose[2]), np.sin(pose[2])
+        pose[:2] += np.array([[c,-s],[s,c]]) @ np.array([r[key_tx], r[key_ty]])
+        pose[2]  += np.radians(r[key_th])
+        traj.append(pose.copy())
+    return np.array(traj)
+
+traj_est = dead_reckon(pair_mapped)
+traj_gt  = dead_reckon(gt_rel)
+gt_abs   = np.stack([p[:2].numpy() for p in gt_poses]) - gt_poses[0][:2].numpy()
+frame_labels = [start + i * stride for i in range(frames_num)]
+
+# ── 3-panel trajectory plot ───────────────────────────────────────────────────
+fig, axes = plt.subplots(1, 3, figsize=(21, 7))
+fig.suptitle('Estimated vs GT  (coord_map applied to estimated)', fontsize=14)
+
+for ax, traj, title, color in zip(
+        axes,
+        [traj_est, gt_abs, traj_est],
+        ['Estimated (dead-reckoning, mapped)', 'GT (absolute)', 'Overlay'],
+        ['steelblue', 'darkorange', 'steelblue']):
+    ax.plot(traj[:, 0], traj[:, 1], 'o-', color=color, markersize=6, label='Estimated' if title=='Overlay' else None)
+    for i, lbl in enumerate(frame_labels):
+        ax.annotate(str(lbl), traj[i, :2], textcoords='offset points', xytext=(4,4), fontsize=8, color=color)
+    if title == 'Overlay':
+        ax.plot(traj_gt[:, 0], traj_gt[:, 1], 's--', color='darkorange', markersize=6, label='GT (rel)')
+        for i, lbl in enumerate(frame_labels):
+            ax.annotate(str(lbl), traj_gt[i,:2], textcoords='offset points', xytext=(4,-12), fontsize=8, color='darkorange')
+        ax.legend()
+    ax.set_title(title); ax.set_xlabel('x [m]'); ax.set_ylabel('y [m]')
+    ax.set_aspect('equal'); ax.grid(True)
+
+plt.tight_layout(); plt.show()
+
+# ── error bars ────────────────────────────────────────────────────────────────
+pair_labels = [f'{r["frames"][0]}→{r["frames"][1]}' for r in pair_results]
+errs = {
+    'Δθ [°]':  [pm['theta_deg'] - gr['theta_deg'] for pm, gr in zip(pair_mapped, gt_rel)],
+    'Δtx [m]': [pm['tx']        - gr['tx']        for pm, gr in zip(pair_mapped, gt_rel)],
+    'Δty [m]': [pm['ty']        - gr['ty']        for pm, gr in zip(pair_mapped, gt_rel)],
+}
+fig2, axes2 = plt.subplots(1, 3, figsize=(16, 4))
+fig2.suptitle('Error: estimated − GT  (after coord_map)', fontsize=13)
+for ax, (ylabel, vals) in zip(axes2, errs.items()):
+    ax.bar(pair_labels, vals, color=['#e74c3c' if v>0 else '#2ecc71' for v in vals])
+    ax.axhline(0, color='k', linewidth=0.8)
+    ax.set_ylabel(ylabel); ax.set_title(ylabel); ax.tick_params(axis='x', rotation=30)
+plt.tight_layout(); plt.show()
+
+
