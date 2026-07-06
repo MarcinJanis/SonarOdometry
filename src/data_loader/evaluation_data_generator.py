@@ -62,7 +62,8 @@ class DataGenerator():
 
         pose_gt = torch.tensor(self.pose.iloc[idx].values, dtype = torch.float, device = self.device)
         pose_gt[3:7] = F.normalize(pose_gt[3:7], p=2, dim=-1)
-        pose_gt = self.calibration.pose(pose_gt)
+        if not self.calibration is None: 
+            pose_gt = self.calibration.pose(pose_gt)
 
         depth = torch.tensor(self.depth.iloc[idx].values, dtype = torch.float, device = self.device)
         
