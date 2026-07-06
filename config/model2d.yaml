@@ -1,20 +1,83 @@
-POLAR_FLS_INPUT_HEIGHT: 400 #800 # orginal img: 800 or 400
-POLAR_FLS_INPUT_WIDTH: 384 # 768 # orginal img: 768 or 384
+# ==========================================
+# WEJŚCIE OBRAZOWE
+# ==========================================
+POLAR_FLS_INPUT_HEIGHT: 400 
+POLAR_FLS_INPUT_WIDTH: 384 
 
-CART_FLS_INPUT_HEIGHT: 424 # orginal img: 1553 
-CART_FLS_INPUT_WIDTH: 776 # orginal img: 768 or 384
+CART_FLS_INPUT_HEIGHT: 424 
+CART_FLS_INPUT_WIDTH: 776 
 
-pts_match_thresh: 0.65 # [-]
+# ==========================================
+# DOPASOWANIE CECH (LoFTR) I RANSAC
+# ==========================================
+# Zmniejszono z 0.65 na 0.40. W zaszumionym obrazie LoFTR ma mniejszą pewność. 
+# Zbyt wysoki próg odrzucał poprawne, ale zaszumione cechy. Lepiej przepuścić więcej
+# punktów do RANSACa, niż nie mieć ich wcale.
+pts_match_thresh: 0.40 # [-] 
 
-ransac_thresh: 0.15 # [m]
+# Zwiększono z 0.15 na 0.25. Wartość jest w metrach! Przy rozdzielczości 400px dla np. 10m zasięgu, 
+# 0.15m to zaledwie kilka pikseli. Szum plamkowy przesuwa "środek" echa, więc 0.25m da
+# RANSAC-owi większą tolerancję na pływanie cech bez ich odrzucania.
+ransac_thresh: 0.25 # [m]
 
-key_frames_min_dist: 1.0 # [m]
-key_frames_min_rot: 0.1 # [rad]
+# ==========================================
+# LOGIKA KLATEK KLUCZOWYCH (KEYFRAMES)
+# ==========================================
+# Zmniejszono z 1.0 na 0.45. W silnym szumie obrazy szybciej stają się niespójne.
+# Częstsza aktualizacja bazy radykalnie zmniejszy dryf.
+key_frames_min_dist: 0.45 # [m]
 
-inliers_low_threshold: 0.12
+# Zwiększono nieznacznie z 0.1 na 0.15 rad (ok. 8.5 stopnia). Sonar obracając się
+# silnie zmienia wygląd sceny, ale za częste klatki przy samym obrocie mogą
+# spowolnić system. 0.15 to optymalny balans.
+key_frames_min_rot: 0.15 # [rad]
 
-max_trans_step: 0.4 
-max_rot_step: 0.15 
-min_inliers_ratio: 0.07
-min_inliers_abs: 15
-max_skip_frames: 3
+# Zmniejszono z 0.12 na 0.10. Jeśli tylko 10% punktów pasuje do klatki kluczowej,
+# wymuszamy nową.
+inliers_low_threshold: 0.10 # [ratio]
+
+# ==========================================
+# GATING & RECOVERY (ZABEZPIECZENIA)
+# ==========================================
+# Maksymalny przesuw i obrót na JEDNĄ klatkę. Pozostawione bez zmian.
+max_trans_step: 0.4  # [m]
+max_rot_step: 0.15   # [rad]
+
+# Zmniejszono z 15 na 10. W trudnym szumie 10 mocnych inlierów to wystarczający
+# dowód na poprawne dopasowanie. Wymaganie 15 często zmuszało system do przejścia w CVM.
+min_inliers_abs: 10 # [punkty]
+min_inliers_ratio: 0.05 # [ratio] - obniżono z 0.07
+
+# Pozostawiono 3. Maksymalna ilość "ślepych" klatek, po których system wymusza reset bazy.
+max_skip_frames: 3 # [klatki]
+
+# ==========================================
+# NOWE PARAMETRY ARCHITEKTURY
+# ==========================================
+# Włączenie filtracji CLAHE + MedianBlur przed podaniem obrazu do sieci.
+use_fls_filter: True # [bool]
+
+# Stopień tłumienia modelu stałej prędkości (CVM) podczas "ślepoty". 
+# 0.85 oznacza, że z każdą klatką bez dopasowań system zwalnia o 15%.
+cvm_decay: 0.85 # [-]
+
+# POLAR_FLS_INPUT_HEIGHT: 400 #800 # orginal img: 800 or 400
+# POLAR_FLS_INPUT_WIDTH: 384 # 768 # orginal img: 768 or 384
+
+# CART_FLS_INPUT_HEIGHT: 424 # orginal img: 1553 
+# CART_FLS_INPUT_WIDTH: 776 # orginal img: 768 or 384
+
+# pts_match_thresh: 0.65 # [-]
+
+# ransac_thresh: 0.15 # [m]
+
+# key_frames_min_dist: 1.0 # [m]
+# key_frames_min_rot: 0.1 # [rad]
+
+# inliers_low_threshold: 0.12
+
+# max_trans_step: 0.4 
+# max_rot_step: 0.15 
+# min_inliers_ratio: 0.07
+# min_inliers_abs: 15
+# max_skip_frames: 3
