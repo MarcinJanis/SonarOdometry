@@ -195,6 +195,7 @@ class sonar_odometry(nn.Module):
 
     @torch.no_grad()
     def forward(self, frame, depth, return_visu=False):
+        
         if self.use_fls_filter:
             frame = self.fls_filter(frame)
 

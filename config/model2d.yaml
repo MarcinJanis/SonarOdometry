@@ -21,16 +21,10 @@ pts_match_thresh: 0.40 # [-]
 ransac_thresh: 0.25 # [m]
 
 # ==========================================
-# LOGIKA KLATEK KLUCZOWYCH (KEYFRAMES)
+# KEY FRAMES ACTUALISAYION
 # ==========================================
-# Zmniejszono z 1.0 na 0.45. W silnym szumie obrazy szybciej stają się niespójne.
-# Częstsza aktualizacja bazy radykalnie zmniejszy dryf.
-key_frames_min_dist: 0.45 # [m]
-
-# Zwiększono nieznacznie z 0.1 na 0.15 rad (ok. 8.5 stopnia). Sonar obracając się
-# silnie zmienia wygląd sceny, ale za częste klatki przy samym obrocie mogą
-# spowolnić system. 0.15 to optymalny balans.
-key_frames_min_rot: 0.15 # [rad]
+key_frames_min_dist: 0.6 # [m]  # 0.45 jest git, próbuje zwiekszać 
+key_frames_min_rot: 0.15 # [rad] # 0.15 zostoawiam
 
 # Zmniejszono z 0.12 na 0.10. Jeśli tylko 10% punktów pasuje do klatki kluczowej,
 # wymuszamy nową.
