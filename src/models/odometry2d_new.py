@@ -410,7 +410,7 @@ class sonar_odometry(nn.Module):
             delta_t_local = R_curr.T @ (t_new_raw - t_curr)
             
             # Utwardzamy trajektorię
-            ty_damping_factor = 0.5 # <- Możesz regulować (np. 0.3 dławi mocniej, 1.0 wyłącza)
+            ty_damping_factor = 1.0 # <- Możesz regulować (np. 0.3 dławi mocniej, 1.0 wyłącza)
             delta_t_local_damped = np.array([delta_t_local[0], delta_t_local[1] * ty_damping_factor])
             
             t_new_damped = t_curr + R_curr @ delta_t_local_damped
