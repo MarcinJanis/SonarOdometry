@@ -399,14 +399,26 @@ class sonar_odometry(nn.Module):
                     # ARACATI MAPOWANIE:
                     # Skrypt ewaluacyjny zakłada, że Y to przód, a X to bok (jak w nawigacji morskiej).
                     # Aby wykresy i błędy liczyły się poprawnie dla Aracati:
-                    theta = -angle
-                    tx = - raw_tx_sonar   # Odchylenie boczne
-                    ty = raw_ty_sonar   # Przemieszczenie wzdłużne (do przodu)
                     
-                    local_T = np.array([[np.cos(theta), -np.sin(theta), tx], 
-                                        [np.sin(theta), np.cos(theta), ty], 
+                    theta = angle          # ZMIANA: usunięto minus
+                    tx = raw_tx_sonar      # ZMIANA: usunięto minus (czysty ruch poprzeczny)
+                    ty = raw_ty_sonar   
+                    
+                    # ZMIANA: Transponowana macierz rotacji (dla lewoskrętnego układu / NED)
+                    local_T = np.array([[np.cos(theta), np.sin(theta), tx], 
+                                        [-np.sin(theta), np.cos(theta), ty], 
                                         [0, 0, 1]])
                     est_pose = ref_pose @ local_T
+                    
+                    # theta = -angle
+                    # tx = - raw_tx_sonar   # Odchylenie boczne
+                    # ty = raw_ty_sonar   # Przemieszczenie wzdłużne (do przodu)
+
+                    
+                    # local_T = np.array([[np.cos(theta), -np.sin(theta), tx], 
+                    #                     [np.sin(theta), np.cos(theta), ty], 
+                    #                     [0, 0, 1]])
+                    # est_pose = ref_pose @ local_T
                     
                 # est_pose = ref_pose @ (self.T_R_S_2d @ local_T @ self.T_S_R_2d)
                 
@@ -474,11 +486,20 @@ class sonar_odometry(nn.Module):
             delta_t_local_damped = np.array([delta_t_local[0] * tx_damping, delta_t_local[1] * ty_damping])
             
             t_new_damped = t_curr + R_curr @ delta_t_local_damped
+
+            if self.ref_frame_orient == 'sim':
+                new_pose = np.array([[np.cos(median_azimuth), -np.sin(median_azimuth), t_new_damped[0]], 
+                                     [np.sin(median_azimuth),  np.cos(median_azimuth), t_new_damped[1]], 
+                                     [0, 0, 1]])
             
-            new_pose = np.array([[np.cos(median_azimuth), -np.sin(median_azimuth), t_new_damped[0]], 
-                                 [np.sin(median_azimuth),  np.cos(median_azimuth), t_new_damped[1]], 
-                                 [0, 0, 1]])
+        
+            # ZMIANA: Transponowana macierz dla ostatecznej pozy
+            else:
+                new_pose = np.array([[np.cos(median_azimuth), np.sin(median_azimuth), t_new_damped[0]], 
+                                     [-np.sin(median_azimuth), np.cos(median_azimuth), t_new_damped[1]], 
+                                     [0, 0, 1]])
             step_is_valid = True
+        
         else:
             new_pose = self.current_pose
         # =========
