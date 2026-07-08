@@ -526,13 +526,37 @@ class sonar_odometry(nn.Module):
         out = F.grid_sample(frame, self.polar2cart_grid, mode='bilinear', padding_mode='zeros', align_corners=True)
         return out * self.polar2cart_mask.unsqueeze(1)
 
+    # def scale_px2physcial(self, pts_px):
+    #     out_h, out_w = self.cart_frame_size
+    #     scale = (self.r_max - self.r_min) / out_h
+    #     x = (pts_px[:, 0] - out_w / 2.0) * scale
+    #     y = (out_h - pts_px[:, 1]) * scale + self.r_min
+    #     return torch.stack([x, y], dim=1)
+        
     def scale_px2physcial(self, pts_px):
         out_h, out_w = self.cart_frame_size
-        scale = (self.r_max - self.r_min) / out_h
-        x = (pts_px[:, 0] - out_w / 2.0) * scale
-        y = (out_h - pts_px[:, 1]) * scale + self.r_min
+        
+        if self.input_img_format == 'polar':
+            # Klasyczne, bezpieczne podejście dla symulatora (zwykle proporcje 1:1)
+            resolution_m_per_px = (self.r_max - self.r_min) / out_h
+            x = (pts_px[:, 0] - out_w / 2.0) * resolution_m_per_px
+            y = (out_h - pts_px[:, 1]) * resolution_m_per_px + self.r_min
+        else:
+            # PODEJŚCIE DLA ARACATI (Odporne na asymetryczne kadrowanie)
+            # 1. Rozdzielczość wzdłużna (oś Y obrazu -> ruch Tx)
+            res_y = (self.r_max - self.r_min) / out_h
+            
+            # 2. Rozdzielczość poprzeczna (oś X obrazu -> ruch Ty)
+            # Wyliczamy fizyczną szerokość "okna" na maksymalnym zasięgu.
+            # Jeśli FOV wynosi np. 120 stopni (2.09 rad), to całkowita szerokość to:
+            # 2 * r_max * sin(FOV / 2)
+            physical_width = 2.0 * self.r_max * np.sin(self.theta_max / 2.0)
+            res_x = physical_width / out_w
+            
+            x = (pts_px[:, 0] - out_w / 2.0) * res_x
+            y = (out_h - pts_px[:, 1]) * res_y + self.r_min
+            
         return torch.stack([x, y], dim=1)
-    
     
 # import torch
 # import torch.nn.functional as F
