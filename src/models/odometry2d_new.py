@@ -375,7 +375,7 @@ class sonar_odometry(nn.Module):
                     raw_tx_sonar, raw_ty_sonar = float(M[0, 2]), float(M[1, 2])
                 
                 theta = -angle if self.ref_frame_orient == 'sim' else angle
-                tx, ty = (raw_ty_sonar, raw_tx_sonar) if self.ref_frame_orient == 'sim' else (-raw_ty_sonar, -raw_tx_sonar)
+                tx, ty = (raw_ty_sonar, raw_tx_sonar) if self.ref_frame_orient == 'sim' else (raw_ty_sonar, -raw_tx_sonar)
                 
                 local_T = np.array([[np.cos(theta), -np.sin(theta), tx], 
                                     [np.sin(theta), np.cos(theta), ty], 
