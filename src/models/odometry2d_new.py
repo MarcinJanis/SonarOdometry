@@ -397,27 +397,43 @@ class sonar_odometry(nn.Module):
                     est_pose = ref_pose @ (self.T_R_S_2d @ local_T @ self.T_S_R_2d)
                 else:
                     # ARACATI MAPOWANIE:
-                    # Skrypt ewaluacyjny zakłada, że Y to przód, a X to bok (jak w nawigacji morskiej).
-                    # Aby wykresy i błędy liczyły się poprawnie dla Aracati:
+                    theta = -angle
+                    sway = -raw_tx_sonar    # Odbicie lustrzane osi poprzecznej (zgodnie z logami GT)
+                    surge = raw_ty_sonar    # Ruch w przód 
                     
-                    theta = angle          # ZMIANA: usunięto minus
-                    tx = raw_tx_sonar      # ZMIANA: usunięto minus (czysty ruch poprzeczny)
-                    ty = raw_ty_sonar   
-                    
-                    # ZMIANA: Transponowana macierz rotacji (dla lewoskrętnego układu / NED)
-                    local_T = np.array([[np.cos(theta), np.sin(theta), tx], 
-                                        [-np.sin(theta), np.cos(theta), ty], 
+                    # KLUCZOWE RZUTOWANIE DO MACIERZY:
+                    # Zachowujemy strukturę z symulatora! 
+                    # Standardowa macierz oczekuje ruchu w przód (surge) w slocie X, 
+                    # a ruchu bocznego (sway) w slocie Y.
+                    tx_matrix = surge       
+                    ty_matrix = sway        
+
+                    local_T = np.array([[np.cos(theta), -np.sin(theta), tx_matrix], 
+                                        [np.sin(theta),  np.cos(theta), ty_matrix], 
                                         [0, 0, 1]])
                     est_pose = ref_pose @ local_T
+                    # # ARACATI MAPOWANIE:
+                    # # Skrypt ewaluacyjny zakłada, że Y to przód, a X to bok (jak w nawigacji morskiej).
+                    # # Aby wykresy i błędy liczyły się poprawnie dla Aracati:
                     
-                    # theta = -angle
-                    # tx = - raw_tx_sonar   # Odchylenie boczne
-                    # ty = raw_ty_sonar   # Przemieszczenie wzdłużne (do przodu)
+                    # theta = angle          # ZMIANA: usunięto minus
+                    # tx = raw_tx_sonar      # ZMIANA: usunięto minus (czysty ruch poprzeczny)
+                    # ty = raw_ty_sonar   
+                    
+                    # # ZMIANA: Transponowana macierz rotacji (dla lewoskrętnego układu / NED)
+                    # local_T = np.array([[np.cos(theta), np.sin(theta), tx], 
+                    #                     [-np.sin(theta), np.cos(theta), ty], 
+                    #                     [0, 0, 1]])
+                    # est_pose = ref_pose @ local_T
+                    
+                    # # theta = -angle
+                    # # tx = - raw_tx_sonar   # Odchylenie boczne
+                    # # ty = raw_ty_sonar   # Przemieszczenie wzdłużne (do przodu)
 
                     
-                    # local_T = np.array([[np.cos(theta), -np.sin(theta), tx], 
-                    #                     [np.sin(theta), np.cos(theta), ty], 
-                    #                     [0, 0, 1]])
+                    # # local_T = np.array([[np.cos(theta), -np.sin(theta), tx], 
+                    # #                     [np.sin(theta), np.cos(theta), ty], 
+                    # #                     [0, 0, 1]])
                     # est_pose = ref_pose @ local_T
                     
                 # est_pose = ref_pose @ (self.T_R_S_2d @ local_T @ self.T_S_R_2d)
@@ -455,50 +471,26 @@ class sonar_odometry(nn.Module):
                 latest_visu_match = match_res
 
         step_is_valid = False
-        # ======== 
         if len(est_poses) > 0:
             est_x_list = [p['est_pose'][0, 2] for p in est_poses]
             est_y_list = [p['est_pose'][1, 2] for p in est_poses]
             
-            # 1. ZMIANA: Wyciągamy komponenty rotacji do mediany (zamiast sumy/średniej)
             cos_list = [p['est_pose'][0, 0] for p in est_poses]
             sin_list = [p['est_pose'][1, 0] for p in est_poses]
             
-            median_x, median_y = np.median(est_x_list), np.median(est_y_list)
+            median_x = np.median(est_x_list)
+            median_y = np.median(est_y_list)
+            
+            # Bezpieczny azymut z mediany wektorów trygonometrycznych
             median_azimuth = np.arctan2(np.median(sin_list), np.median(cos_list))
             
-            # --- Zastosowanie Tłumienia Poprzecznego ---
-            # Liczymy deltę pozy względem ostatniej AKCEPTOWANEJ ramki w układzie lokalnym robota
-            R_curr = self.current_pose[0:2, 0:2]
-            t_curr = self.current_pose[0:2, 2]
-            
-            t_new_raw = np.array([median_x, median_y])
-            delta_t_local = R_curr.T @ (t_new_raw - t_curr)
-            
-            # 2. ZMIANA: Tłumimy poślizg w osi X (Aracati: X = bok, Y = przód)
-            if self.ref_frame_orient != 'sim':
-                tx_damping = 1.0  # Redukujemy boczny poślizg o połowę, by zawęzić łuk
-                ty_damping = 1.0  # Zostawiamy pełną prędkość w przód
-            else:
-                tx_damping = 1.0  # W symulatorze osie były odwrotnie (X = przód)
-                ty_damping = 1.0
-            
-            delta_t_local_damped = np.array([delta_t_local[0] * tx_damping, delta_t_local[1] * ty_damping])
-            
-            t_new_damped = t_curr + R_curr @ delta_t_local_damped
-
-            if self.ref_frame_orient == 'sim':
-                new_pose = np.array([[np.cos(median_azimuth), -np.sin(median_azimuth), t_new_damped[0]], 
-                                     [np.sin(median_azimuth),  np.cos(median_azimuth), t_new_damped[1]], 
-                                     [0, 0, 1]])
-            
-        
-            # ZMIANA: Transponowana macierz dla ostatecznej pozy
-            else:
-                new_pose = np.array([[np.cos(median_azimuth), np.sin(median_azimuth), t_new_damped[0]], 
-                                     [-np.sin(median_azimuth), np.cos(median_azimuth), t_new_damped[1]], 
-                                     [0, 0, 1]])
+            # Czysta, prosta macierz. Żadnego modyfikowania delt i tłumienia.
+            new_pose = np.array([[np.cos(median_azimuth), -np.sin(median_azimuth), median_x], 
+                                 [np.sin(median_azimuth),  np.cos(median_azimuth), median_y], 
+                                 [0, 0, 1]])
             step_is_valid = True
+        else:
+            new_pose = self.current_pose
         
         else:
             new_pose = self.current_pose
