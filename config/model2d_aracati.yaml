@@ -1,27 +1,26 @@
 # model2d.yaml
 
-model:
-  name: "LoFTR_Sonar_Odometry"
-
 filtering:
   use_fls_filter: true
-  use_spatial_bucketing: true    # KRYTYCZNE: Musi być włączone dla dobrej estymacji obrotu
+  use_spatial_bucketing: true    
   use_weighted_kabsch: true
   use_range_masking: true
 
 keyframe_management:
-  key_frames_min_dist: 0.4       # Zmniejszony dystans (częstsze próbkowanie na wprost)
-  key_frames_min_rot: 0.08       # ~4.5 stopnia. Wymusza nową klatkę przy najmniejszym zakręcie
-  max_skip_frames: 3
-feature_matching:
-  pts_match_thresh: 0.65         # Wysoki próg ufności LoFTR (odrzuca "zgadywanie" sieci na szumie)
-  ransac_thresh: 0.25            # UWAGA: Wyrażone w metrach! Akceptujemy max 25 cm błędu reprojekcji
-  min_inliers_abs: 15            # Wymagamy minimum 15 bardzo pewnych punktów
-  min_inliers_ratio: 0.15        # Minimum 15% ze wstępnie odfiltrowanych punktów musi pasować do modelu sztywnego
+  key_frames_min_dist: 0.5       # Wymuszamy trzymanie klatki aż robot przejedzie pół metra
+  key_frames_min_rot: 0.05       # lub obróci się o ~3 stopnie
+  max_frames_since_kf: 40        # Zwiększone do 40 klatek, by zapobiec frame-to-frame drift
 
+feature_matching:
+  pts_match_thresh: 0.70         # Bardzo restrykcyjne dopasowania LoFTR
+  ransac_thresh: 0.15            # Tolerancja błędu: max 15 cm. Wymusza idealną sztywność
+  min_inliers_abs: 15            
+  min_inliers_ratio: 0.20        
+  
 input_dimensions:
-  # Wartości dla zbioru Aracati
   cart_height: 848
   polar_width: 768
   cart_width: 1552
   polar_height: 512
+
+  
