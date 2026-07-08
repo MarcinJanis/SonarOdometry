@@ -396,22 +396,18 @@ class sonar_odometry(nn.Module):
                                         [0, 0, 1]])
                     est_pose = ref_pose @ (self.T_R_S_2d @ local_T @ self.T_S_R_2d)
                 else:
-                    # ARACATI MAPOWANIE:
-                    theta = -angle
-                    sway = -raw_tx_sonar    # Odbicie lustrzane osi poprzecznej (zgodnie z logami GT)
-                    surge = raw_ty_sonar    # Ruch w przód 
+                    theta = angle
+                    tx = raw_ty_sonar       # Czysty uślizg boczny 
+                    ty = - raw_tx_sonar       # Czysty ruch w przód
                     
-                    # KLUCZOWE RZUTOWANIE DO MACIERZY:
-                    # Zachowujemy strukturę z symulatora! 
-                    # Standardowa macierz oczekuje ruchu w przód (surge) w slocie X, 
-                    # a ruchu bocznego (sway) w slocie Y.
-                    tx_matrix = surge       
-                    ty_matrix = sway        
-
-                    local_T = np.array([[np.cos(theta), -np.sin(theta), tx_matrix], 
-                                        [np.sin(theta),  np.cos(theta), ty_matrix], 
-                                        [0, 0, 1]])
+                    local_T = np.array([
+                        [np.cos(theta), -np.sin(theta), tx], 
+                        [np.sin(theta),  np.cos(theta), ty], 
+                        [0, 0, 1]
+                    ])
                     est_pose = ref_pose @ local_T
+
+                 
                     # # ARACATI MAPOWANIE:
                     # # Skrypt ewaluacyjny zakłada, że Y to przód, a X to bok (jak w nawigacji morskiej).
                     # # Aby wykresy i błędy liczyły się poprawnie dla Aracati:
@@ -463,65 +459,36 @@ class sonar_odometry(nn.Module):
                 if i == len(self.sliding_window) - 1:
                     latest_visu_match = match_res
 
-        if len(est_poses) == 0 and self.last_frame_data is not None:
-            ref_frame, ref_mask, ref_pose, ref_depth = self.last_frame_data
-            match_res = self._match_and_estimate(ref_frame, ref_mask, ref_pose, ref_depth, new_frame, depth)
-            if match_res is not None:
-                est_poses.append(match_res)
-                latest_visu_match = match_res
-
-        step_is_valid = False
+        # =========
+        
         if len(est_poses) > 0:
             est_x_list = [p['est_pose'][0, 2] for p in est_poses]
             est_y_list = [p['est_pose'][1, 2] for p in est_poses]
+            est_yaw_list = [np.arctan2(p['est_pose'][1, 0], p['est_pose'][0, 0]) for p in est_poses]
             
-            cos_list = [p['est_pose'][0, 0] for p in est_poses]
-            sin_list = [p['est_pose'][1, 0] for p in est_poses]
+            median_x, median_y = np.median(est_x_list), np.median(est_y_list)
+            median_azimuth = np.arctan2(np.sum(np.sin(est_yaw_list)), np.sum(np.cos(est_yaw_list)))
             
-            median_x = np.median(est_x_list)
-            median_y = np.median(est_y_list)
+            # --- Zastosowanie Tłumienia Poprzecznego (TY DAMPING) ---
+            # Liczymy deltę pozy względem ostatniej AKCEPTOWANEJ ramki w układzie lokalnym robota
+            R_curr = self.current_pose[0:2, 0:2]
+            t_curr = self.current_pose[0:2, 2]
             
-            # Bezpieczny azymut z mediany wektorów trygonometrycznych
-            median_azimuth = np.arctan2(np.median(sin_list), np.median(cos_list))
+            t_new_raw = np.array([median_x, median_y])
+            delta_t_local = R_curr.T @ (t_new_raw - t_curr)
             
-            # Czysta, prosta macierz. Żadnego modyfikowania delt i tłumienia.
-            new_pose = np.array([[np.cos(median_azimuth), -np.sin(median_azimuth), median_x], 
-                                 [np.sin(median_azimuth),  np.cos(median_azimuth), median_y], 
+            # Utwardzamy trajektorię
+            ty_damping_factor = 1.0 # <- Możesz regulować (np. 0.3 dławi mocniej, 1.0 wyłącza)
+            delta_t_local_damped = np.array([delta_t_local[0], delta_t_local[1] * ty_damping_factor])
+            
+            t_new_damped = t_curr + R_curr @ delta_t_local_damped
+            
+            new_pose = np.array([[np.cos(median_azimuth), -np.sin(median_azimuth), t_new_damped[0]], 
+                                 [np.sin(median_azimuth), np.cos(median_azimuth), t_new_damped[1]], 
                                  [0, 0, 1]])
             step_is_valid = True
         else:
             new_pose = self.current_pose
-
-        # =========
-        
-        # if len(est_poses) > 0:
-        #     est_x_list = [p['est_pose'][0, 2] for p in est_poses]
-        #     est_y_list = [p['est_pose'][1, 2] for p in est_poses]
-        #     est_yaw_list = [np.arctan2(p['est_pose'][1, 0], p['est_pose'][0, 0]) for p in est_poses]
-            
-        #     median_x, median_y = np.median(est_x_list), np.median(est_y_list)
-        #     median_azimuth = np.arctan2(np.sum(np.sin(est_yaw_list)), np.sum(np.cos(est_yaw_list)))
-            
-        #     # --- Zastosowanie Tłumienia Poprzecznego (TY DAMPING) ---
-        #     # Liczymy deltę pozy względem ostatniej AKCEPTOWANEJ ramki w układzie lokalnym robota
-        #     R_curr = self.current_pose[0:2, 0:2]
-        #     t_curr = self.current_pose[0:2, 2]
-            
-        #     t_new_raw = np.array([median_x, median_y])
-        #     delta_t_local = R_curr.T @ (t_new_raw - t_curr)
-            
-        #     # Utwardzamy trajektorię
-        #     ty_damping_factor = 1.0 # <- Możesz regulować (np. 0.3 dławi mocniej, 1.0 wyłącza)
-        #     delta_t_local_damped = np.array([delta_t_local[0], delta_t_local[1] * ty_damping_factor])
-            
-        #     t_new_damped = t_curr + R_curr @ delta_t_local_damped
-            
-        #     new_pose = np.array([[np.cos(median_azimuth), -np.sin(median_azimuth), t_new_damped[0]], 
-        #                          [np.sin(median_azimuth), np.cos(median_azimuth), t_new_damped[1]], 
-        #                          [0, 0, 1]])
-        #     step_is_valid = True
-        # else:
-        #     new_pose = self.current_pose
 
         global_x, global_y = float(new_pose[0, 2]), float(new_pose[1, 2])
         global_azimuth = float(np.arctan2(new_pose[1, 0], new_pose[0, 0]))
