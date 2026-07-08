@@ -491,9 +491,7 @@ class sonar_odometry(nn.Module):
             step_is_valid = True
         else:
             new_pose = self.current_pose
-        
-        else:
-            new_pose = self.current_pose
+
         # =========
         
         # if len(est_poses) > 0:
