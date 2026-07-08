@@ -400,7 +400,7 @@ class sonar_odometry(nn.Module):
                     # Skrypt ewaluacyjny zakłada, że Y to przód, a X to bok (jak w nawigacji morskiej).
                     # Aby wykresy i błędy liczyły się poprawnie dla Aracati:
                     theta = -angle
-                    tx = raw_tx_sonar   # Odchylenie boczne
+                    tx = - raw_tx_sonar   # Odchylenie boczne
                     ty = raw_ty_sonar   # Przemieszczenie wzdłużne (do przodu)
                     
                     local_T = np.array([[np.cos(theta), -np.sin(theta), tx], 
