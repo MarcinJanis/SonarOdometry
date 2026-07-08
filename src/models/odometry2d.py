@@ -230,6 +230,7 @@ class sonar_odometry(nn.Module):
                                           [ 0,              0,             1]])
 
             new_pose = self.prev_pose @ local_translation
+
             
         else:
             inlier_mask = np.zeros(len(pts1_np), dtype=bool)

@@ -1,2087 +1,1171 @@
-Init state: [-4.325  4.214], azimuth: -2.3917267861102247
-Sonar odometry:   1%|          | 1/149 [00:00<00:58,  2.53it/s]
-=======================================================================
- Frame matching: [(KF): 50 ---> Actual: 51] | Status: OK
- LoFTR matches total: 2202 | confidence: 0.820 | RANSAC Inliers: 2202 (100.00%)
---- Local transformation ---
-  PRED -> tx: -0.07164 m, ty: -0.01114 m, yaw: -0.01111 rad
-  GT   -> tx: -0.27078 m, ty: -0.00609 m, yaw: -0.02157 rad
-  ERR  -> tx: +0.19914 m, ty: -0.00505 m, yaw: +0.01046 rad
---- Global pose ---
-  PRED ->  X: -4.28017,  Y: +4.27098, Yaw: -2.40284
-  GT   ->  X: -4.13100,  Y: +4.40300, Yaw: -2.41329
---- Keyframe state ---
-  Traj from kf: 0.0725 m, Rot from kf: 0.0111 rad -> Waiting for kf
+Init state: [-22.451385    3.6812701], azimuth: -2.9490719874336104
+torch.Size([1, 848, 1552])
+Sonar odometry:   0%|          | 0/299 [00:00<?, ?it/s]
+🟢 Frame Match: KF (13135) -> Curr (13136)
+Inliers: 132 | Tx: -0.03 | Ty: 0.05 | Theta: 0.00°
 
-Sonar odometry:   1%|▏         | 2/149 [00:00<00:56,  2.60it/s]
+Sonar odometry:   0%|          | 1/299 [00:03<15:15,  3.07s/it]
 =======================================================================
- Frame matching: [(KF): 50 ---> Actual: 52] | Status: OK
- LoFTR matches total: 2185 | confidence: 0.858 | RANSAC Inliers: 2185 (98.51%)
+ Frame matching: [(KF): 13135 ---> Actual: 13136] | Status: OK
+ LoFTR matches total: 132 | confidence: 0.902 | RANSAC Inliers: 132 (77.19%)
 --- Local transformation ---
-  PRED -> tx: -0.50504 m, ty: +0.03389 m, yaw: -0.04886 rad
-  GT   -> tx: -0.61038 m, ty: -0.00684 m, yaw: -0.03227 rad
-  ERR  -> tx: +0.10533 m, ty: +0.04073 m, yaw: -0.01660 rad
+  PRED -> tx: +0.05013 m, ty: +0.03138 m, yaw: +0.00008 rad
+  GT   -> tx: +0.02132 m, ty: +0.09001 m, yaw: -0.01702 rad
+  ERR  -> tx: +0.02881 m, ty: -0.05864 m, yaw: +0.01711 rad
 --- Global pose ---
-  PRED ->  X: -3.93233,  Y: +4.53341, Yaw: -2.44059
-  GT   ->  X: -3.88300,  Y: +4.63500, Yaw: -2.42399
+  PRED ->  X: -22.49459,  Y: +3.64088, Yaw: -2.94899
+  GT   ->  X: -22.45509,  Y: +3.58884, Yaw: -2.96609
 --- Keyframe state ---
-  Traj from kf: 0.5062 m, Rot from kf: 0.0489 rad -> Waiting for kf
+  Traj from kf: 0.0591 m, Rot from kf: 0.0001 rad -> Waiting for kf
 
-Sonar odometry:   2%|▏         | 3/149 [00:01<00:52,  2.80it/s]
-=======================================================================
- Frame matching: [(KF): 50 ---> Actual: 53] | Status: OK
- LoFTR matches total: 2074 | confidence: 0.837 | RANSAC Inliers: 2074 (96.47%)
---- Local transformation ---
-  PRED -> tx: -0.67007 m, ty: +0.02924 m, yaw: -0.06024 rad
-  GT   -> tx: -0.97216 m, ty: -0.00059 m, yaw: -0.03856 rad
-  ERR  -> tx: +0.30209 m, ty: +0.02983 m, yaw: -0.02168 rad
---- Global pose ---
-  PRED ->  X: -3.81473,  Y: +4.64929, Yaw: -2.45197
-  GT   ->  X: -3.61400,  Y: +4.87700, Yaw: -2.43029
---- Keyframe state ---
-  Traj from kf: 0.6707 m, Rot from kf: 0.0602 rad -> Actualisation (new kf)
 
-Sonar odometry:   3%|▎         | 4/149 [00:01<01:02,  2.30it/s]
-=======================================================================
- Frame matching: [(KF): 53 ---> Actual: 54] | Status: OK
- LoFTR matches total: 2532 | confidence: 0.947 | RANSAC Inliers: 2532 (100.00%)
---- Local transformation ---
-  PRED -> tx: -0.50465 m, ty: -0.02801 m, yaw: -0.00377 rad
-  GT   -> tx: -0.40383 m, ty: -0.00445 m, yaw: -0.00889 rad
-  ERR  -> tx: -0.10082 m, ty: -0.02356 m, yaw: +0.00512 rad
---- Global pose ---
-  PRED ->  X: -3.44322,  Y: +4.99198, Yaw: -2.45574
-  GT   ->  X: -3.31100,  Y: +5.14400, Yaw: -2.43918
---- Keyframe state ---
-  Traj from kf: 0.5054 m, Rot from kf: 0.0038 rad -> Waiting for kf
+🟢 Frame Match: KF (13135) -> Curr (13137)
+Inliers: 82 | Tx: 0.05 | Ty: 0.22 | Theta: 0.67°
 
-Sonar odometry:   3%|▎         | 5/149 [00:02<01:08,  2.10it/s]
+Sonar odometry:   1%|          | 2/299 [00:04<11:10,  2.26s/it]
 =======================================================================
- Frame matching: [(KF): 53 ---> Actual: 55] | Status: OK
- LoFTR matches total: 2226 | confidence: 0.827 | RANSAC Inliers: 2226 (100.00%)
+ Frame matching: [(KF): 13135 ---> Actual: 13137] | Status: OK
+ LoFTR matches total: 82 | confidence: 0.848 | RANSAC Inliers: 82 (56.16%)
 --- Local transformation ---
-  PRED -> tx: -0.67825 m, ty: -0.01207 m, yaw: -0.00822 rad
-  GT   -> tx: -0.79094 m, ty: -0.00482 m, yaw: -0.01703 rad
-  ERR  -> tx: +0.11270 m, ty: -0.00724 m, yaw: +0.00881 rad
+  PRED -> tx: +0.22498 m, ty: -0.05444 m, yaw: +0.01178 rad
+  GT   -> tx: +0.04035 m, ty: +0.17033 m, yaw: -0.02271 rad
+  ERR  -> tx: +0.18463 m, ty: -0.22477 m, yaw: +0.03449 rad
 --- Global pose ---
-  PRED ->  X: -3.29915,  Y: +5.09013, Yaw: -2.46019
-  GT   ->  X: -3.01800,  Y: +5.39700, Yaw: -2.44732
+  PRED ->  X: -22.68262,  Y: +3.69165, Yaw: -2.93730
+  GT   ->  X: -22.45840,  Y: +3.50636, Yaw: -2.97178
 --- Keyframe state ---
-  Traj from kf: 0.6784 m, Rot from kf: 0.0082 rad -> Actualisation (new kf)
+  Traj from kf: 0.2315 m, Rot from kf: 0.0118 rad -> Waiting for kf
 
-Sonar odometry:   4%|▍         | 6/149 [00:02<01:23,  1.71it/s]
-=======================================================================
- Frame matching: [(KF): 55 ---> Actual: 56] | Status: OK
- LoFTR matches total: 2024 | confidence: 0.774 | RANSAC Inliers: 2024 (100.00%)
---- Local transformation ---
-  PRED -> tx: -0.58339 m, ty: +0.00069 m, yaw: -0.01371 rad
-  GT   -> tx: -0.65491 m, ty: -0.00517 m, yaw: -0.01517 rad
-  ERR  -> tx: +0.07151 m, ty: +0.00586 m, yaw: +0.00146 rad
---- Global pose ---
-  PRED ->  X: -2.84560,  Y: +5.45706, Yaw: -2.47390
-  GT   ->  X: -2.51800,  Y: +5.82000, Yaw: -2.46248
---- Keyframe state ---
-  Traj from kf: 0.5834 m, Rot from kf: 0.0137 rad -> Waiting for kf
 
-Sonar odometry:   5%|▍         | 7/149 [00:03<01:33,  1.52it/s]
-=======================================================================
- Frame matching: [(KF): 55 ---> Actual: 57] | Status: OK
- LoFTR matches total: 2191 | confidence: 0.848 | RANSAC Inliers: 2191 (98.87%)
---- Local transformation ---
-  PRED -> tx: -1.27003 m, ty: +0.00511 m, yaw: -0.02777 rad
-  GT   -> tx: -1.11238 m, ty: -0.00295 m, yaw: -0.01705 rad
-  ERR  -> tx: -0.15765 m, ty: +0.00805 m, yaw: -0.01072 rad
---- Global pose ---
-  PRED ->  X: -2.30952,  Y: +5.88614, Yaw: -2.48796
-  GT   ->  X: -2.16500,  Y: +6.11100, Yaw: -2.46437
---- Keyframe state ---
-  Traj from kf: 1.2700 m, Rot from kf: 0.0278 rad -> Actualisation (new kf)
+🟢 Frame Match: KF (13135) -> Curr (13138)
+Inliers: 44 | Tx: -0.04 | Ty: 0.24 | Theta: 1.45°
 
-Sonar odometry:   5%|▌         | 8/149 [00:04<01:39,  1.41it/s]
+Sonar odometry:   1%|          | 3/299 [00:06<09:58,  2.02s/it]
 =======================================================================
- Frame matching: [(KF): 57 ---> Actual: 58] | Status: OK
- LoFTR matches total: 2611 | confidence: 0.980 | RANSAC Inliers: 2611 (100.00%)
+ Frame matching: [(KF): 13135 ---> Actual: 13138] | Status: OK
+ LoFTR matches total: 44 | confidence: 0.800 | RANSAC Inliers: 44 (32.35%)
 --- Local transformation ---
-  PRED -> tx: -0.19083 m, ty: +0.00160 m, yaw: -0.00170 rad
-  GT   -> tx: -0.44417 m, ty: -0.00343 m, yaw: -0.00181 rad
-  ERR  -> tx: +0.25333 m, ty: +0.00502 m, yaw: +0.00011 rad
+  PRED -> tx: +0.23791 m, ty: +0.04244 m, yaw: +0.02522 rad
+  GT   -> tx: +0.05762 m, ty: +0.24999 m, yaw: -0.03093 rad
+  ERR  -> tx: +0.18029 m, ty: -0.20755 m, yaw: +0.05615 rad
 --- Global pose ---
-  PRED ->  X: -2.15704,  Y: +6.00091, Yaw: -2.48966
-  GT   ->  X: -1.82100,  Y: +6.39200, Yaw: -2.46618
+  PRED ->  X: -22.67677,  Y: +3.59409, Yaw: -2.92385
+  GT   ->  X: -22.46011,  Y: +3.42487, Yaw: -2.98000
 --- Keyframe state ---
-  Traj from kf: 0.1908 m, Rot from kf: 0.0017 rad -> Waiting for kf
+  Traj from kf: 0.2417 m, Rot from kf: 0.0252 rad -> Waiting for kf
 
-Sonar odometry:   6%|▌         | 9/149 [00:05<01:43,  1.36it/s]
-=======================================================================
- Frame matching: [(KF): 57 ---> Actual: 59] | Status: OK
- LoFTR matches total: 2185 | confidence: 0.776 | RANSAC Inliers: 2185 (100.00%)
---- Local transformation ---
-  PRED -> tx: -0.83253 m, ty: +0.00570 m, yaw: -0.00378 rad
-  GT   -> tx: -0.91270 m, ty: -0.00523 m, yaw: -0.00436 rad
-  ERR  -> tx: +0.08017 m, ty: +0.01093 m, yaw: +0.00058 rad
---- Global pose ---
-  PRED ->  X: -1.64513,  Y: +6.38786, Yaw: -2.49174
-  GT   ->  X: -1.45700,  Y: +6.68700, Yaw: -2.46873
---- Keyframe state ---
-  Traj from kf: 0.8325 m, Rot from kf: 0.0038 rad -> Actualisation (new kf)
 
-Sonar odometry:   7%|▋         | 10/149 [00:06<01:45,  1.32it/s]
-=======================================================================
- Frame matching: [(KF): 59 ---> Actual: 60] | Status: OK
- LoFTR matches total: 2617 | confidence: 0.981 | RANSAC Inliers: 2617 (100.00%)
---- Local transformation ---
-  PRED -> tx: -0.20053 m, ty: +0.00342 m, yaw: -0.00075 rad
-  GT   -> tx: -0.42963 m, ty: -0.00159 m, yaw: +0.00000 rad
-  ERR  -> tx: +0.22910 m, ty: +0.00501 m, yaw: -0.00075 rad
---- Global pose ---
-  PRED ->  X: -1.48340,  Y: +6.50647, Yaw: -2.49249
-  GT   ->  X: -1.12200,  Y: +6.95600, Yaw: -2.46873
---- Keyframe state ---
-  Traj from kf: 0.2006 m, Rot from kf: 0.0007 rad -> Waiting for kf
+🟢 Frame Match: KF (13135) -> Curr (13139)
+Inliers: 59 | Tx: 0.00 | Ty: 0.40 | Theta: 1.82°
 
-Sonar odometry:   7%|▋         | 11/149 [00:07<01:47,  1.29it/s]
+Sonar odometry:   1%|▏         | 4/299 [00:08<09:36,  1.95s/it]
 =======================================================================
- Frame matching: [(KF): 59 ---> Actual: 61] | Status: OK
- LoFTR matches total: 2233 | confidence: 0.750 | RANSAC Inliers: 2233 (100.00%)
+ Frame matching: [(KF): 13135 ---> Actual: 13139] | Status: OK
+ LoFTR matches total: 59 | confidence: 0.804 | RANSAC Inliers: 59 (45.04%)
 --- Local transformation ---
-  PRED -> tx: -0.87510 m, ty: -0.01315 m, yaw: -0.00146 rad
-  GT   -> tx: -0.92111 m, ty: -0.00376 m, yaw: +0.00004 rad
-  ERR  -> tx: +0.04601 m, ty: -0.00940 m, yaw: -0.00150 rad
+  PRED -> tx: +0.39550 m, ty: -0.00443 m, yaw: +0.03185 rad
+  GT   -> tx: +0.07708 m, ty: +0.34457 m, yaw: -0.04349 rad
+  ERR  -> tx: +0.31842 m, ty: -0.34901 m, yaw: +0.07534 rad
 --- Global pose ---
-  PRED ->  X: -0.95635,  Y: +6.92782, Yaw: -2.49320
-  GT   ->  X: -0.73900,  Y: +7.26400, Yaw: -2.46869
+  PRED ->  X: -22.84043,  Y: +3.60995, Yaw: -2.91723
+  GT   ->  X: -22.46111,  Y: +3.32831, Yaw: -2.99256
 --- Keyframe state ---
-  Traj from kf: 0.8752 m, Rot from kf: 0.0015 rad -> Actualisation (new kf)
+  Traj from kf: 0.3955 m, Rot from kf: 0.0318 rad -> Actualisation (new kf)
 
-Sonar odometry:   8%|▊         | 12/149 [00:07<01:48,  1.27it/s]
-=======================================================================
- Frame matching: [(KF): 61 ---> Actual: 62] | Status: OK
- LoFTR matches total: 2620 | confidence: 0.980 | RANSAC Inliers: 2620 (100.00%)
---- Local transformation ---
-  PRED -> tx: -0.22022 m, ty: +0.00467 m, yaw: -0.00092 rad
-  GT   -> tx: -0.45181 m, ty: -0.00052 m, yaw: -0.00189 rad
-  ERR  -> tx: +0.23159 m, ty: +0.00519 m, yaw: +0.00097 rad
---- Global pose ---
-  PRED ->  X: -0.77800,  Y: +7.05709, Yaw: -2.49411
-  GT   ->  X: -0.38600,  Y: +7.54600, Yaw: -2.47058
---- Keyframe state ---
-  Traj from kf: 0.2203 m, Rot from kf: 0.0009 rad -> Waiting for kf
 
-Sonar odometry:   9%|▊         | 13/149 [00:08<01:48,  1.26it/s]
-=======================================================================
- Frame matching: [(KF): 61 ---> Actual: 63] | Status: OK
- LoFTR matches total: 2059 | confidence: 0.696 | RANSAC Inliers: 2059 (100.00%)
---- Local transformation ---
-  PRED -> tx: -0.85183 m, ty: -0.00227 m, yaw: -0.00111 rad
-  GT   -> tx: -0.94423 m, ty: -0.00064 m, yaw: +0.02354 rad
-  ERR  -> tx: +0.09240 m, ty: -0.00163 m, yaw: -0.02465 rad
---- Global pose ---
-  PRED ->  X: -0.27877,  Y: +7.44406, Yaw: -2.49430
-  GT   ->  X: -0.00100,  Y: +7.85300, Yaw: -2.44515
---- Keyframe state ---
-  Traj from kf: 0.8518 m, Rot from kf: 0.0011 rad -> Actualisation (new kf)
+🟢 Frame Match: KF (13139) -> Curr (13140)
+Inliers: 183 | Tx: -0.00 | Ty: 0.06 | Theta: 0.06°
 
-Sonar odometry:   9%|▉         | 14/149 [00:09<01:48,  1.24it/s]
+Sonar odometry:   2%|▏         | 5/299 [00:11<11:04,  2.26s/it]
 =======================================================================
- Frame matching: [(KF): 63 ---> Actual: 64] | Status: OK
- LoFTR matches total: 2619 | confidence: 0.982 | RANSAC Inliers: 2619 (100.00%)
+ Frame matching: [(KF): 13139 ---> Actual: 13140] | Status: OK
+ LoFTR matches total: 183 | confidence: 0.918 | RANSAC Inliers: 183 (90.59%)
 --- Local transformation ---
-  PRED -> tx: -0.23365 m, ty: +0.01094 m, yaw: -0.00032 rad
-  GT   -> tx: -0.40574 m, ty: +0.00428 m, yaw: +0.01891 rad
-  ERR  -> tx: +0.17209 m, ty: +0.00666 m, yaw: -0.01923 rad
+  PRED -> tx: +0.07643 m, ty: -0.00032 m, yaw: +0.00109 rad
+  GT   -> tx: +0.01344 m, ty: +0.08354 m, yaw: +0.00036 rad
+  ERR  -> tx: +0.06299 m, ty: -0.08385 m, yaw: +0.00073 rad
 --- Global pose ---
-  PRED ->  X: -0.08578,  Y: +7.57623, Yaw: -2.49462
-  GT   ->  X: +0.31300,  Y: +8.11000, Yaw: -2.42624
+  PRED ->  X: -22.91501,  Y: +3.59325, Yaw: -2.91613
+  GT   ->  X: -22.46200,  Y: +3.24371, Yaw: -2.99220
 --- Keyframe state ---
-  Traj from kf: 0.2339 m, Rot from kf: 0.0003 rad -> Waiting for kf
+  Traj from kf: 0.0764 m, Rot from kf: 0.0011 rad -> Actualisation (new kf)
 
-Sonar odometry:  10%|█         | 15/149 [00:10<01:47,  1.24it/s]
-=======================================================================
- Frame matching: [(KF): 63 ---> Actual: 65] | Status: OK
- LoFTR matches total: 2125 | confidence: 0.866 | RANSAC Inliers: 2125 (98.88%)
---- Local transformation ---
-  PRED -> tx: -0.92525 m, ty: -0.04086 m, yaw: +0.04324 rad
-  GT   -> tx: -0.82097 m, ty: +0.00345 m, yaw: +0.03564 rad
-  ERR  -> tx: -0.10428 m, ty: -0.04432 m, yaw: +0.00759 rad
---- Global pose ---
-  PRED ->  X: +0.43468,  Y: +8.03461, Yaw: -2.45107
-  GT   ->  X: +0.63100,  Y: +8.37700, Yaw: -2.40950
---- Keyframe state ---
-  Traj from kf: 0.9261 m, Rot from kf: 0.0432 rad -> Actualisation (new kf)
 
-Sonar odometry:  11%|█         | 16/149 [00:11<01:47,  1.24it/s]
-=======================================================================
- Frame matching: [(KF): 65 ---> Actual: 66] | Status: OK
- LoFTR matches total: 2566 | confidence: 0.969 | RANSAC Inliers: 2566 (99.96%)
---- Local transformation ---
-  PRED -> tx: -0.14511 m, ty: -0.01701 m, yaw: +0.00647 rad
-  GT   -> tx: -0.36645 m, ty: +0.00665 m, yaw: +0.01516 rad
-  ERR  -> tx: +0.22134 m, ty: -0.02365 m, yaw: -0.00870 rad
---- Global pose ---
-  PRED ->  X: +0.53571,  Y: +8.14014, Yaw: -2.44460
-  GT   ->  X: +0.90800,  Y: +8.61700, Yaw: -2.39434
---- Keyframe state ---
-  Traj from kf: 0.1461 m, Rot from kf: 0.0065 rad -> Waiting for kf
+🟢 Frame Match: KF (13140) -> Curr (13141)
+Inliers: 197 | Tx: -0.01 | Ty: 0.07 | Theta: -0.27°
 
-Sonar odometry:  11%|█▏        | 17/149 [00:11<01:46,  1.24it/s]
+Sonar odometry:   2%|▏         | 6/299 [00:15<13:41,  2.80s/it]
 =======================================================================
- Frame matching: [(KF): 65 ---> Actual: 67] | Status: OK
- LoFTR matches total: 2116 | confidence: 0.841 | RANSAC Inliers: 2116 (99.53%)
+ Frame matching: [(KF): 13140 ---> Actual: 13141] | Status: OK
+ LoFTR matches total: 197 | confidence: 0.915 | RANSAC Inliers: 197 (92.49%)
 --- Local transformation ---
-  PRED -> tx: -0.71805 m, ty: -0.00763 m, yaw: +0.03275 rad
-  GT   -> tx: -0.72561 m, ty: +0.00944 m, yaw: +0.03042 rad
-  ERR  -> tx: +0.00756 m, ty: -0.01706 m, yaw: +0.00233 rad
+  PRED -> tx: +0.03260 m, ty: +0.01920 m, yaw: -0.00475 rad
+  GT   -> tx: +0.01415 m, ty: +0.08778 m, yaw: +0.00139 rad
+  ERR  -> tx: +0.01845 m, ty: -0.06858 m, yaw: -0.00614 rad
 --- Global pose ---
-  PRED ->  X: +0.98337,  Y: +8.49784, Yaw: -2.41832
-  GT   ->  X: +1.17700,  Y: +8.85500, Yaw: -2.37908
+  PRED ->  X: -22.94249,  Y: +3.56725, Yaw: -2.92088
+  GT   ->  X: -22.46293,  Y: +3.15480, Yaw: -2.99081
 --- Keyframe state ---
-  Traj from kf: 0.7181 m, Rot from kf: 0.0327 rad -> Actualisation (new kf)
+  Traj from kf: 0.0378 m, Rot from kf: 0.0047 rad -> Actualisation (new kf)
 
-Sonar odometry:  12%|█▏        | 18/149 [00:12<01:46,  1.23it/s]
-=======================================================================
- Frame matching: [(KF): 67 ---> Actual: 68] | Status: OK
- LoFTR matches total: 2595 | confidence: 0.966 | RANSAC Inliers: 2595 (100.00%)
---- Local transformation ---
-  PRED -> tx: -0.15673 m, ty: +0.01132 m, yaw: +0.00645 rad
-  GT   -> tx: -0.31778 m, ty: +0.00899 m, yaw: +0.01895 rad
-  ERR  -> tx: +0.16105 m, ty: +0.00233 m, yaw: -0.01251 rad
---- Global pose ---
-  PRED ->  X: +1.10835,  Y: +8.59309, Yaw: -2.41188
-  GT   ->  X: +1.41300,  Y: +9.06800, Yaw: -2.36013
---- Keyframe state ---
-  Traj from kf: 0.1571 m, Rot from kf: 0.0064 rad -> Waiting for kf
 
-Sonar odometry:  13%|█▎        | 19/149 [00:13<01:45,  1.23it/s]
-=======================================================================
- Frame matching: [(KF): 67 ---> Actual: 69] | Status: OK
- LoFTR matches total: 2137 | confidence: 0.836 | RANSAC Inliers: 2137 (98.98%)
---- Local transformation ---
-  PRED -> tx: -0.63083 m, ty: +0.00539 m, yaw: +0.03430 rad
-  GT   -> tx: -0.62908 m, ty: +0.01318 m, yaw: +0.04491 rad
-  ERR  -> tx: -0.00175 m, ty: -0.00780 m, yaw: -0.01061 rad
---- Global pose ---
-  PRED ->  X: +1.45983,  Y: +8.91132, Yaw: -2.38402
-  GT   ->  X: +1.64100,  Y: +9.28000, Yaw: -2.33417
---- Keyframe state ---
-  Traj from kf: 0.6309 m, Rot from kf: 0.0343 rad -> Actualisation (new kf)
+🟢 Frame Match: KF (13141) -> Curr (13142)
+Inliers: 173 | Tx: -0.01 | Ty: 0.06 | Theta: 0.10°
 
-Sonar odometry:  13%|█▎        | 20/149 [00:14<01:45,  1.23it/s]
+Sonar odometry:   2%|▏         | 7/299 [00:18<15:20,  3.15s/it]
 =======================================================================
- Frame matching: [(KF): 69 ---> Actual: 70] | Status: OK
- LoFTR matches total: 2462 | confidence: 0.871 | RANSAC Inliers: 2462 (100.00%)
+ Frame matching: [(KF): 13141 ---> Actual: 13142] | Status: OK
+ LoFTR matches total: 173 | confidence: 0.923 | RANSAC Inliers: 173 (90.10%)
 --- Local transformation ---
-  PRED -> tx: -0.14708 m, ty: +0.00547 m, yaw: +0.01008 rad
-  GT   -> tx: -0.25651 m, ty: +0.01060 m, yaw: +0.03757 rad
-  ERR  -> tx: +0.10943 m, ty: -0.00513 m, yaw: -0.02749 rad
+  PRED -> tx: +0.09958 m, ty: +0.01641 m, yaw: +0.00176 rad
+  GT   -> tx: +0.01320 m, ty: +0.08115 m, yaw: -0.00150 rad
+  ERR  -> tx: +0.08638 m, ty: -0.06475 m, yaw: +0.00326 rad
 --- Global pose ---
-  PRED ->  X: +1.57045,  Y: +9.00841, Yaw: -2.37394
-  GT   ->  X: +1.82600,  Y: +9.45800, Yaw: -2.29660
+  PRED ->  X: -23.03606,  Y: +3.52944, Yaw: -2.91912
+  GT   ->  X: -22.46379,  Y: +3.07258, Yaw: -2.99231
 --- Keyframe state ---
-  Traj from kf: 0.1472 m, Rot from kf: 0.0101 rad -> Waiting for kf
+  Traj from kf: 0.1009 m, Rot from kf: 0.0018 rad -> Actualisation (new kf)
 
-Sonar odometry:  14%|█▍        | 21/149 [00:15<01:44,  1.22it/s]
-=======================================================================
- Frame matching: [(KF): 69 ---> Actual: 71] | Status: OK
- LoFTR matches total: 2123 | confidence: 0.848 | RANSAC Inliers: 2123 (97.97%)
---- Local transformation ---
-  PRED -> tx: -0.55219 m, ty: +0.03798 m, yaw: +0.06514 rad
-  GT   -> tx: -0.51594 m, ty: +0.01702 m, yaw: +0.09037 rad
-  ERR  -> tx: -0.03625 m, ty: +0.02096 m, yaw: -0.02523 rad
---- Global pose ---
-  PRED ->  X: +1.88710,  Y: +9.26316, Yaw: -2.31888
-  GT   ->  X: +2.01000,  Y: +9.64100, Yaw: -2.24380
---- Keyframe state ---
-  Traj from kf: 0.5535 m, Rot from kf: 0.0651 rad -> Waiting for kf
 
-Sonar odometry:  15%|█▍        | 22/149 [00:16<01:43,  1.22it/s]
-=======================================================================
- Frame matching: [(KF): 69 ---> Actual: 72] | Status: OK
- LoFTR matches total: 2013 | confidence: 0.829 | RANSAC Inliers: 2013 (95.99%)
---- Local transformation ---
-  PRED -> tx: -0.68070 m, ty: +0.03741 m, yaw: +0.08650 rad
-  GT   -> tx: -0.70760 m, ty: +0.01771 m, yaw: +0.15028 rad
-  ERR  -> tx: +0.02690 m, ty: +0.01970 m, yaw: -0.06377 rad
---- Global pose ---
-  PRED ->  X: +1.98007,  Y: +9.35189, Yaw: -2.29752
-  GT   ->  X: +2.14300,  Y: +9.77900, Yaw: -2.18390
---- Keyframe state ---
-  Traj from kf: 0.6817 m, Rot from kf: 0.0865 rad -> Actualisation (new kf)
+🟢 Frame Match: KF (13142) -> Curr (13143)
+Inliers: 194 | Tx: -0.00 | Ty: 0.05 | Theta: 0.22°
 
-Sonar odometry:  15%|█▌        | 23/149 [00:16<01:42,  1.22it/s]
+Sonar odometry:   3%|▎         | 8/299 [00:22<16:39,  3.44s/it]
 =======================================================================
- Frame matching: [(KF): 72 ---> Actual: 73] | Status: OK
- LoFTR matches total: 1998 | confidence: 0.839 | RANSAC Inliers: 1998 (95.23%)
+ Frame matching: [(KF): 13142 ---> Actual: 13143] | Status: OK
+ LoFTR matches total: 194 | confidence: 0.906 | RANSAC Inliers: 194 (95.10%)
 --- Local transformation ---
-  PRED -> tx: -0.33132 m, ty: +0.02694 m, yaw: +0.08974 rad
-  GT   -> tx: -0.17201 m, ty: +0.02204 m, yaw: +0.07068 rad
-  ERR  -> tx: -0.15931 m, ty: +0.00490 m, yaw: +0.01906 rad
+  PRED -> tx: +0.05338 m, ty: +0.00337 m, yaw: +0.00384 rad
+  GT   -> tx: +0.01348 m, ty: +0.08196 m, yaw: -0.00150 rad
+  ERR  -> tx: +0.03990 m, ty: -0.07859 m, yaw: +0.00534 rad
 --- Global pose ---
-  PRED ->  X: +2.22034,  Y: +9.58160, Yaw: -2.20778
-  GT   ->  X: +2.26000,  Y: +9.90700, Yaw: -2.11322
+  PRED ->  X: -23.08739,  Y: +3.51438, Yaw: -2.91528
+  GT   ->  X: -22.46494,  Y: +2.98953, Yaw: -2.99381
 --- Keyframe state ---
-  Traj from kf: 0.3324 m, Rot from kf: 0.0897 rad -> Waiting for kf
+  Traj from kf: 0.0535 m, Rot from kf: 0.0038 rad -> Actualisation (new kf)
 
-Sonar odometry:  16%|█▌        | 24/149 [00:17<01:41,  1.23it/s]
-=======================================================================
- Frame matching: [(KF): 72 ---> Actual: 74] | Status: OK
- LoFTR matches total: 1927 | confidence: 0.833 | RANSAC Inliers: 1927 (94.32%)
---- Local transformation ---
-  PRED -> tx: -0.42701 m, ty: +0.02934 m, yaw: +0.12267 rad
-  GT   -> tx: -0.29968 m, ty: +0.03493 m, yaw: +0.13893 rad
-  ERR  -> tx: -0.12734 m, ty: -0.00559 m, yaw: -0.01626 rad
---- Global pose ---
-  PRED ->  X: +2.28572,  Y: +9.65153, Yaw: -2.17485
-  GT   ->  X: +2.34400,  Y: +10.00400, Yaw: -2.04497
---- Keyframe state ---
-  Traj from kf: 0.4280 m, Rot from kf: 0.1227 rad -> Waiting for kf
 
-Sonar odometry:  17%|█▋        | 25/149 [00:18<01:39,  1.24it/s]
-=======================================================================
- Frame matching: [(KF): 72 ---> Actual: 75] | Status: OK
- LoFTR matches total: 1640 | confidence: 0.811 | RANSAC Inliers: 1640 (93.39%)
---- Local transformation ---
-  PRED -> tx: -0.61702 m, ty: -0.00666 m, yaw: +0.22743 rad
-  GT   -> tx: -0.40063 m, ty: +0.04460 m, yaw: +0.22885 rad
-  ERR  -> tx: -0.21639 m, ty: -0.05126 m, yaw: -0.00142 rad
---- Global pose ---
-  PRED ->  X: +2.38506,  Y: +9.81744, Yaw: -2.07009
-  GT   ->  X: +2.41000,  Y: +10.08100, Yaw: -1.95505
---- Keyframe state ---
-  Traj from kf: 0.6171 m, Rot from kf: 0.2274 rad -> Actualisation (new kf)
+🟢 Frame Match: KF (13143) -> Curr (13144)
+Inliers: 153 | Tx: -0.03 | Ty: 0.06 | Theta: 0.28°
 
-Sonar odometry:  17%|█▋        | 26/149 [00:19<01:38,  1.25it/s]
+Sonar odometry:   3%|▎         | 9/299 [00:26<17:19,  3.59s/it]
 =======================================================================
- Frame matching: [(KF): 75 ---> Actual: 76] | Status: OK
- LoFTR matches total: 2200 | confidence: 0.849 | RANSAC Inliers: 2200 (99.59%)
+ Frame matching: [(KF): 13143 ---> Actual: 13144] | Status: OK
+ LoFTR matches total: 153 | confidence: 0.904 | RANSAC Inliers: 153 (88.95%)
 --- Local transformation ---
-  PRED -> tx: -0.06318 m, ty: -0.01606 m, yaw: +0.03361 rad
-  GT   -> tx: -0.05894 m, ty: +0.02039 m, yaw: +0.08486 rad
-  ERR  -> tx: -0.00424 m, ty: -0.03645 m, yaw: -0.05125 rad
+  PRED -> tx: +0.13330 m, ty: -0.06107 m, yaw: +0.00496 rad
+  GT   -> tx: +0.01680 m, ty: +0.08927 m, yaw: -0.00159 rad
+  ERR  -> tx: +0.11650 m, ty: -0.15033 m, yaw: +0.00655 rad
 --- Global pose ---
-  PRED ->  X: +2.40121,  Y: +9.88060, Yaw: -2.03648
-  GT   ->  X: +2.45100,  Y: +10.12800, Yaw: -1.87018
+  PRED ->  X: -23.23099,  Y: +3.54398, Yaw: -2.91032
+  GT   ->  X: -22.46841,  Y: +2.89876, Yaw: -2.99540
 --- Keyframe state ---
-  Traj from kf: 0.0652 m, Rot from kf: 0.0336 rad -> Waiting for kf
+  Traj from kf: 0.1466 m, Rot from kf: 0.0050 rad -> Actualisation (new kf)
 
-Sonar odometry:  18%|█▊        | 27/149 [00:19<01:35,  1.27it/s]
-=======================================================================
- Frame matching: [(KF): 75 ---> Actual: 77] | Status: OK
- LoFTR matches total: 1795 | confidence: 0.832 | RANSAC Inliers: 1795 (94.92%)
---- Local transformation ---
-  PRED -> tx: -0.13923 m, ty: -0.07419 m, yaw: +0.17274 rad
-  GT   -> tx: -0.09409 m, ty: +0.03530 m, yaw: +0.18449 rad
-  ERR  -> tx: -0.04513 m, ty: -0.10949 m, yaw: -0.01175 rad
---- Global pose ---
-  PRED ->  X: +2.38659,  Y: +9.97520, Yaw: -1.89735
-  GT   ->  X: +2.47800,  Y: +10.15500, Yaw: -1.77056
---- Keyframe state ---
-  Traj from kf: 0.1578 m, Rot from kf: 0.1727 rad -> Actualisation (new kf)
 
-Sonar odometry:  19%|█▉        | 28/149 [00:20<01:34,  1.28it/s]
-=======================================================================
- Frame matching: [(KF): 77 ---> Actual: 78] | Status: OK
- LoFTR matches total: 2204 | confidence: 0.856 | RANSAC Inliers: 2204 (99.68%)
---- Local transformation ---
-  PRED -> tx: -0.04324 m, ty: -0.00806 m, yaw: +0.03404 rad
-  GT   -> tx: -0.01709 m, ty: +0.01388 m, yaw: +0.17996 rad
-  ERR  -> tx: -0.02615 m, ty: -0.02194 m, yaw: -0.14591 rad
---- Global pose ---
-  PRED ->  X: +2.39283,  Y: +10.01874, Yaw: -1.86331
-  GT   ->  X: +2.49500,  Y: +10.16900, Yaw: -1.59060
---- Keyframe state ---
-  Traj from kf: 0.0440 m, Rot from kf: 0.0340 rad -> Waiting for kf
+🟢 Frame Match: KF (13144) -> Curr (13145)
+Inliers: 175 | Tx: -0.00 | Ty: 0.07 | Theta: 0.05°
 
-Sonar odometry:  19%|█▉        | 29/149 [00:21<01:31,  1.31it/s]
+Sonar odometry:   3%|▎         | 10/299 [00:30<17:59,  3.74s/it]
 =======================================================================
- Frame matching: [(KF): 77 ---> Actual: 79] | Status: OK
- LoFTR matches total: 1484 | confidence: 0.797 | RANSAC Inliers: 1484 (93.16%)
+ Frame matching: [(KF): 13144 ---> Actual: 13145] | Status: OK
+ LoFTR matches total: 175 | confidence: 0.929 | RANSAC Inliers: 175 (92.11%)
 --- Local transformation ---
-  PRED -> tx: +0.02561 m, ty: +0.03884 m, yaw: +0.05914 rad
-  GT   -> tx: -0.02556 m, ty: +0.02543 m, yaw: +0.39516 rad
-  ERR  -> tx: +0.05117 m, ty: +0.01341 m, yaw: -0.33601 rad
+  PRED -> tx: +0.07193 m, ty: +0.00140 m, yaw: +0.00090 rad
+  GT   -> tx: +0.01557 m, ty: +0.08344 m, yaw: -0.00149 rad
+  ERR  -> tx: +0.05636 m, ty: -0.08204 m, yaw: +0.00239 rad
 --- Global pose ---
-  PRED ->  X: +2.41516,  Y: +9.93848, Yaw: -1.83821
-  GT   ->  X: +2.50800,  Y: +10.17500, Yaw: -1.37540
+  PRED ->  X: -23.30068,  Y: +3.52613, Yaw: -2.90942
+  GT   ->  X: -22.47166,  Y: +2.81395, Yaw: -2.99690
 --- Keyframe state ---
-  Traj from kf: 0.0465 m, Rot from kf: 0.0591 rad -> Waiting for kf
+  Traj from kf: 0.0719 m, Rot from kf: 0.0009 rad -> Actualisation (new kf)
 
-Sonar odometry:  20%|██        | 30/149 [00:22<01:28,  1.34it/s]
-=======================================================================
- Frame matching: [(KF): 77 ---> Actual: 80] | Status: OK
- LoFTR matches total: 946 | confidence: 0.732 | RANSAC Inliers: 946 (88.16%)
---- Local transformation ---
-  PRED -> tx: +0.19568 m, ty: +0.08486 m, yaw: -0.06410 rad
-  GT   -> tx: -0.02812 m, ty: +0.03308 m, yaw: +0.60564 rad
-  ERR  -> tx: +0.22380 m, ty: +0.05178 m, yaw: -0.66974 rad
---- Global pose ---
-  PRED ->  X: +2.40419,  Y: +9.76264, Yaw: -1.96145
-  GT   ->  X: +2.51600,  Y: +10.17600, Yaw: -1.16491
---- Keyframe state ---
-  Traj from kf: 0.2133 m, Rot from kf: 0.0641 rad -> Waiting for kf
 
-Sonar odometry:  21%|██        | 31/149 [00:22<01:25,  1.39it/s]
-=======================================================================
- Frame matching: [(KF): 77 ---> Actual: 81] | Status: OK
- LoFTR matches total: 65 | confidence: 0.668 | RANSAC Inliers: 65 (41.40%)
---- Local transformation ---
-  PRED -> tx: +0.12410 m, ty: +0.17999 m, yaw: -0.19139 rad
-  GT   -> tx: -0.02893 m, ty: +0.04210 m, yaw: +0.85488 rad
-  ERR  -> tx: +0.15303 m, ty: +0.13789 m, yaw: -1.04627 rad
---- Global pose ---
-  PRED ->  X: +2.51725,  Y: +9.79992, Yaw: -2.08874
-  GT   ->  X: +2.52500,  Y: +10.17500, Yaw: -0.91567
---- Keyframe state ---
-  Traj from kf: 0.2186 m, Rot from kf: 0.1914 rad -> Actualisation (new kf)
+🟢 Frame Match: KF (13145) -> Curr (13146)
+Inliers: 170 | Tx: -0.01 | Ty: 0.08 | Theta: -0.13°
 
-Sonar odometry:  21%|██▏       | 32/149 [00:23<01:24,  1.39it/s]
+Sonar odometry:   4%|▎         | 11/299 [00:34<18:21,  3.83s/it]
 =======================================================================
- Frame matching: [(KF): 81 ---> Actual: 82] | Status: OK
- LoFTR matches total: 1982 | confidence: 0.856 | RANSAC Inliers: 1982 (94.29%)
+ Frame matching: [(KF): 13145 ---> Actual: 13146] | Status: OK
+ LoFTR matches total: 170 | confidence: 0.901 | RANSAC Inliers: 170 (92.39%)
 --- Local transformation ---
-  PRED -> tx: -0.01332 m, ty: -0.11912 m, yaw: +0.10840 rad
-  GT   -> tx: +0.01103 m, ty: +0.00287 m, yaw: +0.19813 rad
-  ERR  -> tx: -0.02435 m, ty: -0.12199 m, yaw: -0.08973 rad
+  PRED -> tx: +0.05323 m, ty: +0.01351 m, yaw: -0.00226 rad
+  GT   -> tx: +0.01824 m, ty: +0.09859 m, yaw: -0.00777 rad
+  ERR  -> tx: +0.03498 m, ty: -0.08508 m, yaw: +0.00551 rad
 --- Global pose ---
-  PRED ->  X: +2.42035,  Y: +9.87047, Yaw: -1.98034
-  GT   ->  X: +2.53400,  Y: +10.16800, Yaw: -0.71754
+  PRED ->  X: -23.34937,  Y: +3.50073, Yaw: -2.91169
+  GT   ->  X: -22.47550,  Y: +2.71375, Yaw: -3.00467
 --- Keyframe state ---
-  Traj from kf: 0.1199 m, Rot from kf: 0.1084 rad -> Waiting for kf
+  Traj from kf: 0.0549 m, Rot from kf: 0.0023 rad -> Actualisation (new kf)
 
-Sonar odometry:  22%|██▏       | 33/149 [00:24<01:22,  1.41it/s]
-=======================================================================
- Frame matching: [(KF): 81 ---> Actual: 83] | Status: OK
- LoFTR matches total: 968 | confidence: 0.738 | RANSAC Inliers: 968 (89.38%)
---- Local transformation ---
-  PRED -> tx: +0.08858 m, ty: -0.04344 m, yaw: +0.21702 rad
-  GT   -> tx: +0.03469 m, ty: +0.00740 m, yaw: +0.40001 rad
-  ERR  -> tx: +0.05389 m, ty: -0.05084 m, yaw: -0.18299 rad
---- Global pose ---
-  PRED ->  X: +2.43566,  Y: +9.74446, Yaw: -1.87172
-  GT   ->  X: +2.55200,  Y: +10.15200, Yaw: -0.51566
---- Keyframe state ---
-  Traj from kf: 0.0987 m, Rot from kf: 0.2170 rad -> Actualisation (new kf)
 
-Sonar odometry:  23%|██▎       | 34/149 [00:24<01:22,  1.40it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 84] | Status: OK
- LoFTR matches total: 1982 | confidence: 0.843 | RANSAC Inliers: 1982 (96.26%)
---- Local transformation ---
-  PRED -> tx: +0.02835 m, ty: -0.00106 m, yaw: +0.12799 rad
-  GT   -> tx: +0.04179 m, ty: -0.00275 m, yaw: +0.20049 rad
-  ERR  -> tx: -0.01344 m, ty: +0.00169 m, yaw: -0.07250 rad
---- Global pose ---
-  PRED ->  X: +2.42624,  Y: +9.71770, Yaw: -1.74373
-  GT   ->  X: +2.58700,  Y: +10.12900, Yaw: -0.31518
---- Keyframe state ---
-  Traj from kf: 0.0284 m, Rot from kf: 0.1280 rad -> Waiting for kf
+🟢 Frame Match: KF (13146) -> Curr (13147)
+Inliers: 166 | Tx: -0.00 | Ty: 0.07 | Theta: 0.09°
 
-Sonar odometry:  23%|██▎       | 35/149 [00:25<01:21,  1.41it/s]
+Sonar odometry:   4%|▍         | 12/299 [00:38<18:35,  3.89s/it]
 =======================================================================
- Frame matching: [(KF): 83 ---> Actual: 85] | Status: OK
- LoFTR matches total: 1085 | confidence: 0.746 | RANSAC Inliers: 1085 (91.18%)
+ Frame matching: [(KF): 13146 ---> Actual: 13147] | Status: OK
+ LoFTR matches total: 166 | confidence: 0.916 | RANSAC Inliers: 166 (91.71%)
 --- Local transformation ---
-  PRED -> tx: +0.01461 m, ty: +0.02982 m, yaw: +0.05110 rad
-  GT   -> tx: +0.10606 m, ty: +0.00149 m, yaw: +0.40157 rad
-  ERR  -> tx: -0.09145 m, ty: +0.02833 m, yaw: -0.35047 rad
+  PRED -> tx: +0.06562 m, ty: +0.00133 m, yaw: +0.00149 rad
+  GT   -> tx: +0.01497 m, ty: +0.08456 m, yaw: -0.00451 rad
+  ERR  -> tx: +0.05065 m, ty: -0.08322 m, yaw: +0.00600 rad
 --- Global pose ---
-  PRED ->  X: +2.45981,  Y: +9.72167, Yaw: -1.82062
-  GT   ->  X: +2.64500,  Y: +10.10100, Yaw: -0.11409
+  PRED ->  X: -23.41296,  Y: +3.48448, Yaw: -2.91020
+  GT   ->  X: -22.47879,  Y: +2.62795, Yaw: -3.00918
 --- Keyframe state ---
-  Traj from kf: 0.0332 m, Rot from kf: 0.0511 rad -> Waiting for kf
+  Traj from kf: 0.0656 m, Rot from kf: 0.0015 rad -> Actualisation (new kf)
 
-Sonar odometry:  24%|██▍       | 36/149 [00:26<01:19,  1.42it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 86] | Status: OK
- LoFTR matches total: 595 | confidence: 0.693 | RANSAC Inliers: 595 (82.75%)
---- Local transformation ---
-  PRED -> tx: +0.00069 m, ty: -0.05071 m, yaw: +0.08251 rad
-  GT   -> tx: +0.18662 m, ty: +0.01957 m, yaw: +0.56766 rad
-  ERR  -> tx: -0.18593 m, ty: -0.07028 m, yaw: -0.48515 rad
---- Global pose ---
-  PRED ->  X: +2.38702,  Y: +9.75883, Yaw: -1.78921
-  GT   ->  X: +2.72400,  Y: +10.07700, Yaw: +0.05200
---- Keyframe state ---
-  Traj from kf: 0.0507 m, Rot from kf: 0.0825 rad -> Waiting for kf
 
-Sonar odometry:  25%|██▍       | 37/149 [00:27<01:17,  1.44it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 87] | Status: OK
- LoFTR matches total: 80 | confidence: 0.627 | RANSAC Inliers: 80 (45.45%)
---- Local transformation ---
-  PRED -> tx: +0.08197 m, ty: -0.06244 m, yaw: -0.07809 rad
-  GT   -> tx: +0.30337 m, ty: +0.06505 m, yaw: +0.74207 rad
-  ERR  -> tx: -0.22140 m, ty: -0.12750 m, yaw: -0.82017 rad
---- Global pose ---
-  PRED ->  X: +2.35172,  Y: +9.68469, Yaw: -1.94982
-  GT   ->  X: +2.84800,  Y: +10.05900, Yaw: +0.22641
---- Keyframe state ---
-  Traj from kf: 0.1030 m, Rot from kf: 0.0781 rad -> Waiting for kf
+🟢 Frame Match: KF (13147) -> Curr (13148)
+Inliers: 181 | Tx: 0.01 | Ty: 0.05 | Theta: -0.05°
 
-Sonar odometry:  26%|██▌       | 38/149 [00:27<01:16,  1.46it/s]
+Sonar odometry:   4%|▍         | 13/299 [00:42<18:34,  3.90s/it]
 =======================================================================
- Frame matching: [(KF): 83 ---> Actual: 88] | Status: OK
- LoFTR matches total: 84 | confidence: 0.620 | RANSAC Inliers: 84 (49.70%)
+ Frame matching: [(KF): 13147 ---> Actual: 13148] | Status: OK
+ LoFTR matches total: 181 | confidence: 0.924 | RANSAC Inliers: 181 (92.35%)
 --- Local transformation ---
-  PRED -> tx: -0.07096 m, ty: -0.03473 m, yaw: -0.05339 rad
-  GT   -> tx: +0.41832 m, ty: +0.12791 m, yaw: +0.87163 rad
-  ERR  -> tx: -0.48928 m, ty: -0.16264 m, yaw: -0.92502 rad
+  PRED -> tx: +0.05477 m, ty: -0.00287 m, yaw: -0.00085 rad
+  GT   -> tx: +0.01442 m, ty: +0.08364 m, yaw: -0.00150 rad
+  ERR  -> tx: +0.04035 m, ty: -0.08651 m, yaw: +0.00065 rad
 --- Global pose ---
-  PRED ->  X: +2.42352,  Y: +9.82252, Yaw: -1.92511
-  GT   ->  X: +2.97900,  Y: +10.05700, Yaw: +0.35597
+  PRED ->  X: -23.46693,  Y: +3.47471, Yaw: -2.91105
+  GT   ->  X: -22.48203,  Y: +2.54313, Yaw: -3.01067
 --- Keyframe state ---
-  Traj from kf: 0.0790 m, Rot from kf: 0.0534 rad -> Waiting for kf
+  Traj from kf: 0.0548 m, Rot from kf: 0.0009 rad -> Actualisation (new kf)
 
-Sonar odometry:  26%|██▌       | 39/149 [00:28<01:15,  1.46it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 89] | Status: OK
- LoFTR matches total: 116 | confidence: 0.646 | RANSAC Inliers: 116 (57.14%)
---- Local transformation ---
-  PRED -> tx: -0.16512 m, ty: -0.18700 m, yaw: -0.07187 rad
-  GT   -> tx: +0.54649 m, ty: +0.21206 m, yaw: +1.00031 rad
-  ERR  -> tx: -0.71161 m, ty: -0.39906 m, yaw: -1.07218 rad
---- Global pose ---
-  PRED ->  X: +2.30600,  Y: +9.95759, Yaw: -1.94360
-  GT   ->  X: +3.13200,  Y: +10.06700, Yaw: +0.48464
---- Keyframe state ---
-  Traj from kf: 0.2495 m, Rot from kf: 0.0719 rad -> Waiting for kf
 
-Sonar odometry:  27%|██▋       | 40/149 [00:29<01:14,  1.47it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 90] | Status: OK
- LoFTR matches total: 118 | confidence: 0.625 | RANSAC Inliers: 118 (55.14%)
---- Local transformation ---
-  PRED -> tx: +0.00607 m, ty: +0.04606 m, yaw: -0.08466 rad
-  GT   -> tx: +0.65556 m, ty: +0.29342 m, yaw: +1.08519 rad
-  ERR  -> tx: -0.64948 m, ty: -0.24736 m, yaw: -1.16985 rad
---- Global pose ---
-  PRED ->  X: +2.47784,  Y: +9.72501, Yaw: -1.95638
-  GT   ->  X: +3.26700,  Y: +10.08400, Yaw: +0.56952
---- Keyframe state ---
-  Traj from kf: 0.0465 m, Rot from kf: 0.0847 rad -> Waiting for kf
+🟢 Frame Match: KF (13148) -> Curr (13149)
+Inliers: 176 | Tx: -0.00 | Ty: 0.06 | Theta: 0.07°
 
-Sonar odometry:  28%|██▊       | 41/149 [00:29<01:13,  1.47it/s]
+Sonar odometry:   5%|▍         | 14/299 [00:46<18:35,  3.91s/it]
 =======================================================================
- Frame matching: [(KF): 83 ---> Actual: 91] | Status: OK
- LoFTR matches total: 119 | confidence: 0.652 | RANSAC Inliers: 119 (64.67%)
+ Frame matching: [(KF): 13148 ---> Actual: 13149] | Status: OK
+ LoFTR matches total: 176 | confidence: 0.918 | RANSAC Inliers: 176 (91.67%)
 --- Local transformation ---
-  PRED -> tx: -0.04377 m, ty: +0.03057 m, yaw: -0.07918 rad
-  GT   -> tx: +0.75009 m, ty: +0.36999 m, yaw: +1.18005 rad
-  ERR  -> tx: -0.79386 m, ty: -0.33942 m, yaw: -1.25924 rad
+  PRED -> tx: +0.05705 m, ty: +0.00279 m, yaw: +0.00126 rad
+  GT   -> tx: +0.01380 m, ty: +0.08199 m, yaw: -0.00150 rad
+  ERR  -> tx: +0.04326 m, ty: -0.07920 m, yaw: +0.00276 rad
 --- Global pose ---
-  PRED ->  X: +2.47783,  Y: +9.77721, Yaw: -1.95090
-  GT   ->  X: +3.38700,  Y: +10.10400, Yaw: +0.66439
+  PRED ->  X: -23.52183,  Y: +3.45896, Yaw: -2.90979
+  GT   ->  X: -22.48501,  Y: +2.46004, Yaw: -3.01217
 --- Keyframe state ---
-  Traj from kf: 0.0534 m, Rot from kf: 0.0792 rad -> Waiting for kf
+  Traj from kf: 0.0571 m, Rot from kf: 0.0013 rad -> Actualisation (new kf)
 
-Sonar odometry:  28%|██▊       | 42/149 [00:30<01:13,  1.47it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 92] | Status: OK
- LoFTR matches total: 111 | confidence: 0.642 | RANSAC Inliers: 111 (55.78%)
---- Local transformation ---
-  PRED -> tx: -0.05190 m, ty: +0.04245 m, yaw: -0.08143 rad
-  GT   -> tx: +0.81725 m, ty: +0.42185 m, yaw: +1.25218 rad
-  ERR  -> tx: -0.86915 m, ty: -0.37940 m, yaw: -1.33361 rad
---- Global pose ---
-  PRED ->  X: +2.49158,  Y: +9.78145, Yaw: -1.95315
-  GT   ->  X: +3.47100,  Y: +10.11600, Yaw: +0.73651
---- Keyframe state ---
-  Traj from kf: 0.0670 m, Rot from kf: 0.0814 rad -> Waiting for kf
 
-Sonar odometry:  29%|██▉       | 43/149 [00:31<01:12,  1.46it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 93] | Status: OK
- LoFTR matches total: 72 | confidence: 0.644 | RANSAC Inliers: 72 (54.14%)
---- Local transformation ---
-  PRED -> tx: -0.28235 m, ty: +0.04828 m, yaw: -0.08240 rad
-  GT   -> tx: +0.87307 m, ty: +0.45924 m, yaw: +1.31941 rad
-  ERR  -> tx: -1.15543 m, ty: -0.41096 m, yaw: -1.40181 rad
---- Global pose ---
-  PRED ->  X: +2.56546,  Y: +9.99982, Yaw: -1.95412
-  GT   ->  X: +3.53800,  Y: +10.12100, Yaw: +0.80374
---- Keyframe state ---
-  Traj from kf: 0.2865 m, Rot from kf: 0.0824 rad -> Waiting for kf
+🟢 Frame Match: KF (13149) -> Curr (13150)
+Inliers: 181 | Tx: -0.00 | Ty: 0.07 | Theta: -0.10°
 
-Sonar odometry:  30%|██▉       | 44/149 [00:31<01:11,  1.46it/s]
+Sonar odometry:   5%|▌         | 15/299 [00:50<18:45,  3.96s/it]
 =======================================================================
- Frame matching: [(KF): 83 ---> Actual: 94] | Status: OK
- LoFTR matches total: 81 | confidence: 0.651 | RANSAC Inliers: 81 (52.26%)
+ Frame matching: [(KF): 13149 ---> Actual: 13150] | Status: OK
+ LoFTR matches total: 181 | confidence: 0.926 | RANSAC Inliers: 181 (90.95%)
 --- Local transformation ---
-  PRED -> tx: -0.09180 m, ty: +0.00105 m, yaw: -0.08125 rad
-  GT   -> tx: +0.90709 m, ty: +0.46818 m, yaw: +1.38928 rad
-  ERR  -> tx: -0.99889 m, ty: -0.46713 m, yaw: -1.47054 rad
+  PRED -> tx: +0.07553 m, ty: +0.02250 m, yaw: -0.00170 rad
+  GT   -> tx: +0.01487 m, ty: +0.09042 m, yaw: -0.00046 rad
+  ERR  -> tx: +0.06066 m, ty: -0.06792 m, yaw: -0.00124 rad
 --- Global pose ---
-  PRED ->  X: +2.46387,  Y: +9.83183, Yaw: -1.95298
-  GT   ->  X: +3.57200,  Y: +10.11200, Yaw: +0.87362
+  PRED ->  X: -23.59018,  Y: +3.41971, Yaw: -2.91149
+  GT   ->  X: -22.48808,  Y: +2.36846, Yaw: -3.01264
 --- Keyframe state ---
-  Traj from kf: 0.0918 m, Rot from kf: 0.0813 rad -> Waiting for kf
+  Traj from kf: 0.0788 m, Rot from kf: 0.0017 rad -> Actualisation (new kf)
 
-Sonar odometry:  30%|███       | 45/149 [00:32<01:11,  1.46it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 95] | Status: OK
- LoFTR matches total: 96 | confidence: 0.662 | RANSAC Inliers: 96 (53.93%)
---- Local transformation ---
-  PRED -> tx: -0.04913 m, ty: +0.04251 m, yaw: -0.08056 rad
-  GT   -> tx: +0.92910 m, ty: +0.44962 m, yaw: +1.46711 rad
-  ERR  -> tx: -0.97823 m, ty: -0.40711 m, yaw: -1.54767 rad
---- Global pose ---
-  PRED ->  X: +2.49082,  Y: +9.77878, Yaw: -1.95228
-  GT   ->  X: +3.58200,  Y: +10.08500, Yaw: +0.95144
---- Keyframe state ---
-  Traj from kf: 0.0650 m, Rot from kf: 0.0806 rad -> Waiting for kf
 
-Sonar odometry:  31%|███       | 46/149 [00:33<01:10,  1.46it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 96] | Status: OK
- LoFTR matches total: 92 | confidence: 0.682 | RANSAC Inliers: 92 (54.12%)
---- Local transformation ---
-  PRED -> tx: -0.04516 m, ty: -0.01073 m, yaw: -0.07875 rad
-  GT   -> tx: +0.93813 m, ty: +0.40531 m, yaw: +1.53336 rad
-  ERR  -> tx: -0.98329 m, ty: -0.41604 m, yaw: -1.61211 rad
---- Global pose ---
-  PRED ->  X: +2.43879,  Y: +9.79078, Yaw: -1.95047
-  GT   ->  X: +3.56800,  Y: +10.04200, Yaw: +1.01770
---- Keyframe state ---
-  Traj from kf: 0.0464 m, Rot from kf: 0.0788 rad -> Waiting for kf
+🟢 Frame Match: KF (13150) -> Curr (13151)
+Inliers: 190 | Tx: -0.01 | Ty: 0.07 | Theta: 0.02°
 
-Sonar odometry:  32%|███▏      | 47/149 [00:33<01:09,  1.46it/s]
+Sonar odometry:   5%|▌         | 16/299 [00:55<18:57,  4.02s/it]
 =======================================================================
- Frame matching: [(KF): 83 ---> Actual: 97] | Status: OK
- LoFTR matches total: 94 | confidence: 0.667 | RANSAC Inliers: 94 (54.34%)
+ Frame matching: [(KF): 13150 ---> Actual: 13151] | Status: OK
+ LoFTR matches total: 190 | confidence: 0.929 | RANSAC Inliers: 190 (97.44%)
 --- Local transformation ---
-  PRED -> tx: -0.10458 m, ty: +0.07135 m, yaw: -0.08179 rad
-  GT   -> tx: +0.94260 m, ty: +0.33657 m, yaw: +1.59513 rad
-  ERR  -> tx: -1.04718 m, ty: -0.26522 m, yaw: -1.67692 rad
+  PRED -> tx: +0.07025 m, ty: +0.00985 m, yaw: +0.00042 rad
+  GT   -> tx: +0.01320 m, ty: +0.08054 m, yaw: +0.00447 rad
+  ERR  -> tx: +0.05705 m, ty: -0.07068 m, yaw: -0.00405 rad
 --- Global pose ---
-  PRED ->  X: +2.53480,  Y: +9.82319, Yaw: -1.95351
-  GT   ->  X: +3.53800,  Y: +9.98000, Yaw: +1.07946
+  PRED ->  X: -23.65633,  Y: +3.39409, Yaw: -2.91107
+  GT   ->  X: -22.49082,  Y: +2.28689, Yaw: -3.00816
 --- Keyframe state ---
-  Traj from kf: 0.1266 m, Rot from kf: 0.0818 rad -> Waiting for kf
+  Traj from kf: 0.0709 m, Rot from kf: 0.0004 rad -> Actualisation (new kf)
 
-Sonar odometry:  32%|███▏      | 48/149 [00:34<01:08,  1.46it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 98] | Status: OK
- LoFTR matches total: 94 | confidence: 0.673 | RANSAC Inliers: 94 (56.63%)
---- Local transformation ---
-  PRED -> tx: -0.05156 m, ty: +0.14848 m, yaw: -0.08108 rad
-  GT   -> tx: +0.94566 m, ty: +0.25209 m, yaw: +1.64007 rad
-  ERR  -> tx: -0.99722 m, ty: -0.10361 m, yaw: -1.72114 rad
---- Global pose ---
-  PRED ->  X: +2.59275,  Y: +9.74969, Yaw: -1.95280
-  GT   ->  X: +3.49900,  Y: +9.90500, Yaw: +1.12440
---- Keyframe state ---
-  Traj from kf: 0.1572 m, Rot from kf: 0.0811 rad -> Waiting for kf
 
-Sonar odometry:  33%|███▎      | 49/149 [00:35<01:08,  1.47it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 99] | Status: OK
- LoFTR matches total: 73 | confidence: 0.677 | RANSAC Inliers: 73 (48.34%)
---- Local transformation ---
-  PRED -> tx: -0.09175 m, ty: +0.00878 m, yaw: -0.08129 rad
-  GT   -> tx: +0.95121 m, ty: +0.13685 m, yaw: +1.68501 rad
-  ERR  -> tx: -1.04296 m, ty: -0.12807 m, yaw: -1.76630 rad
---- Global pose ---
-  PRED ->  X: +2.47124,  Y: +9.82949, Yaw: -1.95301
-  GT   ->  X: +3.44700,  Y: +9.80200, Yaw: +1.16935
---- Keyframe state ---
-  Traj from kf: 0.0922 m, Rot from kf: 0.0813 rad -> Waiting for kf
+🟢 Frame Match: KF (13151) -> Curr (13152)
+Inliers: 192 | Tx: 0.00 | Ty: 0.06 | Theta: 0.04°
 
-Sonar odometry:  34%|███▎      | 50/149 [00:35<01:07,  1.47it/s]
+Sonar odometry:   6%|▌         | 17/299 [00:59<18:56,  4.03s/it]
 =======================================================================
- Frame matching: [(KF): 83 ---> Actual: 100] | Status: OK
- LoFTR matches total: 75 | confidence: 0.655 | RANSAC Inliers: 75 (50.34%)
+ Frame matching: [(KF): 13151 ---> Actual: 13152] | Status: OK
+ LoFTR matches total: 192 | confidence: 0.920 | RANSAC Inliers: 192 (92.75%)
 --- Local transformation ---
-  PRED -> tx: -0.14894 m, ty: +0.02759 m, yaw: -0.08215 rad
-  GT   -> tx: +0.96047 m, ty: +0.01910 m, yaw: +1.71828 rad
-  ERR  -> tx: -1.10941 m, ty: +0.00849 m, yaw: -1.80043 rad
+  PRED -> tx: +0.05835 m, ty: -0.00207 m, yaw: +0.00063 rad
+  GT   -> tx: +0.01356 m, ty: +0.08048 m, yaw: +0.00447 rad
+  ERR  -> tx: +0.04478 m, ty: -0.08255 m, yaw: -0.00385 rad
 --- Global pose ---
-  PRED ->  X: +2.50616,  Y: +9.87853, Yaw: -1.95387
-  GT   ->  X: +3.39700,  Y: +9.69500, Yaw: +1.20262
+  PRED ->  X: -23.71361,  Y: +3.38278, Yaw: -2.91044
+  GT   ->  X: -22.49356,  Y: +2.20532, Yaw: -3.00369
 --- Keyframe state ---
-  Traj from kf: 0.1515 m, Rot from kf: 0.0822 rad -> Waiting for kf
+  Traj from kf: 0.0584 m, Rot from kf: 0.0006 rad -> Actualisation (new kf)
 
-Sonar odometry:  34%|███▍      | 51/149 [00:36<01:06,  1.47it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 101] | Status: OK
- LoFTR matches total: 71 | confidence: 0.655 | RANSAC Inliers: 71 (52.99%)
---- Local transformation ---
-  PRED -> tx: -0.05409 m, ty: +0.06539 m, yaw: -0.08114 rad
-  GT   -> tx: +0.97560 m, ty: -0.12520 m, yaw: +1.75104 rad
-  ERR  -> tx: -1.02969 m, ty: +0.19060 m, yaw: -1.83218 rad
---- Global pose ---
-  PRED ->  X: +2.51414,  Y: +9.77674, Yaw: -1.95286
-  GT   ->  X: +3.33900,  Y: +9.56200, Yaw: +1.23537
---- Keyframe state ---
-  Traj from kf: 0.0849 m, Rot from kf: 0.0811 rad -> Waiting for kf
 
-Sonar odometry:  35%|███▍      | 52/149 [00:37<01:05,  1.47it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 102] | Status: OK
- LoFTR matches total: 69 | confidence: 0.672 | RANSAC Inliers: 69 (47.26%)
---- Local transformation ---
-  PRED -> tx: -0.21793 m, ty: +0.01892 m, yaw: -0.08105 rad
-  GT   -> tx: +0.99603 m, ty: -0.27684 m, yaw: +1.77545 rad
-  ERR  -> tx: -1.21397 m, ty: +0.29576 m, yaw: -1.85650 rad
---- Global pose ---
-  PRED ->  X: +2.51832,  Y: +9.94700, Yaw: -1.95277
-  GT   ->  X: +3.28200,  Y: +9.42000, Yaw: +1.25979
---- Keyframe state ---
-  Traj from kf: 0.2188 m, Rot from kf: 0.0810 rad -> Waiting for kf
+🟢 Frame Match: KF (13152) -> Curr (13153)
+Inliers: 194 | Tx: -0.00 | Ty: 0.06 | Theta: -0.02°
 
-Sonar odometry:  36%|███▌      | 53/149 [00:37<01:05,  1.48it/s]
+Sonar odometry:   6%|▌         | 18/299 [01:03<18:52,  4.03s/it]
 =======================================================================
- Frame matching: [(KF): 83 ---> Actual: 103] | Status: OK
- LoFTR matches total: 63 | confidence: 0.669 | RANSAC Inliers: 63 (43.15%)
+ Frame matching: [(KF): 13152 ---> Actual: 13153] | Status: OK
+ LoFTR matches total: 194 | confidence: 0.936 | RANSAC Inliers: 194 (99.49%)
 --- Local transformation ---
-  PRED -> tx: -0.15357 m, ty: +0.08465 m, yaw: -0.08205 rad
-  GT   -> tx: +1.02323 m, ty: -0.44650 m, yaw: +1.79986 rad
-  ERR  -> tx: -1.17680 m, ty: +0.53115 m, yaw: -1.88190 rad
+  PRED -> tx: +0.06093 m, ty: +0.01699 m, yaw: -0.00038 rad
+  GT   -> tx: +0.01392 m, ty: +0.08042 m, yaw: +0.00447 rad
+  ERR  -> tx: +0.04701 m, ty: -0.06343 m, yaw: -0.00485 rad
 --- Global pose ---
-  PRED ->  X: +2.56202,  Y: +9.86604, Yaw: -1.95377
-  GT   ->  X: +3.22200,  Y: +9.25900, Yaw: +1.28419
+  PRED ->  X: -23.76902,  Y: +3.35229, Yaw: -2.91082
+  GT   ->  X: -22.49629,  Y: +2.12376, Yaw: -2.99922
 --- Keyframe state ---
-  Traj from kf: 0.1754 m, Rot from kf: 0.0820 rad -> Waiting for kf
+  Traj from kf: 0.0633 m, Rot from kf: 0.0004 rad -> Actualisation (new kf)
 
-Sonar odometry:  36%|███▌      | 54/149 [00:38<01:04,  1.48it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 104] | Status: OK
- LoFTR matches total: 61 | confidence: 0.670 | RANSAC Inliers: 61 (41.78%)
---- Local transformation ---
-  PRED -> tx: -0.05324 m, ty: +0.15739 m, yaw: -0.08298 rad
-  GT   -> tx: +1.05549 m, ty: -0.61902 m, yaw: +1.81985 rad
-  ERR  -> tx: -1.10873 m, ty: +0.77641 m, yaw: -1.90283 rad
---- Global pose ---
-  PRED ->  X: +2.60176,  Y: +9.74866, Yaw: -1.95470
-  GT   ->  X: +3.16500,  Y: +9.09300, Yaw: +1.30419
---- Keyframe state ---
-  Traj from kf: 0.1662 m, Rot from kf: 0.0830 rad -> Waiting for kf
 
-Sonar odometry:  37%|███▋      | 55/149 [00:39<01:03,  1.47it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 105] | Status: OK
- LoFTR matches total: 57 | confidence: 0.691 | RANSAC Inliers: 57 (46.72%)
---- Local transformation ---
-  PRED -> tx: -0.08941 m, ty: +0.06744 m, yaw: -0.08056 rad
-  GT   -> tx: +1.09577 m, ty: -0.80769 m, yaw: +1.83985 rad
-  ERR  -> tx: -1.18518 m, ty: +0.87513 m, yaw: -1.92041 rad
---- Global pose ---
-  PRED ->  X: +2.52656,  Y: +9.80986, Yaw: -1.95229
-  GT   ->  X: +3.10700,  Y: +8.90900, Yaw: +1.32418
---- Keyframe state ---
-  Traj from kf: 0.1120 m, Rot from kf: 0.0806 rad -> Waiting for kf
+🟢 Frame Match: KF (13153) -> Curr (13154)
+Inliers: 183 | Tx: -0.01 | Ty: 0.06 | Theta: -0.06°
 
-Sonar odometry:  38%|███▊      | 56/149 [00:39<01:03,  1.47it/s]
+Sonar odometry:   6%|▋         | 19/299 [01:07<19:00,  4.07s/it]
 =======================================================================
- Frame matching: [(KF): 83 ---> Actual: 106] | Status: OK
- LoFTR matches total: 67 | confidence: 0.654 | RANSAC Inliers: 67 (44.97%)
+ Frame matching: [(KF): 13153 ---> Actual: 13154] | Status: OK
+ LoFTR matches total: 183 | confidence: 0.918 | RANSAC Inliers: 183 (94.33%)
 --- Local transformation ---
-  PRED -> tx: -0.07228 m, ty: +0.09605 m, yaw: -0.08085 rad
-  GT   -> tx: +1.13831 m, ty: -0.98819 m, yaw: +1.85546 rad
-  ERR  -> tx: -1.21058 m, ty: +1.08424 m, yaw: -1.93631 rad
+  PRED -> tx: +0.05894 m, ty: +0.00842 m, yaw: -0.00107 rad
+  GT   -> tx: +0.01437 m, ty: +0.08082 m, yaw: +0.00450 rad
+  ERR  -> tx: +0.04457 m, ty: -0.07240 m, yaw: -0.00557 rad
 --- Global pose ---
-  PRED ->  X: +2.54882,  Y: +9.78502, Yaw: -1.95257
-  GT   ->  X: +3.05500,  Y: +8.73100, Yaw: +1.33979
+  PRED ->  X: -23.82447,  Y: +3.33061, Yaw: -2.91189
+  GT   ->  X: -22.49904,  Y: +2.04171, Yaw: -2.99472
 --- Keyframe state ---
-  Traj from kf: 0.1202 m, Rot from kf: 0.0809 rad -> Waiting for kf
+  Traj from kf: 0.0595 m, Rot from kf: 0.0011 rad -> Actualisation (new kf)
 
-Sonar odometry:  38%|███▊      | 57/149 [00:40<01:02,  1.47it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 107] | Status: OK
- LoFTR matches total: 56 | confidence: 0.664 | RANSAC Inliers: 56 (44.44%)
---- Local transformation ---
-  PRED -> tx: -0.18988 m, ty: -0.00260 m, yaw: -0.07990 rad
-  GT   -> tx: +1.21725 m, ty: -1.29173 m, yaw: +1.87670 rad
-  ERR  -> tx: -1.40713 m, ty: +1.28912 m, yaw: -1.95660 rad
---- Global pose ---
-  PRED ->  X: +2.48945,  Y: +9.92658, Yaw: -1.95162
-  GT   ->  X: +2.97400,  Y: +8.42800, Yaw: +1.36104
---- Keyframe state ---
-  Traj from kf: 0.1899 m, Rot from kf: 0.0799 rad -> Waiting for kf
 
-Sonar odometry:  39%|███▉      | 58/149 [00:41<01:02,  1.47it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 108] | Status: OK
- LoFTR matches total: 53 | confidence: 0.676 | RANSAC Inliers: 53 (42.74%)
---- Local transformation ---
-  PRED -> tx: -0.09153 m, ty: -0.01328 m, yaw: -0.08166 rad
-  GT   -> tx: +1.27986 m, ty: -1.51372 m, yaw: +1.88951 rad
-  ERR  -> tx: -1.37139 m, ty: +1.50044 m, yaw: -1.97117 rad
---- Global pose ---
-  PRED ->  X: +2.45010,  Y: +9.83582, Yaw: -1.95338
-  GT   ->  X: +2.91900,  Y: +8.20400, Yaw: +1.37384
---- Keyframe state ---
-  Traj from kf: 0.0925 m, Rot from kf: 0.0817 rad -> Waiting for kf
+🟢 Frame Match: KF (13154) -> Curr (13155)
+Inliers: 176 | Tx: -0.01 | Ty: 0.05 | Theta: -0.26°
 
-Sonar odometry:  40%|███▉      | 59/149 [00:41<01:01,  1.47it/s]
+Sonar odometry:   7%|▋         | 20/299 [01:11<18:54,  4.07s/it]
 =======================================================================
- Frame matching: [(KF): 83 ---> Actual: 109] | Status: OK
- LoFTR matches total: 57 | confidence: 0.667 | RANSAC Inliers: 57 (46.72%)
+ Frame matching: [(KF): 13154 ---> Actual: 13155] | Status: OK
+ LoFTR matches total: 176 | confidence: 0.897 | RANSAC Inliers: 176 (89.80%)
 --- Local transformation ---
-  PRED -> tx: -0.07550 m, ty: +0.01641 m, yaw: -0.08309 rad
-  GT   -> tx: +1.33896 m, ty: -1.71127 m, yaw: +1.90228 rad
-  ERR  -> tx: -1.41445 m, ty: +1.72768 m, yaw: -1.98537 rad
+  PRED -> tx: +0.05191 m, ty: +0.02466 m, yaw: -0.00455 rad
+  GT   -> tx: +0.01144 m, ty: +0.07669 m, yaw: -0.00447 rad
+  ERR  -> tx: +0.04046 m, ty: -0.05203 m, yaw: -0.00009 rad
 --- Global pose ---
-  PRED ->  X: +2.47371,  Y: +9.81170, Yaw: -1.95481
-  GT   ->  X: +2.87300,  Y: +8.00300, Yaw: +1.38662
+  PRED ->  X: -23.86940,  Y: +3.29478, Yaw: -2.91644
+  GT   ->  X: -22.49914,  Y: +1.96418, Yaw: -2.99918
 --- Keyframe state ---
-  Traj from kf: 0.0773 m, Rot from kf: 0.0831 rad -> Waiting for kf
+  Traj from kf: 0.0575 m, Rot from kf: 0.0046 rad -> Actualisation (new kf)
 
-Sonar odometry:  40%|████      | 60/149 [00:42<01:00,  1.47it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 110] | Status: OK
- LoFTR matches total: 60 | confidence: 0.663 | RANSAC Inliers: 60 (40.27%)
---- Local transformation ---
-  PRED -> tx: -0.06893 m, ty: -0.03489 m, yaw: -0.08154 rad
-  GT   -> tx: +1.40864 m, ty: -1.93155 m, yaw: +1.91508 rad
-  ERR  -> tx: -1.47757 m, ty: +1.89666 m, yaw: -1.99662 rad
---- Global pose ---
-  PRED ->  X: +2.42276,  Y: +9.82063, Yaw: -1.95327
-  GT   ->  X: +2.82500,  Y: +7.77700, Yaw: +1.39941
---- Keyframe state ---
-  Traj from kf: 0.0773 m, Rot from kf: 0.0815 rad -> Waiting for kf
 
-Sonar odometry:  41%|████      | 61/149 [00:43<01:00,  1.46it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 111] | Status: OK
- LoFTR matches total: 60 | confidence: 0.659 | RANSAC Inliers: 60 (37.97%)
---- Local transformation ---
-  PRED -> tx: -0.03071 m, ty: -0.02579 m, yaw: -0.08098 rad
-  GT   -> tx: +1.47946 m, ty: -2.14774 m, yaw: +1.92360 rad
-  ERR  -> tx: -1.51017 m, ty: +2.12195 m, yaw: -2.00458 rad
---- Global pose ---
-  PRED ->  X: +2.42013,  Y: +9.78144, Yaw: -1.95270
-  GT   ->  X: +2.78000,  Y: +7.55400, Yaw: +1.40794
---- Keyframe state ---
-  Traj from kf: 0.0401 m, Rot from kf: 0.0810 rad -> Waiting for kf
+🟢 Frame Match: KF (13155) -> Curr (13156)
+Inliers: 190 | Tx: 0.00 | Ty: 0.06 | Theta: -0.11°
 
-Sonar odometry:  42%|████▏     | 62/149 [00:44<00:59,  1.46it/s]
+Sonar odometry:   7%|▋         | 21/299 [01:15<18:51,  4.07s/it]
 =======================================================================
- Frame matching: [(KF): 83 ---> Actual: 112] | Status: OK
- LoFTR matches total: 72 | confidence: 0.675 | RANSAC Inliers: 72 (48.65%)
+ Frame matching: [(KF): 13155 ---> Actual: 13156] | Status: OK
+ LoFTR matches total: 190 | confidence: 0.917 | RANSAC Inliers: 190 (92.23%)
 --- Local transformation ---
-  PRED -> tx: -0.02493 m, ty: +0.02048 m, yaw: -0.08118 rad
-  GT   -> tx: +1.59588 m, ty: -2.48292 m, yaw: +1.93355 rad
-  ERR  -> tx: -1.62081 m, ty: +2.50340 m, yaw: -2.01473 rad
+  PRED -> tx: +0.05836 m, ty: -0.00043 m, yaw: -0.00198 rad
+  GT   -> tx: +0.01037 m, ty: +0.07591 m, yaw: +0.00819 rad
+  ERR  -> tx: +0.04799 m, ty: -0.07634 m, yaw: -0.01017 rad
 --- Global pose ---
-  PRED ->  X: +2.46260,  Y: +9.76221, Yaw: -1.95290
-  GT   ->  X: +2.71600,  Y: +7.20500, Yaw: +1.41789
+  PRED ->  X: -23.92638,  Y: +3.28217, Yaw: -2.91843
+  GT   ->  X: -22.49862,  Y: +1.88757, Yaw: -2.99099
 --- Keyframe state ---
-  Traj from kf: 0.0323 m, Rot from kf: 0.0812 rad -> Waiting for kf
+  Traj from kf: 0.0584 m, Rot from kf: 0.0020 rad -> Actualisation (new kf)
 
-Sonar odometry:  42%|████▏     | 63/149 [00:44<00:59,  1.46it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 113] | Status: OK
- LoFTR matches total: 52 | confidence: 0.627 | RANSAC Inliers: 52 (35.14%)
---- Local transformation ---
-  PRED -> tx: -0.07297 m, ty: +0.05205 m, yaw: -0.08213 rad
-  GT   -> tx: +1.71983 m, ty: -2.82532 m, yaw: +1.94202 rad
-  ERR  -> tx: -1.79280 m, ty: +2.87737 m, yaw: -2.02415 rad
---- Global pose ---
-  PRED ->  X: +2.50700,  Y: +9.79872, Yaw: -1.95385
-  GT   ->  X: +2.65500,  Y: +6.84600, Yaw: +1.42635
---- Keyframe state ---
-  Traj from kf: 0.0896 m, Rot from kf: 0.0821 rad -> Waiting for kf
 
-Sonar odometry:  43%|████▎     | 64/149 [00:45<00:58,  1.45it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 114] | Status: OK
- LoFTR matches total: 47 | confidence: 0.640 | RANSAC Inliers: 47 (33.10%)
---- Local transformation ---
-  PRED -> tx: -0.09578 m, ty: +0.07979 m, yaw: -0.08241 rad
-  GT   -> tx: +1.84310 m, ty: -3.15432 m, yaw: +1.96048 rad
-  ERR  -> tx: -1.93888 m, ty: +3.23411 m, yaw: -2.04289 rad
---- Global pose ---
-  PRED ->  X: +2.54025,  Y: +9.81229, Yaw: -1.95414
-  GT   ->  X: +2.60000,  Y: +6.49900, Yaw: +1.44482
---- Keyframe state ---
-  Traj from kf: 0.1247 m, Rot from kf: 0.0824 rad -> Waiting for kf
+🟢 Frame Match: KF (13156) -> Curr (13157)
+Inliers: 187 | Tx: 0.00 | Ty: 0.06 | Theta: 0.04°
 
-Sonar odometry:  44%|████▎     | 65/149 [00:46<00:58,  1.45it/s]
+Sonar odometry:   7%|▋         | 22/299 [01:19<18:49,  4.08s/it]
 =======================================================================
- Frame matching: [(KF): 83 ---> Actual: 115] | Status: OK
- LoFTR matches total: 80 | confidence: 0.648 | RANSAC Inliers: 80 (47.90%)
+ Frame matching: [(KF): 13156 ---> Actual: 13157] | Status: OK
+ LoFTR matches total: 187 | confidence: 0.931 | RANSAC Inliers: 187 (93.50%)
 --- Local transformation ---
-  PRED -> tx: -0.04426 m, ty: +0.07954 m, yaw: -0.08330 rad
-  GT   -> tx: +1.91919 m, ty: -3.35143 m, yaw: +1.98039 rad
-  ERR  -> tx: -1.96345 m, ty: +3.43096 m, yaw: -2.06369 rad
+  PRED -> tx: +0.06174 m, ty: -0.00310 m, yaw: +0.00072 rad
+  GT   -> tx: +0.01124 m, ty: +0.07759 m, yaw: +0.01521 rad
+  ERR  -> tx: +0.05050 m, ty: -0.08069 m, yaw: -0.01449 rad
 --- Global pose ---
-  PRED ->  X: +2.52474,  Y: +9.76316, Yaw: -1.95503
-  GT   ->  X: +2.56900,  Y: +6.29000, Yaw: +1.46473
+  PRED ->  X: -23.98728,  Y: +3.27153, Yaw: -2.91770
+  GT   ->  X: -22.49810,  Y: +1.80917, Yaw: -2.97578
 --- Keyframe state ---
-  Traj from kf: 0.0910 m, Rot from kf: 0.0833 rad -> Waiting for kf
+  Traj from kf: 0.0618 m, Rot from kf: 0.0007 rad -> Actualisation (new kf)
 
-Sonar odometry:  44%|████▍     | 66/149 [00:46<00:58,  1.43it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 116] | Status: OK
- LoFTR matches total: 90 | confidence: 0.644 | RANSAC Inliers: 90 (52.02%)
---- Local transformation ---
-  PRED -> tx: -0.17413 m, ty: +0.04040 m, yaw: -0.08142 rad
-  GT   -> tx: +1.98104 m, ty: -3.50718 m, yaw: +2.00582 rad
-  ERR  -> tx: -2.15516 m, ty: +3.54759 m, yaw: -2.08724 rad
---- Global pose ---
-  PRED ->  X: +2.52586,  Y: +9.89879, Yaw: -1.95314
-  GT   ->  X: +2.54600,  Y: +6.12400, Yaw: +1.49016
---- Keyframe state ---
-  Traj from kf: 0.1788 m, Rot from kf: 0.0814 rad -> Waiting for kf
 
-Sonar odometry:  45%|████▍     | 67/149 [00:47<00:57,  1.42it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 117] | Status: OK
- LoFTR matches total: 98 | confidence: 0.625 | RANSAC Inliers: 98 (54.44%)
---- Local transformation ---
-  PRED -> tx: -0.04824 m, ty: +0.01794 m, yaw: -0.08081 rad
-  GT   -> tx: +2.06122 m, ty: -3.70542 m, yaw: +2.05252 rad
-  ERR  -> tx: -2.10946 m, ty: +3.72336 m, yaw: -2.13333 rad
---- Global pose ---
-  PRED ->  X: +2.46709,  Y: +9.78522, Yaw: -1.95253
-  GT   ->  X: +2.51800,  Y: +5.91200, Yaw: +1.53685
---- Keyframe state ---
-  Traj from kf: 0.0515 m, Rot from kf: 0.0808 rad -> Waiting for kf
+🟢 Frame Match: KF (13157) -> Curr (13158)
+Inliers: 146 | Tx: -0.02 | Ty: 0.08 | Theta: 0.10°
 
-Sonar odometry:  46%|████▌     | 68/149 [00:48<00:56,  1.43it/s]
+Sonar odometry:   8%|▊         | 23/299 [01:23<18:49,  4.09s/it]
 =======================================================================
- Frame matching: [(KF): 83 ---> Actual: 118] | Status: OK
- LoFTR matches total: 103 | confidence: 0.651 | RANSAC Inliers: 103 (58.52%)
+ Frame matching: [(KF): 13157 ---> Actual: 13158] | Status: OK
+ LoFTR matches total: 146 | confidence: 0.889 | RANSAC Inliers: 146 (84.39%)
 --- Local transformation ---
-  PRED -> tx: +0.00933 m, ty: +0.05886 m, yaw: -0.08250 rad
-  GT   -> tx: +2.10070 m, ty: -3.80144 m, yaw: +2.07797 rad
-  ERR  -> tx: -2.09137 m, ty: +3.86030 m, yaw: -2.16047 rad
+  PRED -> tx: +0.10764 m, ty: +0.01194 m, yaw: +0.00169 rad
+  GT   -> tx: +0.01640 m, ty: +0.10218 m, yaw: +0.02008 rad
+  ERR  -> tx: +0.09124 m, ty: -0.09024 m, yaw: -0.01840 rad
 --- Global pose ---
-  PRED ->  X: +2.48911,  Y: +9.71810, Yaw: -1.95422
-  GT   ->  X: +2.50500,  Y: +5.80900, Yaw: +1.56231
+  PRED ->  X: -24.08958,  Y: +3.23599, Yaw: -2.91602
+  GT   ->  X: -22.49741,  Y: +1.70568, Yaw: -2.95569
 --- Keyframe state ---
-  Traj from kf: 0.0596 m, Rot from kf: 0.0825 rad -> Waiting for kf
+  Traj from kf: 0.1083 m, Rot from kf: 0.0017 rad -> Actualisation (new kf)
 
-Sonar odometry:  46%|████▋     | 69/149 [00:48<00:55,  1.43it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 119] | Status: OK
- LoFTR matches total: 103 | confidence: 0.641 | RANSAC Inliers: 103 (62.05%)
---- Local transformation ---
-  PRED -> tx: +0.03012 m, ty: -0.02892 m, yaw: -0.08056 rad
-  GT   -> tx: +2.12678 m, ty: -3.86367 m, yaw: +2.10909 rad
-  ERR  -> tx: -2.09665 m, ty: +3.83475 m, yaw: -2.18965 rad
---- Global pose ---
-  PRED ->  X: +2.39911,  Y: +9.72427, Yaw: -1.95228
-  GT   ->  X: +2.49700,  Y: +5.74200, Yaw: +1.59343
---- Keyframe state ---
-  Traj from kf: 0.0418 m, Rot from kf: 0.0806 rad -> Waiting for kf
 
-Sonar odometry:  47%|████▋     | 70/149 [00:49<00:55,  1.44it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 120] | Status: OK
- LoFTR matches total: 95 | confidence: 0.656 | RANSAC Inliers: 95 (57.23%)
---- Local transformation ---
-  PRED -> tx: -0.03600 m, ty: -0.00289 m, yaw: -0.07703 rad
-  GT   -> tx: +2.14029 m, ty: -3.89969 m, yaw: +2.14730 rad
-  ERR  -> tx: -2.17629 m, ty: +3.89680 m, yaw: -2.22433 rad
---- Global pose ---
-  PRED ->  X: +2.44356,  Y: +9.77970, Yaw: -1.94876
-  GT   ->  X: +2.49100,  Y: +5.70400, Yaw: +1.63164
---- Keyframe state ---
-  Traj from kf: 0.0361 m, Rot from kf: 0.0770 rad -> Waiting for kf
+🟢 Frame Match: KF (13158) -> Curr (13159)
+Inliers: 175 | Tx: -0.01 | Ty: 0.06 | Theta: -0.14°
 
-Sonar odometry:  48%|████▊     | 71/149 [00:50<00:54,  1.44it/s]
+Sonar odometry:   8%|▊         | 24/299 [01:27<18:37,  4.06s/it]
 =======================================================================
- Frame matching: [(KF): 83 ---> Actual: 121] | Status: OK
- LoFTR matches total: 90 | confidence: 0.632 | RANSAC Inliers: 90 (52.94%)
+ Frame matching: [(KF): 13158 ---> Actual: 13159] | Status: OK
+ LoFTR matches total: 175 | confidence: 0.914 | RANSAC Inliers: 175 (94.09%)
 --- Local transformation ---
-  PRED -> tx: -0.07144 m, ty: +0.03293 m, yaw: -0.07458 rad
-  GT   -> tx: +2.13792 m, ty: -3.90563 m, yaw: +2.20248 rad
-  ERR  -> tx: -2.20936 m, ty: +3.93857 m, yaw: -2.27705 rad
+  PRED -> tx: +0.06578 m, ty: +0.03875 m, yaw: -0.00246 rad
+  GT   -> tx: +0.01453 m, ty: +0.08023 m, yaw: -0.03905 rad
+  ERR  -> tx: +0.05125 m, ty: -0.04148 m, yaw: +0.03659 rad
 --- Global pose ---
-  PRED ->  X: +2.48829,  Y: +9.80294, Yaw: -1.94630
-  GT   ->  X: +2.48600,  Y: +5.70000, Yaw: +1.68681
+  PRED ->  X: -24.14502,  Y: +3.18350, Yaw: -2.91848
+  GT   ->  X: -22.49686,  Y: +1.62415, Yaw: -2.99475
 --- Keyframe state ---
-  Traj from kf: 0.0787 m, Rot from kf: 0.0746 rad -> Waiting for kf
+  Traj from kf: 0.0763 m, Rot from kf: 0.0025 rad -> Actualisation (new kf)
 
-Sonar odometry:  48%|████▊     | 72/149 [00:51<00:53,  1.44it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 122] | Status: OK
- LoFTR matches total: 99 | confidence: 0.644 | RANSAC Inliers: 99 (50.51%)
---- Local transformation ---
-  PRED -> tx: +0.01324 m, ty: +0.03040 m, yaw: -0.07829 rad
-  GT   -> tx: +2.11950 m, ty: -3.88734 m, yaw: +2.26342 rad
-  ERR  -> tx: -2.10626 m, ty: +3.91774 m, yaw: -2.34171 rad
---- Global pose ---
-  PRED ->  X: +2.46077,  Y: +9.72281, Yaw: -1.95002
-  GT   ->  X: +2.47900,  Y: +5.72500, Yaw: +1.74776
---- Keyframe state ---
-  Traj from kf: 0.0332 m, Rot from kf: 0.0783 rad -> Waiting for kf
 
-Sonar odometry:  49%|████▉     | 73/149 [00:51<00:52,  1.45it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 123] | Status: OK
- LoFTR matches total: 87 | confidence: 0.644 | RANSAC Inliers: 87 (58.78%)
---- Local transformation ---
-  PRED -> tx: -0.04073 m, ty: +0.00997 m, yaw: -0.08116 rad
-  GT   -> tx: +2.09047 m, ty: -3.85437 m, yaw: +2.30745 rad
-  ERR  -> tx: -2.13120 m, ty: +3.86434 m, yaw: -2.38862 rad
---- Global pose ---
-  PRED ->  X: +2.45726,  Y: +9.78041, Yaw: -1.95289
-  GT   ->  X: +2.47000,  Y: +5.76800, Yaw: +1.79179
---- Keyframe state ---
-  Traj from kf: 0.0419 m, Rot from kf: 0.0812 rad -> Waiting for kf
+🟢 Frame Match: KF (13159) -> Curr (13160)
+Inliers: 133 | Tx: -0.02 | Ty: 0.06 | Theta: -0.48°
 
-Sonar odometry:  50%|████▉     | 74/149 [00:52<00:51,  1.45it/s]
+Sonar odometry:   8%|▊         | 25/299 [01:31<18:23,  4.03s/it]
 =======================================================================
- Frame matching: [(KF): 83 ---> Actual: 124] | Status: OK
- LoFTR matches total: 98 | confidence: 0.636 | RANSAC Inliers: 98 (59.39%)
+ Frame matching: [(KF): 13159 ---> Actual: 13160] | Status: OK
+ LoFTR matches total: 133 | confidence: 0.853 | RANSAC Inliers: 133 (69.63%)
 --- Local transformation ---
-  PRED -> tx: -0.05006 m, ty: +0.06355 m, yaw: -0.08472 rad
-  GT   -> tx: +2.04957 m, ty: -3.80858 m, yaw: +2.34464 rad
-  ERR  -> tx: -2.09962 m, ty: +3.87213 m, yaw: -2.42936 rad
+  PRED -> tx: +0.09579 m, ty: +0.03889 m, yaw: -0.00840 rad
+  GT   -> tx: +0.01138 m, ty: +0.07373 m, yaw: +0.01495 rad
+  ERR  -> tx: +0.08441 m, ty: -0.03484 m, yaw: -0.02335 rad
 --- Global pose ---
-  PRED ->  X: +2.51119,  Y: +9.77343, Yaw: -1.95644
-  GT   ->  X: +2.45700,  Y: +5.82800, Yaw: +1.82898
+  PRED ->  X: -24.22983,  Y: +3.12438, Yaw: -2.92687
+  GT   ->  X: -22.49733,  Y: +1.54954, Yaw: -2.97979
 --- Keyframe state ---
-  Traj from kf: 0.0809 m, Rot from kf: 0.0847 rad -> Waiting for kf
+  Traj from kf: 0.1034 m, Rot from kf: 0.0084 rad -> Actualisation (new kf)
 
-Sonar odometry:  50%|█████     | 75/149 [00:53<00:51,  1.45it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 125] | Status: OK
- LoFTR matches total: 95 | confidence: 0.633 | RANSAC Inliers: 95 (60.13%)
---- Local transformation ---
-  PRED -> tx: -0.06564 m, ty: +0.12629 m, yaw: -0.08463 rad
-  GT   -> tx: +2.01436 m, ty: -3.76876 m, yaw: +2.35586 rad
-  ERR  -> tx: -2.08000 m, ty: +3.89505 m, yaw: -2.44049 rad
---- Global pose ---
-  PRED ->  X: +2.57573,  Y: +9.76972, Yaw: -1.95635
-  GT   ->  X: +2.44600,  Y: +5.88000, Yaw: +1.84019
---- Keyframe state ---
-  Traj from kf: 0.1423 m, Rot from kf: 0.0846 rad -> Waiting for kf
 
-Sonar odometry:  51%|█████     | 76/149 [00:53<00:50,  1.45it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 126] | Status: OK
- LoFTR matches total: 104 | confidence: 0.632 | RANSAC Inliers: 104 (60.47%)
---- Local transformation ---
-  PRED -> tx: -0.00486 m, ty: +0.07511 m, yaw: -0.08412 rad
-  GT   -> tx: +1.97543 m, ty: -3.72646 m, yaw: +2.36025 rad
-  ERR  -> tx: -1.98030 m, ty: +3.80156 m, yaw: -2.44437 rad
---- Global pose ---
-  PRED ->  X: +2.50883,  Y: +9.72685, Yaw: -1.95584
-  GT   ->  X: +2.43300,  Y: +5.93600, Yaw: +1.84459
---- Keyframe state ---
-  Traj from kf: 0.0753 m, Rot from kf: 0.0841 rad -> Waiting for kf
+🟢 Frame Match: KF (13160) -> Curr (13161)
+Inliers: 106 | Tx: 0.01 | Ty: 0.07 | Theta: -0.62°
 
-Sonar odometry:  52%|█████▏    | 77/149 [00:54<00:49,  1.45it/s]
+Sonar odometry:   9%|▊         | 26/299 [01:35<18:20,  4.03s/it]
 =======================================================================
- Frame matching: [(KF): 83 ---> Actual: 127] | Status: OK
- LoFTR matches total: 96 | confidence: 0.633 | RANSAC Inliers: 96 (58.90%)
+ Frame matching: [(KF): 13160 ---> Actual: 13161] | Status: OK
+ LoFTR matches total: 106 | confidence: 0.832 | RANSAC Inliers: 106 (60.57%)
 --- Local transformation ---
-  PRED -> tx: +0.01720 m, ty: +0.12592 m, yaw: -0.08878 rad
-  GT   -> tx: +1.94750 m, ty: -3.69746 m, yaw: +2.35184 rad
-  ERR  -> tx: -1.93030 m, ty: +3.82338 m, yaw: -2.44062 rad
+  PRED -> tx: +0.10947 m, ty: +0.00079 m, yaw: -0.01088 rad
+  GT   -> tx: +0.01911 m, ty: +0.10024 m, yaw: +0.01061 rad
+  ERR  -> tx: +0.09035 m, ty: -0.09945 m, yaw: -0.02149 rad
 --- Global pose ---
-  PRED ->  X: +2.55082,  Y: +9.69071, Yaw: -1.96050
-  GT   ->  X: +2.42300,  Y: +5.97500, Yaw: +1.83618
+  PRED ->  X: -24.33661,  Y: +3.10028, Yaw: -2.93775
+  GT   ->  X: -22.50004,  Y: +1.44753, Yaw: -2.96918
 --- Keyframe state ---
-  Traj from kf: 0.1271 m, Rot from kf: 0.0888 rad -> Waiting for kf
+  Traj from kf: 0.1095 m, Rot from kf: 0.0109 rad -> Actualisation (new kf)
 
-Sonar odometry:  52%|█████▏    | 78/149 [00:55<00:48,  1.45it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 128] | Status: OK
- LoFTR matches total: 102 | confidence: 0.655 | RANSAC Inliers: 102 (56.67%)
---- Local transformation ---
-  PRED -> tx: -0.05101 m, ty: +0.13701 m, yaw: -0.08947 rad
-  GT   -> tx: +1.92328 m, ty: -3.67095 m, yaw: +2.31745 rad
-  ERR  -> tx: -1.97430 m, ty: +3.80796 m, yaw: -2.40692 rad
---- Global pose ---
-  PRED ->  X: +2.58163,  Y: +9.75257, Yaw: -1.96119
-  GT   ->  X: +2.41500,  Y: +6.01000, Yaw: +1.80179
---- Keyframe state ---
-  Traj from kf: 0.1462 m, Rot from kf: 0.0895 rad -> Waiting for kf
 
-Sonar odometry:  53%|█████▎    | 79/149 [00:55<00:48,  1.45it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 129] | Status: OK
- LoFTR matches total: 102 | confidence: 0.652 | RANSAC Inliers: 102 (61.08%)
---- Local transformation ---
-  PRED -> tx: +0.00655 m, ty: +0.17189 m, yaw: -0.08596 rad
-  GT   -> tx: +1.90907 m, ty: -3.65602 m, yaw: +2.27341 rad
-  ERR  -> tx: -1.90253 m, ty: +3.82791 m, yaw: -2.35937 rad
---- Global pose ---
-  PRED ->  X: +2.59788,  Y: +9.68726, Yaw: -1.95768
-  GT   ->  X: +2.41000,  Y: +6.03000, Yaw: +1.75775
---- Keyframe state ---
-  Traj from kf: 0.1720 m, Rot from kf: 0.0860 rad -> Waiting for kf
+🟢 Frame Match: KF (13161) -> Curr (13162)
+Inliers: 191 | Tx: -0.01 | Ty: 0.05 | Theta: -0.22°
 
-Sonar odometry:  54%|█████▎    | 80/149 [00:56<00:47,  1.45it/s]
+Sonar odometry:   9%|▉         | 27/299 [01:39<18:13,  4.02s/it]
 =======================================================================
- Frame matching: [(KF): 83 ---> Actual: 130] | Status: OK
- LoFTR matches total: 101 | confidence: 0.655 | RANSAC Inliers: 101 (60.84%)
+ Frame matching: [(KF): 13161 ---> Actual: 13162] | Status: OK
+ LoFTR matches total: 191 | confidence: 0.923 | RANSAC Inliers: 191 (95.50%)
 --- Local transformation ---
-  PRED -> tx: -0.05440 m, ty: +0.02647 m, yaw: -0.08123 rad
-  GT   -> tx: +1.90339 m, ty: -3.65005 m, yaw: +2.24651 rad
-  ERR  -> tx: -1.95779 m, ty: +3.67652 m, yaw: -2.32775 rad
+  PRED -> tx: +0.09479 m, ty: -0.00113 m, yaw: -0.00380 rad
+  GT   -> tx: +0.01430 m, ty: +0.07087 m, yaw: -0.00306 rad
+  ERR  -> tx: +0.08049 m, ty: -0.07200 m, yaw: -0.00074 rad
 --- Global pose ---
-  PRED ->  X: +2.47706,  Y: +9.78857, Yaw: -1.95296
-  GT   ->  X: +2.40800,  Y: +6.03800, Yaw: +1.73085
+  PRED ->  X: -24.42967,  Y: +3.08220, Yaw: -2.94156
+  GT   ->  X: -22.50197,  Y: +1.37525, Yaw: -2.97225
 --- Keyframe state ---
-  Traj from kf: 0.0605 m, Rot from kf: 0.0812 rad -> Waiting for kf
+  Traj from kf: 0.0948 m, Rot from kf: 0.0038 rad -> Actualisation (new kf)
 
-Sonar odometry:  54%|█████▍    | 81/149 [00:57<00:47,  1.44it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 131] | Status: OK
- LoFTR matches total: 109 | confidence: 0.655 | RANSAC Inliers: 109 (66.46%)
---- Local transformation ---
-  PRED -> tx: -0.10824 m, ty: +0.08169 m, yaw: -0.08293 rad
-  GT   -> tx: +1.90574 m, ty: -3.65216 m, yaw: +2.20530 rad
-  ERR  -> tx: -2.01398 m, ty: +3.73385 m, yaw: -2.28823 rad
---- Global pose ---
-  PRED ->  X: +2.54576,  Y: +9.82363, Yaw: -1.95465
-  GT   ->  X: +2.40900,  Y: +6.03500, Yaw: +1.68964
---- Keyframe state ---
-  Traj from kf: 0.1356 m, Rot from kf: 0.0829 rad -> Waiting for kf
 
-Sonar odometry:  55%|█████▌    | 82/149 [00:57<00:46,  1.44it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 132] | Status: OK
- LoFTR matches total: 88 | confidence: 0.647 | RANSAC Inliers: 88 (48.09%)
---- Local transformation ---
-  PRED -> tx: -0.09378 m, ty: +0.01098 m, yaw: -0.08144 rad
-  GT   -> tx: +1.91302 m, ty: -3.66298 m, yaw: +2.15862 rad
-  ERR  -> tx: -2.00680 m, ty: +3.67396 m, yaw: -2.24006 rad
---- Global pose ---
-  PRED ->  X: +2.47394,  Y: +9.83078, Yaw: -1.95316
-  GT   ->  X: +2.41000,  Y: +6.02200, Yaw: +1.64295
---- Keyframe state ---
-  Traj from kf: 0.0944 m, Rot from kf: 0.0814 rad -> Waiting for kf
+🟢 Frame Match: KF (13162) -> Curr (13163)
+Inliers: 184 | Tx: 0.00 | Ty: 0.06 | Theta: 0.04°
 
-Sonar odometry:  56%|█████▌    | 83/149 [00:58<00:46,  1.43it/s]
+Sonar odometry:   9%|▉         | 28/299 [01:43<18:06,  4.01s/it]
 =======================================================================
- Frame matching: [(KF): 83 ---> Actual: 133] | Status: OK
- LoFTR matches total: 89 | confidence: 0.650 | RANSAC Inliers: 89 (55.28%)
+ Frame matching: [(KF): 13162 ---> Actual: 13163] | Status: OK
+ LoFTR matches total: 184 | confidence: 0.891 | RANSAC Inliers: 184 (92.46%)
 --- Local transformation ---
-  PRED -> tx: -0.07225 m, ty: +0.05695 m, yaw: -0.08090 rad
-  GT   -> tx: +1.92598 m, ty: -3.67977 m, yaw: +2.10344 rad
-  ERR  -> tx: -1.99823 m, ty: +3.73672 m, yaw: -2.18433 rad
+  PRED -> tx: +0.06309 m, ty: -0.00434 m, yaw: +0.00064 rad
+  GT   -> tx: +0.01384 m, ty: +0.06970 m, yaw: -0.00301 rad
+  ERR  -> tx: +0.04925 m, ty: -0.07404 m, yaw: +0.00365 rad
 --- Global pose ---
-  PRED ->  X: +2.51146,  Y: +9.79658, Yaw: -1.95262
-  GT   ->  X: +2.41300,  Y: +6.00100, Yaw: +1.58777
+  PRED ->  X: -24.49236,  Y: +3.07391, Yaw: -2.94092
+  GT   ->  X: -22.50386,  Y: +1.30422, Yaw: -2.97526
 --- Keyframe state ---
-  Traj from kf: 0.0920 m, Rot from kf: 0.0809 rad -> Waiting for kf
+  Traj from kf: 0.0632 m, Rot from kf: 0.0006 rad -> Actualisation (new kf)
 
-Sonar odometry:  56%|█████▋    | 84/149 [00:59<00:45,  1.43it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 134] | Status: OK
- LoFTR matches total: 95 | confidence: 0.643 | RANSAC Inliers: 95 (51.91%)
---- Local transformation ---
-  PRED -> tx: +0.00072 m, ty: +0.05557 m, yaw: -0.08078 rad
-  GT   -> tx: +1.94487 m, ty: -3.70700 m, yaw: +2.03838 rad
-  ERR  -> tx: -1.94415 m, ty: +3.76257 m, yaw: -2.11916 rad
---- Global pose ---
-  PRED ->  X: +2.48852,  Y: +9.72731, Yaw: -1.95250
-  GT   ->  X: +2.41600,  Y: +5.96800, Yaw: +1.52272
---- Keyframe state ---
-  Traj from kf: 0.0556 m, Rot from kf: 0.0808 rad -> Waiting for kf
 
-Sonar odometry:  57%|█████▋    | 85/149 [01:00<00:44,  1.43it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 135] | Status: OK
- LoFTR matches total: 106 | confidence: 0.639 | RANSAC Inliers: 106 (61.99%)
---- Local transformation ---
-  PRED -> tx: -0.26276 m, ty: +0.09538 m, yaw: -0.08174 rad
-  GT   -> tx: +1.96398 m, ty: -3.73870 m, yaw: +1.97044 rad
-  ERR  -> tx: -2.22674 m, ty: +3.83408 m, yaw: -2.05219 rad
---- Global pose ---
-  PRED ->  X: +2.60463,  Y: +9.96715, Yaw: -1.95347
-  GT   ->  X: +2.41700,  Y: +5.93100, Yaw: +1.45478
---- Keyframe state ---
-  Traj from kf: 0.2795 m, Rot from kf: 0.0817 rad -> Waiting for kf
+🟢 Frame Match: KF (13163) -> Curr (13164)
+Inliers: 160 | Tx: 0.02 | Ty: 0.05 | Theta: -0.15°
 
-Sonar odometry:  58%|█████▊    | 86/149 [01:00<00:44,  1.42it/s]
+Sonar odometry:  10%|▉         | 29/299 [01:47<18:22,  4.08s/it]
 =======================================================================
- Frame matching: [(KF): 83 ---> Actual: 136] | Status: OK
- LoFTR matches total: 93 | confidence: 0.632 | RANSAC Inliers: 93 (53.76%)
+ Frame matching: [(KF): 13163 ---> Actual: 13164] | Status: OK
+ LoFTR matches total: 160 | confidence: 0.903 | RANSAC Inliers: 160 (89.89%)
 --- Local transformation ---
-  PRED -> tx: -0.26921 m, ty: +0.10248 m, yaw: -0.08153 rad
-  GT   -> tx: +1.98913 m, ty: -3.78306 m, yaw: +1.88952 rad
-  ERR  -> tx: -2.25834 m, ty: +3.88554 m, yaw: -1.97104 rad
+  PRED -> tx: +0.01403 m, ty: +0.00051 m, yaw: -0.00261 rad
+  GT   -> tx: +0.01355 m, ty: +0.06934 m, yaw: +0.00630 rad
+  ERR  -> tx: +0.00048 m, ty: -0.06883 m, yaw: -0.00891 rad
 --- Global pose ---
-  PRED ->  X: +2.61332,  Y: +9.97120, Yaw: -1.95325
-  GT   ->  X: +2.41700,  Y: +5.88000, Yaw: +1.37385
+  PRED ->  X: -24.50600,  Y: +3.07062, Yaw: -2.94352
+  GT   ->  X: -22.50574,  Y: +1.23360, Yaw: -2.96896
 --- Keyframe state ---
-  Traj from kf: 0.2881 m, Rot from kf: 0.0815 rad -> Waiting for kf
+  Traj from kf: 0.0140 m, Rot from kf: 0.0026 rad -> Actualisation (new kf)
 
-Sonar odometry:  58%|█████▊    | 87/149 [01:01<00:43,  1.41it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 137] | Status: OK
- LoFTR matches total: 97 | confidence: 0.650 | RANSAC Inliers: 97 (55.11%)
---- Local transformation ---
-  PRED -> tx: -0.04797 m, ty: +0.01387 m, yaw: -0.08042 rad
-  GT   -> tx: +2.01080 m, ty: -3.82941 m, yaw: +1.81266 rad
-  ERR  -> tx: -2.05877 m, ty: +3.84327 m, yaw: -1.89309 rad
---- Global pose ---
-  PRED ->  X: +2.46312,  Y: +9.78617, Yaw: -1.95214
-  GT   ->  X: +2.41300,  Y: +5.82900, Yaw: +1.29700
---- Keyframe state ---
-  Traj from kf: 0.0499 m, Rot from kf: 0.0804 rad -> Waiting for kf
 
-Sonar odometry:  59%|█████▉    | 88/149 [01:02<00:43,  1.41it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 138] | Status: OK
- LoFTR matches total: 104 | confidence: 0.669 | RANSAC Inliers: 104 (57.78%)
---- Local transformation ---
-  PRED -> tx: -0.02646 m, ty: +0.03728 m, yaw: -0.08082 rad
-  GT   -> tx: +2.03392 m, ty: -3.88642 m, yaw: +1.72663 rad
-  ERR  -> tx: -2.06038 m, ty: +3.92370 m, yaw: -1.80745 rad
---- Global pose ---
-  PRED ->  X: +2.47910,  Y: +9.75868, Yaw: -1.95255
-  GT   ->  X: +2.40500,  Y: +5.76800, Yaw: +1.21096
---- Keyframe state ---
-  Traj from kf: 0.0457 m, Rot from kf: 0.0808 rad -> Waiting for kf
+🟢 Frame Match: KF (13164) -> Curr (13165)
+Inliers: 102 | Tx: 0.01 | Ty: 0.05 | Theta: -0.66°
 
-Sonar odometry:  60%|█████▉    | 89/149 [01:02<00:42,  1.42it/s]
+Sonar odometry:  10%|█         | 30/299 [01:52<18:20,  4.09s/it]
 =======================================================================
- Frame matching: [(KF): 83 ---> Actual: 139] | Status: OK
- LoFTR matches total: 91 | confidence: 0.672 | RANSAC Inliers: 91 (54.82%)
+ Frame matching: [(KF): 13164 ---> Actual: 13165] | Status: OK
+ LoFTR matches total: 102 | confidence: 0.893 | RANSAC Inliers: 102 (64.15%)
 --- Local transformation ---
-  PRED -> tx: -0.04881 m, ty: +0.07372 m, yaw: -0.08135 rad
-  GT   -> tx: +2.05231 m, ty: -3.94726 m, yaw: +1.63731 rad
-  ERR  -> tx: -2.10112 m, ty: +4.02098 m, yaw: -1.71867 rad
+  PRED -> tx: +0.11369 m, ty: +0.05375 m, yaw: -0.01150 rad
+  GT   -> tx: +0.01442 m, ty: +0.07223 m, yaw: -0.00158 rad
+  ERR  -> tx: +0.09928 m, ty: -0.01849 m, yaw: -0.00992 rad
 --- Global pose ---
-  PRED ->  X: +2.52053,  Y: +9.76923, Yaw: -1.95308
-  GT   ->  X: +2.39100,  Y: +5.70600, Yaw: +1.12165
+  PRED ->  X: -24.60689,  Y: +2.99555, Yaw: -2.95502
+  GT   ->  X: -22.50754,  Y: +1.15996, Yaw: -2.97054
 --- Keyframe state ---
-  Traj from kf: 0.0884 m, Rot from kf: 0.0814 rad -> Waiting for kf
+  Traj from kf: 0.1258 m, Rot from kf: 0.0115 rad -> Actualisation (new kf)
 
-Sonar odometry:  60%|██████    | 90/149 [01:03<00:41,  1.42it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 140] | Status: OK
- LoFTR matches total: 106 | confidence: 0.679 | RANSAC Inliers: 106 (55.21%)
---- Local transformation ---
-  PRED -> tx: +0.03455 m, ty: +0.06443 m, yaw: -0.08009 rad
-  GT   -> tx: +2.06844 m, ty: -4.01628 m, yaw: +1.54404 rad
-  ERR  -> tx: -2.03390 m, ty: +4.08071 m, yaw: -1.62412 rad
---- Global pose ---
-  PRED ->  X: +2.48695,  Y: +9.69237, Yaw: -1.95181
-  GT   ->  X: +2.37100,  Y: +5.63800, Yaw: +1.02837
---- Keyframe state ---
-  Traj from kf: 0.0731 m, Rot from kf: 0.0801 rad -> Waiting for kf
 
-Sonar odometry:  61%|██████    | 91/149 [01:04<00:40,  1.42it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 141] | Status: OK
- LoFTR matches total: 103 | confidence: 0.671 | RANSAC Inliers: 103 (54.21%)
---- Local transformation ---
-  PRED -> tx: -0.00627 m, ty: -0.00444 m, yaw: -0.07886 rad
-  GT   -> tx: +2.07840 m, ty: -4.07846 m, yaw: +1.36973 rad
-  ERR  -> tx: -2.08467 m, ty: +4.07401 m, yaw: -1.44859 rad
---- Global pose ---
-  PRED ->  X: +2.43327,  Y: +9.75177, Yaw: -1.95058
-  GT   ->  X: +2.34900,  Y: +5.57900, Yaw: +0.85407
---- Keyframe state ---
-  Traj from kf: 0.0077 m, Rot from kf: 0.0789 rad -> Waiting for kf
+🟢 Frame Match: KF (13165) -> Curr (13166)
+Inliers: 55 | Tx: -0.10 | Ty: 0.10 | Theta: -1.30°
 
-Sonar odometry:  62%|██████▏   | 92/149 [01:04<00:39,  1.43it/s]
+Sonar odometry:  10%|█         | 31/299 [01:56<18:20,  4.11s/it]
 =======================================================================
- Frame matching: [(KF): 83 ---> Actual: 142] | Status: OK
- LoFTR matches total: 52 | confidence: 0.707 | RANSAC Inliers: 52 (32.50%)
+ Frame matching: [(KF): 13165 ---> Actual: 13166] | Status: OK
+ LoFTR matches total: 55 | confidence: 0.835 | RANSAC Inliers: 55 (43.31%)
 --- Local transformation ---
-  PRED -> tx: -0.12364 m, ty: -0.04002 m, yaw: -0.07957 rad
-  GT   -> tx: +2.08229 m, ty: -4.13602 m, yaw: +1.20114 rad
-  ERR  -> tx: -2.20594 m, ty: +4.09601 m, yaw: -1.28070 rad
+  PRED -> tx: +0.10529 m, ty: -0.00297 m, yaw: -0.02270 rad
+  GT   -> tx: +0.01090 m, ty: +0.06440 m, yaw: -0.00396 rad
+  ERR  -> tx: +0.09440 m, ty: -0.06737 m, yaw: -0.01875 rad
 --- Global pose ---
-  PRED ->  X: +2.43409,  Y: +9.87441, Yaw: -1.95129
-  GT   ->  X: +2.32400,  Y: +5.52700, Yaw: +0.68547
+  PRED ->  X: -24.71091,  Y: +2.97894, Yaw: -2.97773
+  GT   ->  X: -22.50731,  Y: +1.09465, Yaw: -2.97450
 --- Keyframe state ---
-  Traj from kf: 0.1300 m, Rot from kf: 0.0796 rad -> Waiting for kf
+  Traj from kf: 0.1053 m, Rot from kf: 0.0227 rad -> Actualisation (new kf)
 
-Sonar odometry:  62%|██████▏   | 93/149 [01:05<00:39,  1.43it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 143] | Status: OK
- LoFTR matches total: 18 | confidence: 0.689 | RANSAC Inliers: 18 (20.00%)
---- Local transformation ---
-  PRED -> tx: -0.13657 m, ty: -0.24264 m, yaw: -0.07558 rad
-  GT   -> tx: +2.08554 m, ty: -4.16407 m, yaw: +1.15663 rad
-  ERR  -> tx: -2.22211 m, ty: +3.92142 m, yaw: -1.23222 rad
---- Global pose ---
-  PRED ->  X: +2.24440,  Y: +9.94681, Yaw: -1.94731
-  GT   ->  X: +2.31300,  Y: +5.50100, Yaw: +0.64097
---- Keyframe state ---
-  Traj from kf: 0.2784 m, Rot from kf: 0.0756 rad -> Waiting for kf
 
-Sonar odometry:  63%|██████▎   | 94/149 [01:06<00:38,  1.43it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 144] | Status: OK
- LoFTR matches total: 52 | confidence: 0.679 | RANSAC Inliers: 52 (38.24%)
---- Local transformation ---
-  PRED -> tx: +0.03085 m, ty: +0.09132 m, yaw: -0.08080 rad
-  GT   -> tx: +2.09195 m, ty: -4.17537 m, yaw: +1.12943 rad
-  ERR  -> tx: -2.06110 m, ty: +4.26669 m, yaw: -1.21023 rad
---- Global pose ---
-  PRED ->  X: +2.51372,  Y: +9.68793, Yaw: -1.95252
-  GT   ->  X: +2.31300,  Y: +5.48800, Yaw: +0.61377
---- Keyframe state ---
-  Traj from kf: 0.0964 m, Rot from kf: 0.0808 rad -> Waiting for kf
+🟢 Frame Match: KF (13166) -> Curr (13167)
+Inliers: 78 | Tx: -0.01 | Ty: 0.05 | Theta: -0.51°
 
-Sonar odometry:  64%|██████▍   | 95/149 [01:07<00:37,  1.43it/s]
+Sonar odometry:  11%|█         | 32/299 [02:00<18:16,  4.11s/it]
 =======================================================================
- Frame matching: [(KF): 83 ---> Actual: 145] | Status: OK
- LoFTR matches total: 43 | confidence: 0.718 | RANSAC Inliers: 43 (33.59%)
+ Frame matching: [(KF): 13166 ---> Actual: 13167] | Status: OK
+ LoFTR matches total: 78 | confidence: 0.811 | RANSAC Inliers: 78 (52.00%)
 --- Local transformation ---
-  PRED -> tx: +0.01456 m, ty: +0.07019 m, yaw: -0.08212 rad
-  GT   -> tx: +2.10515 m, ty: -4.16215 m, yaw: +1.14209 rad
-  ERR  -> tx: -2.09059 m, ty: +4.23234 m, yaw: -1.22421 rad
+  PRED -> tx: +0.05175 m, ty: +0.04412 m, yaw: -0.00885 rad
+  GT   -> tx: +0.00979 m, ty: +0.05931 m, yaw: +0.04963 rad
+  ERR  -> tx: +0.04196 m, ty: -0.01519 m, yaw: -0.05848 rad
 --- Global pose ---
-  PRED ->  X: +2.49838,  Y: +9.70976, Yaw: -1.95384
-  GT   ->  X: +2.33100,  Y: +5.49300, Yaw: +0.62642
+  PRED ->  X: -24.75477,  Y: +2.92697, Yaw: -2.98658
+  GT   ->  X: -22.50710,  Y: +1.03453, Yaw: -2.92486
 --- Keyframe state ---
-  Traj from kf: 0.0717 m, Rot from kf: 0.0821 rad -> Waiting for kf
+  Traj from kf: 0.0680 m, Rot from kf: 0.0089 rad -> Actualisation (new kf)
 
-Sonar odometry:  64%|██████▍   | 96/149 [01:07<00:37,  1.43it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 146] | Status: OK
- LoFTR matches total: 34 | confidence: 0.752 | RANSAC Inliers: 34 (30.36%)
---- Local transformation ---
-  PRED -> tx: +0.14322 m, ty: +0.09832 m, yaw: -0.08129 rad
-  GT   -> tx: +2.12562 m, ty: -4.12526 m, yaw: +1.16485 rad
-  ERR  -> tx: -1.98240 m, ty: +4.22357 m, yaw: -1.24614 rad
---- Global pose ---
-  PRED ->  X: +2.48710,  Y: +9.57854, Yaw: -1.95301
-  GT   ->  X: +2.36700,  Y: +5.51500, Yaw: +0.64919
---- Keyframe state ---
-  Traj from kf: 0.1737 m, Rot from kf: 0.0813 rad -> Waiting for kf
 
-Sonar odometry:  65%|██████▌   | 97/149 [01:08<00:36,  1.44it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 147] | Status: OK
- LoFTR matches total: 36 | confidence: 0.720 | RANSAC Inliers: 36 (32.14%)
---- Local transformation ---
-  PRED -> tx: +0.11644 m, ty: -0.04157 m, yaw: -0.08200 rad
-  GT   -> tx: +2.15273 m, ty: -4.06966 m, yaw: +1.19014 rad
-  ERR  -> tx: -2.03628 m, ty: +4.02809 m, yaw: -1.27214 rad
---- Global pose ---
-  PRED ->  X: +2.36144,  Y: +9.64557, Yaw: -1.95372
-  GT   ->  X: +2.41800,  Y: +5.55000, Yaw: +0.67448
---- Keyframe state ---
-  Traj from kf: 0.1236 m, Rot from kf: 0.0820 rad -> Waiting for kf
+🟢 Frame Match: KF (13167) -> Curr (13168)
+Inliers: 160 | Tx: 0.01 | Ty: 0.05 | Theta: -0.29°
 
-Sonar odometry:  66%|██████▌   | 98/149 [01:09<00:35,  1.44it/s]
+Sonar odometry:  11%|█         | 33/299 [02:04<18:36,  4.20s/it]
 =======================================================================
- Frame matching: [(KF): 83 ---> Actual: 148] | Status: OK
- LoFTR matches total: 41 | confidence: 0.698 | RANSAC Inliers: 41 (37.61%)
+ Frame matching: [(KF): 13167 ---> Actual: 13168] | Status: OK
+ LoFTR matches total: 160 | confidence: 0.891 | RANSAC Inliers: 160 (94.12%)
 --- Local transformation ---
-  PRED -> tx: +0.11364 m, ty: +0.09509 m, yaw: -0.07997 rad
-  GT   -> tx: +2.19111 m, ty: -3.98123 m, yaw: +1.21356 rad
-  ERR  -> tx: -2.07748 m, ty: +4.07632 m, yaw: -1.29353 rad
+  PRED -> tx: +0.10947 m, ty: -0.00273 m, yaw: -0.00508 rad
+  GT   -> tx: +0.01064 m, ty: +0.04915 m, yaw: +0.01868 rad
+  ERR  -> tx: +0.09883 m, ty: -0.05188 m, yaw: -0.02376 rad
 --- Global pose ---
-  PRED ->  X: +2.49279,  Y: +9.60775, Yaw: -1.95169
-  GT   ->  X: +2.49500,  Y: +5.60800, Yaw: +0.69790
+  PRED ->  X: -24.86335,  Y: +2.91277, Yaw: -2.99166
+  GT   ->  X: -22.50693,  Y: +0.98425, Yaw: -2.90618
 --- Keyframe state ---
-  Traj from kf: 0.1482 m, Rot from kf: 0.0800 rad -> Waiting for kf
+  Traj from kf: 0.1095 m, Rot from kf: 0.0051 rad -> Actualisation (new kf)
 
-Sonar odometry:  66%|██████▋   | 99/149 [01:09<00:34,  1.44it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 149] | Status: OK
- LoFTR matches total: 29 | confidence: 0.715 | RANSAC Inliers: 29 (26.85%)
---- Local transformation ---
-  PRED -> tx: +0.13778 m, ty: +0.07970 m, yaw: -0.07842 rad
-  GT   -> tx: +2.23165 m, ty: -3.88239 m, yaw: +1.22619 rad
-  ERR  -> tx: -2.09386 m, ty: +3.96210 m, yaw: -1.30460 rad
---- Global pose ---
-  PRED ->  X: +2.47094,  Y: +9.58925, Yaw: -1.95014
-  GT   ->  X: +2.57900,  Y: +5.67400, Yaw: +0.71052
---- Keyframe state ---
-  Traj from kf: 0.1592 m, Rot from kf: 0.0784 rad -> Waiting for kf
 
-Sonar odometry:  67%|██████▋   | 100/149 [01:10<00:34,  1.44it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 150] | Status: OK
- LoFTR matches total: 19 | confidence: 0.728 | RANSAC Inliers: 19 (20.65%)
---- Local transformation ---
-  PRED -> tx: +0.07044 m, ty: -0.43370 m, yaw: -0.06749 rad
-  GT   -> tx: +2.28134 m, ty: -3.75307 m, yaw: +1.23695 rad
-  ERR  -> tx: -2.21090 m, ty: +3.31937 m, yaw: -1.30444 rad
---- Global pose ---
-  PRED ->  X: +2.00056,  Y: +9.80574, Yaw: -1.93921
-  GT   ->  X: +2.68600,  Y: +5.76200, Yaw: +0.72129
---- Keyframe state ---
-  Traj from kf: 0.4394 m, Rot from kf: 0.0675 rad -> Waiting for kf
+🟢 Frame Match: KF (13168) -> Curr (13169)
+Inliers: 143 | Tx: -0.00 | Ty: 0.04 | Theta: -0.20°
 
-Sonar odometry:  68%|██████▊   | 101/149 [01:11<00:33,  1.44it/s]
-=======================================================================
- Frame matching: [(KF): 83 ---> Actual: 151] | Status: OK
- LoFTR matches total: 17 | confidence: 0.745 | RANSAC Inliers: 17 (20.73%)
---- Local transformation ---
-  PRED -> tx: -1.72556 m, ty: -2.51445 m, yaw: -0.07706 rad
-  GT   -> tx: +2.33393 m, ty: -3.61062 m, yaw: +1.25032 rad
-  ERR  -> tx: -4.05949 m, ty: +1.09616 m, yaw: -1.32738 rad
---- Global pose ---
-  PRED ->  X: +0.54566,  Y: +12.13778, Yaw: -1.94878
-  GT   ->  X: +2.80200,  Y: +5.86000, Yaw: +0.73466
---- Keyframe state ---
-  Traj from kf: 3.0496 m, Rot from kf: 0.0771 rad -> Actualisation (new kf)
 
-Sonar odometry:  68%|██████▊   | 102/149 [01:11<00:33,  1.41it/s]
 =======================================================================
- Frame matching: [(KF): 151 ---> Actual: 152] | Status: OK
- LoFTR matches total: 1871 | confidence: 0.750 | RANSAC Inliers: 1871 (100.00%)
+ Frame matching: [(KF): 13168 ---> Actual: 13169] | Status: OK
+ LoFTR matches total: 143 | confidence: 0.909 | RANSAC Inliers: 143 (88.82%)
 --- Local transformation ---
-  PRED -> tx: +1.66976 m, ty: +2.33879 m, yaw: -0.01677 rad
-  GT   -> tx: +0.17794 m, ty: -0.00442 m, yaw: +0.01450 rad
-  ERR  -> tx: +1.49183 m, ty: +2.34320 m, yaw: -0.03126 rad
+  PRED -> tx: +0.02601 m, ty: +0.02259 m, yaw: -0.00343 rad
+  GT   -> tx: +0.01136 m, ty: +0.04810 m, yaw: +0.01836 rad
+  ERR  -> tx: +0.01465 m, ty: -0.02551 m, yaw: -0.02178 rad
 --- Global pose ---
-  PRED ->  X: +2.10312,  Y: +9.72275, Yaw: -1.96555
-  GT   ->  X: +2.93700,  Y: +5.97600, Yaw: +0.74915
+  PRED ->  X: -24.88570,  Y: +2.88655, Yaw: -2.99508
+  GT   ->  X: -22.50676,  Y: +0.93483, Yaw: -2.88783
 --- Keyframe state ---
-  Traj from kf: 2.8737 m, Rot from kf: 0.0168 rad -> Actualisation (new kf)
+  Traj from kf: 0.0344 m, Rot from kf: 0.0034 rad -> Actualisation (new kf)
 
-Sonar odometry:  69%|██████▉   | 103/149 [01:12<00:33,  1.35it/s]
-=======================================================================
- Frame matching: [(KF): 152 ---> Actual: 153] | Status: OK
- LoFTR matches total: 2443 | confidence: 0.962 | RANSAC Inliers: 2443 (100.00%)
---- Local transformation ---
-  PRED -> tx: -0.13891 m, ty: -0.18589 m, yaw: +0.04874 rad
-  GT   -> tx: +0.17493 m, ty: -0.00427 m, yaw: +0.01967 rad
-  ERR  -> tx: -0.31383 m, ty: -0.18161 m, yaw: +0.02907 rad
---- Global pose ---
-  PRED ->  X: +1.98496,  Y: +9.92246, Yaw: -1.91681
-  GT   ->  X: +3.06800,  Y: +6.09200, Yaw: +0.76882
---- Keyframe state ---
-  Traj from kf: 0.2321 m, Rot from kf: 0.0487 rad -> Waiting for kf
+Sonar odometry:  11%|█▏        | 34/299 [02:09<18:45,  4.25s/it]
+🟢 Frame Match: KF (13169) -> Curr (13170)
+Inliers: 146 | Tx: -0.02 | Ty: 0.05 | Theta: -0.22°
 
-Sonar odometry:  70%|██████▉   | 104/149 [01:13<00:34,  1.32it/s]
+Sonar odometry:  12%|█▏        | 35/299 [02:13<18:34,  4.22s/it]
 =======================================================================
- Frame matching: [(KF): 152 ---> Actual: 154] | Status: OK
- LoFTR matches total: 2018 | confidence: 0.838 | RANSAC Inliers: 2018 (99.41%)
+ Frame matching: [(KF): 13169 ---> Actual: 13170] | Status: OK
+ LoFTR matches total: 146 | confidence: 0.879 | RANSAC Inliers: 146 (83.43%)
 --- Local transformation ---
-  PRED -> tx: -1.35343 m, ty: -1.61996 m, yaw: +0.07827 rad
-  GT   -> tx: +0.38513 m, ty: -0.00585 m, yaw: +0.04304 rad
-  ERR  -> tx: -1.73856 m, ty: -1.61412 m, yaw: +0.03522 rad
+  PRED -> tx: +0.04553 m, ty: +0.01692 m, yaw: -0.00389 rad
+  GT   -> tx: +0.01360 m, ty: +0.05320 m, yaw: +0.02040 rad
+  ERR  -> tx: +0.03193 m, ty: -0.03628 m, yaw: -0.02429 rad
 --- Global pose ---
-  PRED ->  X: +1.12825,  Y: +11.59510, Yaw: -1.88728
-  GT   ->  X: +3.22300,  Y: +6.23400, Yaw: +0.79220
+  PRED ->  X: -24.92827,  Y: +2.86317, Yaw: -2.99897
+  GT   ->  X: -22.50657,  Y: +0.87992, Yaw: -2.86743
 --- Keyframe state ---
-  Traj from kf: 2.1109 m, Rot from kf: 0.0783 rad -> Actualisation (new kf)
+  Traj from kf: 0.0486 m, Rot from kf: 0.0039 rad -> Actualisation (new kf)
 
-Sonar odometry:  70%|███████   | 105/149 [01:14<00:34,  1.26it/s]
-=======================================================================
- Frame matching: [(KF): 154 ---> Actual: 155] | Status: OK
- LoFTR matches total: 2318 | confidence: 0.867 | RANSAC Inliers: 2318 (100.00%)
---- Local transformation ---
-  PRED -> tx: +0.08414 m, ty: +0.01309 m, yaw: -0.00818 rad
-  GT   -> tx: +0.19300 m, ty: -0.00626 m, yaw: +0.02678 rad
-  ERR  -> tx: -0.10886 m, ty: +0.01935 m, yaw: -0.03496 rad
---- Global pose ---
-  PRED ->  X: +1.11450,  Y: +11.51106, Yaw: -1.89547
-  GT   ->  X: +3.36300,  Y: +6.36700, Yaw: +0.81898
---- Keyframe state ---
-  Traj from kf: 0.0852 m, Rot from kf: 0.0082 rad -> Waiting for kf
 
-Sonar odometry:  71%|███████   | 106/149 [01:15<00:34,  1.23it/s]
-=======================================================================
- Frame matching: [(KF): 154 ---> Actual: 156] | Status: OK
- LoFTR matches total: 1967 | confidence: 0.839 | RANSAC Inliers: 1967 (98.45%)
---- Local transformation ---
-  PRED -> tx: +0.40197 m, ty: -0.01304 m, yaw: +0.03173 rad
-  GT   -> tx: +0.41290 m, ty: -0.00846 m, yaw: +0.05726 rad
-  ERR  -> tx: -0.01093 m, ty: -0.00457 m, yaw: -0.02553 rad
---- Global pose ---
-  PRED ->  X: +0.99076,  Y: +11.21715, Yaw: -1.85555
-  GT   ->  X: +3.51900,  Y: +6.52200, Yaw: +0.84946
---- Keyframe state ---
-  Traj from kf: 0.4022 m, Rot from kf: 0.0317 rad -> Waiting for kf
+🟢 Frame Match: KF (13170) -> Curr (13171)
+Inliers: 117 | Tx: 0.01 | Ty: 0.04 | Theta: -0.66°
 
-Sonar odometry:  72%|███████▏  | 107/149 [01:16<00:34,  1.21it/s]
+Sonar odometry:  12%|█▏        | 36/299 [02:17<18:27,  4.21s/it]
 =======================================================================
- Frame matching: [(KF): 154 ---> Actual: 157] | Status: OK
- LoFTR matches total: 1848 | confidence: 0.808 | RANSAC Inliers: 1848 (96.45%)
+ Frame matching: [(KF): 13170 ---> Actual: 13171] | Status: OK
+ LoFTR matches total: 117 | confidence: 0.867 | RANSAC Inliers: 117 (70.06%)
 --- Local transformation ---
-  PRED -> tx: +0.47926 m, ty: -0.00295 m, yaw: +0.04543 rad
-  GT   -> tx: +0.63003 m, ty: -0.00216 m, yaw: +0.17540 rad
-  ERR  -> tx: -0.15077 m, ty: -0.00079 m, yaw: -0.12998 rad
+  PRED -> tx: +0.07541 m, ty: +0.05898 m, yaw: -0.01155 rad
+  GT   -> tx: +0.01262 m, ty: +0.03926 m, yaw: +0.00139 rad
+  ERR  -> tx: +0.06279 m, ty: +0.01972 m, yaw: -0.01294 rad
 --- Global pose ---
-  PRED ->  X: +0.97629,  Y: +11.14056, Yaw: -1.84186
-  GT   ->  X: +3.66700,  Y: +6.68100, Yaw: +0.96760
+  PRED ->  X: -24.99453,  Y: +2.79408, Yaw: -3.01052
+  GT   ->  X: -22.50809,  Y: +0.83871, Yaw: -2.86604
 --- Keyframe state ---
-  Traj from kf: 0.4793 m, Rot from kf: 0.0454 rad -> Waiting for kf
+  Traj from kf: 0.0957 m, Rot from kf: 0.0116 rad -> Actualisation (new kf)
 
-Sonar odometry:  72%|███████▏  | 108/149 [01:16<00:33,  1.21it/s]
-=======================================================================
- Frame matching: [(KF): 154 ---> Actual: 158] | Status: OK
- LoFTR matches total: 1518 | confidence: 0.799 | RANSAC Inliers: 1518 (96.56%)
---- Local transformation ---
-  PRED -> tx: +0.75242 m, ty: -0.00755 m, yaw: +0.18091 rad
-  GT   -> tx: +0.82604 m, ty: +0.01843 m, yaw: +0.27581 rad
-  ERR  -> tx: -0.07362 m, ty: -0.02598 m, yaw: -0.09491 rad
---- Global pose ---
-  PRED ->  X: +0.88690,  Y: +10.88240, Yaw: -1.70638
-  GT   ->  X: +3.79000,  Y: +6.83500, Yaw: +1.06801
---- Keyframe state ---
-  Traj from kf: 0.7525 m, Rot from kf: 0.1809 rad -> Actualisation (new kf)
 
-Sonar odometry:  73%|███████▎  | 109/149 [01:17<00:32,  1.21it/s]
-=======================================================================
- Frame matching: [(KF): 158 ---> Actual: 159] | Status: OK
- LoFTR matches total: 1950 | confidence: 0.824 | RANSAC Inliers: 1950 (97.74%)
---- Local transformation ---
-  PRED -> tx: +0.02276 m, ty: +0.00309 m, yaw: +0.05217 rad
-  GT   -> tx: +0.15767 m, ty: -0.01486 m, yaw: +0.04916 rad
-  ERR  -> tx: -0.13491 m, ty: +0.01795 m, yaw: +0.00301 rad
---- Global pose ---
-  PRED ->  X: +0.88688,  Y: +10.85943, Yaw: -1.65421
-  GT   ->  X: +3.87900,  Y: +6.96600, Yaw: +1.11717
---- Keyframe state ---
-  Traj from kf: 0.0230 m, Rot from kf: 0.0522 rad -> Waiting for kf
+🟢 Frame Match: KF (13171) -> Curr (13172)
+Inliers: 155 | Tx: 0.01 | Ty: 0.04 | Theta: -0.34°
 
-Sonar odometry:  74%|███████▍  | 110/149 [01:18<00:32,  1.22it/s]
+Sonar odometry:  12%|█▏        | 37/299 [02:21<18:15,  4.18s/it]
 =======================================================================
- Frame matching: [(KF): 158 ---> Actual: 160] | Status: OK
- LoFTR matches total: 1699 | confidence: 0.819 | RANSAC Inliers: 1699 (94.76%)
+ Frame matching: [(KF): 13171 ---> Actual: 13172] | Status: OK
+ LoFTR matches total: 155 | confidence: 0.883 | RANSAC Inliers: 155 (91.18%)
 --- Local transformation ---
-  PRED -> tx: +0.44762 m, ty: +0.01912 m, yaw: +0.14302 rad
-  GT   -> tx: +0.32911 m, ty: -0.01531 m, yaw: +0.08243 rad
-  ERR  -> tx: +0.11851 m, ty: +0.03443 m, yaw: +0.06059 rad
+  PRED -> tx: +0.05435 m, ty: -0.00802 m, yaw: -0.00588 rad
+  GT   -> tx: +0.01181 m, ty: +0.03611 m, yaw: +0.00102 rad
+  ERR  -> tx: +0.04254 m, ty: -0.04413 m, yaw: -0.00689 rad
 --- Global pose ---
-  PRED ->  X: +0.84533,  Y: +10.43630, Yaw: -1.56336
-  GT   ->  X: +3.96200,  Y: +7.11600, Yaw: +1.15044
+  PRED ->  X: -25.04946,  Y: +2.79493, Yaw: -3.01640
+  GT   ->  X: -22.50962,  Y: +0.80075, Yaw: -2.86502
 --- Keyframe state ---
-  Traj from kf: 0.4480 m, Rot from kf: 0.1430 rad -> Waiting for kf
+  Traj from kf: 0.0549 m, Rot from kf: 0.0059 rad -> Actualisation (new kf)
 
-Sonar odometry:  74%|███████▍  | 111/149 [01:19<00:31,  1.22it/s]
-=======================================================================
- Frame matching: [(KF): 158 ---> Actual: 161] | Status: OK
- LoFTR matches total: 1653 | confidence: 0.823 | RANSAC Inliers: 1653 (93.28%)
---- Local transformation ---
-  PRED -> tx: +0.51282 m, ty: +0.01171 m, yaw: +0.16624 rad
-  GT   -> tx: +0.48415 m, ty: -0.00879 m, yaw: +0.07524 rad
-  ERR  -> tx: +0.02867 m, ty: +0.02050 m, yaw: +0.09100 rad
---- Global pose ---
-  PRED ->  X: +0.82918,  Y: +10.37270, Yaw: -1.54014
-  GT   ->  X: +4.03100,  Y: +7.25500, Yaw: +1.14325
---- Keyframe state ---
-  Traj from kf: 0.5130 m, Rot from kf: 0.1662 rad -> Actualisation (new kf)
 
-Sonar odometry:  75%|███████▌  | 112/149 [01:20<00:30,  1.20it/s]
-=======================================================================
- Frame matching: [(KF): 161 ---> Actual: 162] | Status: OK
- LoFTR matches total: 2360 | confidence: 0.974 | RANSAC Inliers: 2360 (99.08%)
---- Local transformation ---
-  PRED -> tx: +0.30748 m, ty: -0.01925 m, yaw: +0.00728 rad
-  GT   -> tx: +0.18158 m, ty: -0.00298 m, yaw: -0.01612 rad
-  ERR  -> tx: +0.12590 m, ty: -0.01627 m, yaw: +0.02340 rad
---- Global pose ---
-  PRED ->  X: +0.81936,  Y: +10.06478, Yaw: -1.53286
-  GT   ->  X: +4.10900,  Y: +7.41900, Yaw: +1.12713
---- Keyframe state ---
-  Traj from kf: 0.3081 m, Rot from kf: 0.0073 rad -> Waiting for kf
+🟢 Frame Match: KF (13172) -> Curr (13173)
+Inliers: 164 | Tx: -0.00 | Ty: 0.05 | Theta: 0.03°
 
-Sonar odometry:  76%|███████▌  | 113/149 [01:21<00:30,  1.19it/s]
-=======================================================================
- Frame matching: [(KF): 161 ---> Actual: 163] | Status: OK
- LoFTR matches total: 2340 | confidence: 0.931 | RANSAC Inliers: 2340 (99.11%)
---- Local transformation ---
-  PRED -> tx: +0.38575 m, ty: -0.02935 m, yaw: +0.00207 rad
-  GT   -> tx: +0.37077 m, ty: -0.00578 m, yaw: -0.03775 rad
-  ERR  -> tx: +0.01498 m, ty: -0.02357 m, yaw: +0.03982 rad
---- Global pose ---
-  PRED ->  X: +0.81167,  Y: +9.98623, Yaw: -1.53807
-  GT   ->  X: +4.19000,  Y: +7.59000, Yaw: +1.10550
---- Keyframe state ---
-  Traj from kf: 0.3869 m, Rot from kf: 0.0021 rad -> Waiting for kf
 
-Sonar odometry:  77%|███████▋  | 114/149 [01:21<00:29,  1.19it/s]
 =======================================================================
- Frame matching: [(KF): 161 ---> Actual: 164] | Status: OK
- LoFTR matches total: 1994 | confidence: 0.840 | RANSAC Inliers: 1994 (98.37%)
+ Frame matching: [(KF): 13172 ---> Actual: 13173] | Status: OK
+ LoFTR matches total: 164 | confidence: 0.922 | RANSAC Inliers: 164 (90.61%)
 --- Local transformation ---
-  PRED -> tx: +0.70506 m, ty: -0.02152 m, yaw: -0.02915 rad
-  GT   -> tx: +0.58538 m, ty: -0.01130 m, yaw: -0.05834 rad
-  ERR  -> tx: +0.11968 m, ty: -0.01022 m, yaw: +0.02919 rad
+  PRED -> tx: +0.05073 m, ty: +0.01640 m, yaw: +0.00058 rad
+  GT   -> tx: +0.01434 m, ty: +0.04370 m, yaw: -0.00717 rad
+  ERR  -> tx: +0.03640 m, ty: -0.02730 m, yaw: +0.00775 rad
 --- Global pose ---
-  PRED ->  X: +0.82929,  Y: +9.66731, Yaw: -1.56929
-  GT   ->  X: +4.28400,  Y: +7.78300, Yaw: +1.08491
+  PRED ->  X: -25.09775,  Y: +2.77232, Yaw: -3.01582
+  GT   ->  X: -22.51149,  Y: +0.75479, Yaw: -2.87220
 --- Keyframe state ---
-  Traj from kf: 0.7054 m, Rot from kf: 0.0292 rad -> Actualisation (new kf)
+  Traj from kf: 0.0533 m, Rot from kf: 0.0006 rad -> Actualisation (new kf)
 
-Sonar odometry:  77%|███████▋  | 115/149 [01:22<00:28,  1.18it/s]
-=======================================================================
- Frame matching: [(KF): 164 ---> Actual: 165] | Status: OK
- LoFTR matches total: 2506 | confidence: 0.893 | RANSAC Inliers: 2506 (100.00%)
---- Local transformation ---
-  PRED -> tx: +0.09799 m, ty: -0.00197 m, yaw: -0.01353 rad
-  GT   -> tx: +0.20702 m, ty: +0.00416 m, yaw: -0.01884 rad
-  ERR  -> tx: -0.10903 m, ty: -0.00613 m, yaw: +0.00531 rad
---- Global pose ---
-  PRED ->  X: +0.82746,  Y: +9.56933, Yaw: -1.58282
-  GT   ->  X: +4.37700,  Y: +7.96800, Yaw: +1.06606
---- Keyframe state ---
-  Traj from kf: 0.0980 m, Rot from kf: 0.0135 rad -> Waiting for kf
+Sonar odometry:  13%|█▎        | 38/299 [02:25<18:02,  4.15s/it]
+🟢 Frame Match: KF (13173) -> Curr (13174)
+Inliers: 164 | Tx: -0.01 | Ty: 0.04 | Theta: 0.06°
 
-Sonar odometry:  78%|███████▊  | 116/149 [01:23<00:28,  1.18it/s]
+Sonar odometry:  13%|█▎        | 39/299 [02:29<18:00,  4.15s/it]
 =======================================================================
- Frame matching: [(KF): 164 ---> Actual: 166] | Status: OK
- LoFTR matches total: 2153 | confidence: 0.845 | RANSAC Inliers: 2153 (98.90%)
+ Frame matching: [(KF): 13173 ---> Actual: 13174] | Status: OK
+ LoFTR matches total: 164 | confidence: 0.918 | RANSAC Inliers: 164 (96.47%)
 --- Local transformation ---
-  PRED -> tx: +0.42181 m, ty: -0.00286 m, yaw: -0.04385 rad
-  GT   -> tx: +0.55996 m, ty: +0.00396 m, yaw: -0.05109 rad
-  ERR  -> tx: -0.13815 m, ty: -0.00682 m, yaw: +0.00723 rad
+  PRED -> tx: +0.03301 m, ty: +0.00910 m, yaw: +0.00104 rad
+  GT   -> tx: +0.01179 m, ty: +0.03682 m, yaw: -0.00262 rad
+  ERR  -> tx: +0.02122 m, ty: -0.02771 m, yaw: +0.00366 rad
 --- Global pose ---
-  PRED ->  X: +0.82706,  Y: +9.24550, Yaw: -1.61315
-  GT   ->  X: +4.54200,  Y: +8.28000, Yaw: +1.03382
+  PRED ->  X: -25.12936,  Y: +2.75915, Yaw: -3.01478
+  GT   ->  X: -22.51305,  Y: +0.71617, Yaw: -2.87482
 --- Keyframe state ---
-  Traj from kf: 0.4218 m, Rot from kf: 0.0439 rad -> Waiting for kf
+  Traj from kf: 0.0342 m, Rot from kf: 0.0010 rad -> Actualisation (new kf)
 
-Sonar odometry:  79%|███████▊  | 117/149 [01:24<00:27,  1.17it/s]
-=======================================================================
- Frame matching: [(KF): 164 ---> Actual: 167] | Status: OK
- LoFTR matches total: 1964 | confidence: 0.819 | RANSAC Inliers: 1964 (95.95%)
---- Local transformation ---
-  PRED -> tx: +0.77868 m, ty: -0.02597 m, yaw: -0.07528 rad
-  GT   -> tx: +0.80700 m, ty: -0.00128 m, yaw: -0.07442 rad
-  ERR  -> tx: -0.02832 m, ty: -0.02468 m, yaw: -0.00086 rad
---- Global pose ---
-  PRED ->  X: +0.80449,  Y: +8.88860, Yaw: -1.64457
-  GT   ->  X: +4.66200,  Y: +8.49600, Yaw: +1.01049
---- Keyframe state ---
-  Traj from kf: 0.7791 m, Rot from kf: 0.0753 rad -> Actualisation (new kf)
 
-Sonar odometry:  79%|███████▉  | 118/149 [01:25<00:26,  1.17it/s]
-=======================================================================
- Frame matching: [(KF): 167 ---> Actual: 168] | Status: OK
- LoFTR matches total: 2364 | confidence: 0.845 | RANSAC Inliers: 2364 (100.00%)
---- Local transformation ---
-  PRED -> tx: +0.09526 m, ty: -0.00840 m, yaw: -0.01015 rad
-  GT   -> tx: +0.24103 m, ty: +0.00720 m, yaw: -0.02955 rad
-  ERR  -> tx: -0.14577 m, ty: -0.01559 m, yaw: +0.01939 rad
---- Global pose ---
-  PRED ->  X: +0.78910,  Y: +8.79421, Yaw: -1.65472
-  GT   ->  X: +4.78400,  Y: +8.70400, Yaw: +0.98094
---- Keyframe state ---
-  Traj from kf: 0.0956 m, Rot from kf: 0.0102 rad -> Waiting for kf
+🟢 Frame Match: KF (13174) -> Curr (13175)
+Inliers: 177 | Tx: -0.01 | Ty: 0.04 | Theta: -0.04°
 
-Sonar odometry:  80%|███████▉  | 119/149 [01:26<00:25,  1.17it/s]
+Sonar odometry:  13%|█▎        | 40/299 [02:33<17:51,  4.14s/it]
 =======================================================================
- Frame matching: [(KF): 167 ---> Actual: 169] | Status: OK
- LoFTR matches total: 2065 | confidence: 0.836 | RANSAC Inliers: 2065 (98.15%)
+ Frame matching: [(KF): 13174 ---> Actual: 13175] | Status: OK
+ LoFTR matches total: 177 | confidence: 0.923 | RANSAC Inliers: 177 (95.16%)
 --- Local transformation ---
-  PRED -> tx: +0.48669 m, ty: +0.00045 m, yaw: -0.05271 rad
-  GT   -> tx: +0.49744 m, ty: +0.00869 m, yaw: -0.06176 rad
-  ERR  -> tx: -0.01075 m, ty: -0.00824 m, yaw: +0.00905 rad
+  PRED -> tx: +0.03472 m, ty: +0.00606 m, yaw: -0.00071 rad
+  GT   -> tx: +0.01156 m, ty: +0.03643 m, yaw: -0.00262 rad
+  ERR  -> tx: +0.02316 m, ty: -0.03036 m, yaw: +0.00191 rad
 --- Global pose ---
-  PRED ->  X: +0.76907,  Y: +8.40320, Yaw: -1.69728
-  GT   ->  X: +4.91900,  Y: +8.92200, Yaw: +0.94872
+  PRED ->  X: -25.16303,  Y: +2.74875, Yaw: -3.01549
+  GT   ->  X: -22.51460,  Y: +0.67798, Yaw: -2.87743
 --- Keyframe state ---
-  Traj from kf: 0.4867 m, Rot from kf: 0.0527 rad -> Waiting for kf
+  Traj from kf: 0.0352 m, Rot from kf: 0.0007 rad -> Actualisation (new kf)
 
-Sonar odometry:  81%|████████  | 120/149 [01:27<00:25,  1.14it/s]
-=======================================================================
- Frame matching: [(KF): 167 ---> Actual: 170] | Status: OK
- LoFTR matches total: 1985 | confidence: 0.833 | RANSAC Inliers: 1985 (97.26%)
---- Local transformation ---
-  PRED -> tx: +0.58233 m, ty: +0.00498 m, yaw: -0.06832 rad
-  GT   -> tx: +0.73510 m, ty: +0.00433 m, yaw: -0.09208 rad
-  ERR  -> tx: -0.15277 m, ty: +0.00065 m, yaw: +0.02376 rad
---- Global pose ---
-  PRED ->  X: +0.76654,  Y: +8.30748, Yaw: -1.71289
-  GT   ->  X: +5.04900,  Y: +9.12100, Yaw: +0.91841
---- Keyframe state ---
-  Traj from kf: 0.5824 m, Rot from kf: 0.0683 rad -> Waiting for kf
 
-Sonar odometry:  81%|████████  | 121/149 [01:28<00:26,  1.07it/s]
-=======================================================================
- Frame matching: [(KF): 167 ---> Actual: 171] | Status: OK
- LoFTR matches total: 1861 | confidence: 0.833 | RANSAC Inliers: 1861 (93.71%)
---- Local transformation ---
-  PRED -> tx: +0.97150 m, ty: +0.00079 m, yaw: -0.11367 rad
-  GT   -> tx: +1.01274 m, ty: -0.00919 m, yaw: -0.12607 rad
-  ERR  -> tx: -0.04124 m, ty: +0.00998 m, yaw: +0.01241 rad
---- Global pose ---
-  PRED ->  X: +0.73367,  Y: +7.91968, Yaw: -1.75823
-  GT   ->  X: +5.20800,  Y: +9.34900, Yaw: +0.88442
---- Keyframe state ---
-  Traj from kf: 0.9715 m, Rot from kf: 0.1137 rad -> Actualisation (new kf)
+🟢 Frame Match: KF (13175) -> Curr (13176)
+Inliers: 151 | Tx: -0.00 | Ty: 0.05 | Theta: -0.01°
 
-Sonar odometry:  82%|████████▏ | 122/149 [01:29<00:25,  1.06it/s]
+Sonar odometry:  14%|█▎        | 41/299 [02:37<17:39,  4.11s/it]
 =======================================================================
- Frame matching: [(KF): 171 ---> Actual: 172] | Status: OK
- LoFTR matches total: 1996 | confidence: 0.770 | RANSAC Inliers: 1996 (100.00%)
+ Frame matching: [(KF): 13175 ---> Actual: 13176] | Status: OK
+ LoFTR matches total: 151 | confidence: 0.927 | RANSAC Inliers: 151 (87.28%)
 --- Local transformation ---
-  PRED -> tx: +0.12954 m, ty: +0.02626 m, yaw: -0.01520 rad
-  GT   -> tx: +0.24555 m, ty: +0.01114 m, yaw: -0.02866 rad
-  ERR  -> tx: -0.11600 m, ty: +0.01513 m, yaw: +0.01346 rad
+  PRED -> tx: +0.02623 m, ty: +0.00163 m, yaw: -0.00019 rad
+  GT   -> tx: +0.01349 m, ty: +0.03841 m, yaw: +0.00037 rad
+  ERR  -> tx: +0.01274 m, ty: -0.03679 m, yaw: -0.00056 rad
 --- Global pose ---
-  PRED ->  X: +0.73534,  Y: +7.78751, Yaw: -1.77343
-  GT   ->  X: +5.35500,  Y: +9.54600, Yaw: +0.85575
+  PRED ->  X: -25.18885,  Y: +2.74383, Yaw: -3.01568
+  GT   ->  X: -22.51759,  Y: +0.63738, Yaw: -2.87707
 --- Keyframe state ---
-  Traj from kf: 0.1322 m, Rot from kf: 0.0152 rad -> Waiting for kf
+  Traj from kf: 0.0263 m, Rot from kf: 0.0002 rad -> Actualisation (new kf)
 
-Sonar odometry:  83%|████████▎ | 123/149 [01:30<00:24,  1.06it/s]
-=======================================================================
- Frame matching: [(KF): 171 ---> Actual: 173] | Status: OK
- LoFTR matches total: 2043 | confidence: 0.842 | RANSAC Inliers: 2043 (98.17%)
---- Local transformation ---
-  PRED -> tx: +0.49728 m, ty: +0.02427 m, yaw: -0.06148 rad
-  GT   -> tx: +0.51756 m, ty: +0.01680 m, yaw: -0.06091 rad
-  ERR  -> tx: -0.02028 m, ty: +0.00747 m, yaw: -0.00057 rad
---- Global pose ---
-  PRED ->  X: +0.66485,  Y: +7.42659, Yaw: -1.81971
-  GT   ->  X: +5.52300,  Y: +9.76000, Yaw: +0.82350
---- Keyframe state ---
-  Traj from kf: 0.4979 m, Rot from kf: 0.0615 rad -> Waiting for kf
 
-Sonar odometry:  83%|████████▎ | 124/149 [01:31<00:24,  1.03it/s]
-=======================================================================
- Frame matching: [(KF): 171 ---> Actual: 174] | Status: OK
- LoFTR matches total: 1952 | confidence: 0.827 | RANSAC Inliers: 1952 (96.59%)
---- Local transformation ---
-  PRED -> tx: +0.64403 m, ty: +0.01993 m, yaw: -0.07668 rad
-  GT   -> tx: +0.78014 m, ty: +0.01345 m, yaw: -0.09137 rad
-  ERR  -> tx: -0.13612 m, ty: +0.00648 m, yaw: +0.01469 rad
---- Global pose ---
-  PRED ->  X: +0.63325,  Y: +7.28322, Yaw: -1.83491
-  GT   ->  X: +5.69200,  Y: +9.96100, Yaw: +0.79305
---- Keyframe state ---
-  Traj from kf: 0.6443 m, Rot from kf: 0.0767 rad -> Actualisation (new kf)
+🟢 Frame Match: KF (13176) -> Curr (13177)
+Inliers: 140 | Tx: -0.01 | Ty: 0.04 | Theta: -0.03°
 
-Sonar odometry:  84%|████████▍ | 125/149 [01:32<00:23,  1.03it/s]
-=======================================================================
- Frame matching: [(KF): 174 ---> Actual: 175] | Status: OK
- LoFTR matches total: 2184 | confidence: 0.847 | RANSAC Inliers: 2184 (98.91%)
---- Local transformation ---
-  PRED -> tx: +0.39655 m, ty: +0.00739 m, yaw: -0.04634 rad
-  GT   -> tx: +0.27871 m, ty: +0.01342 m, yaw: -0.03051 rad
-  ERR  -> tx: +0.11784 m, ty: -0.00603 m, yaw: -0.01584 rad
---- Global pose ---
-  PRED ->  X: +0.53686,  Y: +6.89849, Yaw: -1.88125
-  GT   ->  X: +5.87800,  Y: +10.16900, Yaw: +0.76255
---- Keyframe state ---
-  Traj from kf: 0.3966 m, Rot from kf: 0.0463 rad -> Waiting for kf
 
-Sonar odometry:  85%|████████▍ | 126/149 [01:33<00:21,  1.07it/s]
 =======================================================================
- Frame matching: [(KF): 174 ---> Actual: 176] | Status: OK
- LoFTR matches total: 2100 | confidence: 0.833 | RANSAC Inliers: 2100 (97.04%)
+ Frame matching: [(KF): 13176 ---> Actual: 13177] | Status: OK
+ LoFTR matches total: 140 | confidence: 0.917 | RANSAC Inliers: 140 (92.11%)
 --- Local transformation ---
-  PRED -> tx: +0.54053 m, ty: +0.01451 m, yaw: -0.06087 rad
-  GT   -> tx: +0.56090 m, ty: +0.01904 m, yaw: -0.06288 rad
-  ERR  -> tx: -0.02037 m, ty: -0.00453 m, yaw: +0.00202 rad
+  PRED -> tx: +0.03482 m, ty: +0.00877 m, yaw: -0.00049 rad
+  GT   -> tx: +0.01160 m, ty: +0.02877 m, yaw: +0.00018 rad
+  ERR  -> tx: +0.02322 m, ty: -0.02000 m, yaw: -0.00067 rad
 --- Global pose ---
-  PRED ->  X: +0.50614,  Y: +6.75764, Yaw: -1.89578
-  GT   ->  X: +6.07200,  Y: +10.37400, Yaw: +0.73017
+  PRED ->  X: -25.22230,  Y: +2.73076, Yaw: -3.01618
+  GT   ->  X: -22.52127,  Y: +0.60658, Yaw: -2.87688
 --- Keyframe state ---
-  Traj from kf: 0.5407 m, Rot from kf: 0.0609 rad -> Waiting for kf
+  Traj from kf: 0.0359 m, Rot from kf: 0.0005 rad -> Actualisation (new kf)
+
+Sonar odometry:  14%|█▍        | 42/299 [02:41<17:24,  4.07s/it]
+🟢 Frame Match: KF (13177) -> Curr (13178)
+Inliers: 150 | Tx: -0.01 | Ty: 0.03 | Theta: -0.01°
 
-Sonar odometry:  85%|████████▌ | 127/149 [01:33<00:20,  1.10it/s]
+Sonar odometry:  14%|█▍        | 43/299 [02:46<17:40,  4.14s/it]
 =======================================================================
- Frame matching: [(KF): 174 ---> Actual: 177] | Status: OK
- LoFTR matches total: 1951 | confidence: 0.823 | RANSAC Inliers: 1951 (95.87%)
+ Frame matching: [(KF): 13177 ---> Actual: 13178] | Status: OK
+ LoFTR matches total: 150 | confidence: 0.931 | RANSAC Inliers: 150 (93.17%)
 --- Local transformation ---
-  PRED -> tx: +0.94683 m, ty: -0.00327 m, yaw: -0.10899 rad
-  GT   -> tx: +0.84725 m, ty: +0.01473 m, yaw: -0.09513 rad
-  ERR  -> tx: +0.09958 m, ty: -0.01800 m, yaw: -0.01386 rad
+  PRED -> tx: +0.00594 m, ty: -0.00125 m, yaw: -0.00020 rad
+  GT   -> tx: +0.01141 m, ty: +0.02827 m, yaw: +0.00203 rad
+  ERR  -> tx: -0.00546 m, ty: -0.02953 m, yaw: -0.00223 rad
 --- Global pose ---
-  PRED ->  X: +0.38291,  Y: +6.37007, Yaw: -1.94390
-  GT   ->  X: +6.27600,  Y: +10.57500, Yaw: +0.69792
+  PRED ->  X: -25.22835,  Y: +2.73126, Yaw: -3.01638
+  GT   ->  X: -22.52488,  Y: +0.57631, Yaw: -2.87486
 --- Keyframe state ---
-  Traj from kf: 0.9468 m, Rot from kf: 0.1090 rad -> Actualisation (new kf)
+  Traj from kf: 0.0061 m, Rot from kf: 0.0002 rad -> Actualisation (new kf)
 
-Sonar odometry:  86%|████████▌ | 128/149 [01:34<00:18,  1.11it/s]
+
+🟢 Frame Match: KF (13178) -> Curr (13179)
+Inliers: 162 | Tx: -0.02 | Ty: 0.02 | Theta: -0.00°
+
+Sonar odometry:  15%|█▍        | 44/299 [02:50<17:30,  4.12s/it]
 =======================================================================
- Frame matching: [(KF): 177 ---> Actual: 178] | Status: OK
- LoFTR matches total: 2062 | confidence: 0.781 | RANSAC Inliers: 2062 (99.95%)
+ Frame matching: [(KF): 13178 ---> Actual: 13179] | Status: OK
+ LoFTR matches total: 162 | confidence: 0.900 | RANSAC Inliers: 162 (94.19%)
 --- Local transformation ---
-  PRED -> tx: +0.12808 m, ty: +0.00874 m, yaw: -0.01457 rad
-  GT   -> tx: +0.26495 m, ty: +0.01401 m, yaw: -0.02715 rad
-  ERR  -> tx: -0.13688 m, ty: -0.00527 m, yaw: +0.01258 rad
+  PRED -> tx: +0.02229 m, ty: +0.00521 m, yaw: -0.00002 rad
+  GT   -> tx: +0.01166 m, ty: +0.02874 m, yaw: -0.00092 rad
+  ERR  -> tx: +0.01063 m, ty: -0.02353 m, yaw: +0.00090 rad
 --- Global pose ---
-  PRED ->  X: +0.34437,  Y: +6.24762, Yaw: -1.95848
-  GT   ->  X: +6.47000,  Y: +10.75600, Yaw: +0.67076
+  PRED ->  X: -25.24982,  Y: +2.72331, Yaw: -3.01639
+  GT   ->  X: -22.52855,  Y: +0.54551, Yaw: -2.87578
 --- Keyframe state ---
-  Traj from kf: 0.1284 m, Rot from kf: 0.0146 rad -> Waiting for kf
+  Traj from kf: 0.0229 m, Rot from kf: 0.0000 rad -> Actualisation (new kf)
+
 
-Sonar odometry:  87%|████████▋ | 129/149 [01:35<00:17,  1.13it/s]
+🟢 Frame Match: KF (13179) -> Curr (13180)
+Inliers: 154 | Tx: -0.01 | Ty: 0.03 | Theta: 0.03°
+
+Sonar odometry:  15%|█▌        | 45/299 [02:54<17:19,  4.09s/it]
 =======================================================================
- Frame matching: [(KF): 177 ---> Actual: 179] | Status: OK
- LoFTR matches total: 2065 | confidence: 0.842 | RANSAC Inliers: 2065 (97.36%)
+ Frame matching: [(KF): 13179 ---> Actual: 13180] | Status: OK
+ LoFTR matches total: 154 | confidence: 0.903 | RANSAC Inliers: 154 (84.62%)
 --- Local transformation ---
-  PRED -> tx: +0.54795 m, ty: +0.03201 m, yaw: -0.05860 rad
-  GT   -> tx: +0.57457 m, ty: +0.02058 m, yaw: -0.05882 rad
-  ERR  -> tx: -0.02662 m, ty: +0.01143 m, yaw: +0.00022 rad
+  PRED -> tx: +0.03218 m, ty: +0.01045 m, yaw: +0.00055 rad
+  GT   -> tx: +0.01137 m, ty: +0.02810 m, yaw: -0.00090 rad
+  ERR  -> tx: +0.02081 m, ty: -0.01765 m, yaw: +0.00145 rad
 --- Global pose ---
-  PRED ->  X: +0.21299,  Y: +5.84816, Yaw: -2.00250
-  GT   ->  X: +6.70300,  Y: +10.96000, Yaw: +0.63909
+  PRED ->  X: -25.28045,  Y: +2.70892, Yaw: -3.01585
+  GT   ->  X: -22.53214,  Y: +0.51541, Yaw: -2.87668
 --- Keyframe state ---
-  Traj from kf: 0.5489 m, Rot from kf: 0.0586 rad -> Waiting for kf
+  Traj from kf: 0.0338 m, Rot from kf: 0.0005 rad -> Actualisation (new kf)
+
+
+🟢 Frame Match: KF (13180) -> Curr (13181)
+Inliers: 142 | Tx: 0.00 | Ty: 0.03 | Theta: -0.00°
 
-Sonar odometry:  87%|████████▋ | 130/149 [01:36<00:16,  1.14it/s]
+Sonar odometry:  15%|█▌        | 46/299 [02:58<17:20,  4.11s/it]
 =======================================================================
- Frame matching: [(KF): 177 ---> Actual: 180] | Status: OK
- LoFTR matches total: 2053 | confidence: 0.837 | RANSAC Inliers: 2053 (96.79%)
+ Frame matching: [(KF): 13180 ---> Actual: 13181] | Status: OK
+ LoFTR matches total: 142 | confidence: 0.907 | RANSAC Inliers: 142 (91.03%)
 --- Local transformation ---
-  PRED -> tx: +0.68481 m, ty: +0.03720 m, yaw: -0.07299 rad
-  GT   -> tx: +0.84805 m, ty: +0.01830 m, yaw: -0.08401 rad
-  ERR  -> tx: -0.16324 m, ty: +0.01889 m, yaw: +0.01103 rad
+  PRED -> tx: -0.01047 m, ty: +0.01314 m, yaw: -0.00007 rad
+  GT   -> tx: +0.01135 m, ty: +0.02811 m, yaw: -0.01861 rad
+  ERR  -> tx: -0.02182 m, ty: -0.01497 m, yaw: +0.01854 rad
 --- Global pose ---
-  PRED ->  X: +0.16793,  Y: +5.71882, Yaw: -2.01689
-  GT   ->  X: +6.91400,  Y: +11.13400, Yaw: +0.61390
+  PRED ->  X: -25.26841,  Y: +2.69720, Yaw: -3.01592
+  GT   ->  X: -22.53574,  Y: +0.48531, Yaw: -2.89529
 --- Keyframe state ---
-  Traj from kf: 0.6858 m, Rot from kf: 0.0730 rad -> Actualisation (new kf)
+  Traj from kf: 0.0168 m, Rot from kf: 0.0001 rad -> Actualisation (new kf)
 
-Sonar odometry:  88%|████████▊ | 131/149 [01:37<00:15,  1.14it/s]
+
+🟢 Frame Match: KF (13181) -> Curr (13182)
+Inliers: 143 | Tx: -0.01 | Ty: 0.01 | Theta: 0.29°
+
+Sonar odometry:  16%|█▌        | 47/299 [03:02<17:12,  4.10s/it]
 =======================================================================
- Frame matching: [(KF): 180 ---> Actual: 181] | Status: OK
- LoFTR matches total: 2147 | confidence: 0.842 | RANSAC Inliers: 2147 (99.03%)
+ Frame matching: [(KF): 13181 ---> Actual: 13182] | Status: OK
+ LoFTR matches total: 143 | confidence: 0.919 | RANSAC Inliers: 143 (94.08%)
 --- Local transformation ---
-  PRED -> tx: +0.42592 m, ty: +0.02107 m, yaw: -0.04026 rad
-  GT   -> tx: +0.30227 m, ty: +0.01575 m, yaw: -0.02520 rad
-  ERR  -> tx: +0.12365 m, ty: +0.00531 m, yaw: -0.01506 rad
+  PRED -> tx: +0.04607 m, ty: -0.01565 m, yaw: +0.00507 rad
+  GT   -> tx: +0.00928 m, ty: +0.02702 m, yaw: -0.00097 rad
+  ERR  -> tx: +0.03678 m, ty: -0.04267 m, yaw: +0.00603 rad
 --- Global pose ---
-  PRED ->  X: +0.00318,  Y: +5.32550, Yaw: -2.05715
-  GT   ->  X: +7.15200,  Y: +11.32100, Yaw: +0.58870
+  PRED ->  X: -25.31608,  Y: +2.70695, Yaw: -3.01085
+  GT   ->  X: -22.53815,  Y: +0.45685, Yaw: -2.89625
 --- Keyframe state ---
-  Traj from kf: 0.4264 m, Rot from kf: 0.0403 rad -> Waiting for kf
+  Traj from kf: 0.0487 m, Rot from kf: 0.0051 rad -> Actualisation (new kf)
+
 
-Sonar odometry:  89%|████████▊ | 132/149 [01:38<00:14,  1.15it/s]
+🟢 Frame Match: KF (13182) -> Curr (13183)
+Inliers: 174 | Tx: -0.02 | Ty: 0.02 | Theta: 0.06°
+
+Sonar odometry:  16%|█▌        | 48/299 [03:06<17:09,  4.10s/it]
 =======================================================================
- Frame matching: [(KF): 180 ---> Actual: 182] | Status: OK
- LoFTR matches total: 2050 | confidence: 0.842 | RANSAC Inliers: 2050 (97.57%)
+ Frame matching: [(KF): 13182 ---> Actual: 13183] | Status: OK
+ LoFTR matches total: 174 | confidence: 0.908 | RANSAC Inliers: 174 (94.05%)
 --- Local transformation ---
-  PRED -> tx: +0.55654 m, ty: +0.01092 m, yaw: -0.05274 rad
-  GT   -> tx: +0.59541 m, ty: +0.02203 m, yaw: -0.05002 rad
-  ERR  -> tx: -0.03887 m, ty: -0.01111 m, yaw: -0.00272 rad
+  PRED -> tx: +0.02082 m, ty: +0.01666 m, yaw: +0.00102 rad
+  GT   -> tx: +0.00801 m, ty: +0.02426 m, yaw: +0.00119 rad
+  ERR  -> tx: +0.01281 m, ty: -0.00760 m, yaw: -0.00017 rad
 --- Global pose ---
-  PRED ->  X: -0.06233,  Y: +5.21204, Yaw: -2.06963
-  GT   ->  X: +7.38800,  Y: +11.49500, Yaw: +0.56388
+  PRED ->  X: -25.33455,  Y: +2.68772, Yaw: -3.00983
+  GT   ->  X: -22.54003,  Y: +0.43137, Yaw: -2.89506
 --- Keyframe state ---
-  Traj from kf: 0.5566 m, Rot from kf: 0.0527 rad -> Waiting for kf
+  Traj from kf: 0.0267 m, Rot from kf: 0.0010 rad -> Actualisation (new kf)
+
+
+🟢 Frame Match: KF (13183) -> Curr (13184)
+Inliers: 179 | Tx: -0.01 | Ty: 0.02 | Theta: -0.12°
 
-Sonar odometry:  89%|████████▉ | 133/149 [01:39<00:13,  1.15it/s]
+Sonar odometry:  16%|█▋        | 49/299 [03:10<17:07,  4.11s/it]
 =======================================================================
- Frame matching: [(KF): 180 ---> Actual: 183] | Status: OK
- LoFTR matches total: 1983 | confidence: 0.833 | RANSAC Inliers: 1983 (95.47%)
+ Frame matching: [(KF): 13183 ---> Actual: 13184] | Status: OK
+ LoFTR matches total: 179 | confidence: 0.919 | RANSAC Inliers: 179 (92.27%)
 --- Local transformation ---
-  PRED -> tx: +1.00065 m, ty: -0.00004 m, yaw: -0.08993 rad
-  GT   -> tx: +0.90557 m, ty: +0.02121 m, yaw: -0.07530 rad
-  ERR  -> tx: +0.09508 m, ty: -0.02125 m, yaw: -0.01463 rad
+  PRED -> tx: +0.02299 m, ty: +0.01428 m, yaw: -0.00204 rad
+  GT   -> tx: +0.00856 m, ty: +0.02581 m, yaw: +0.00476 rad
+  ERR  -> tx: +0.01443 m, ty: -0.01153 m, yaw: -0.00680 rad
 --- Global pose ---
-  PRED ->  X: -0.26383,  Y: +4.81612, Yaw: -2.10682
-  GT   ->  X: +7.64200,  Y: +11.67300, Yaw: +0.53861
+  PRED ->  X: -25.35547,  Y: +2.67054, Yaw: -3.01187
+  GT   ->  X: -22.54203,  Y: +0.40425, Yaw: -2.89030
 --- Keyframe state ---
-  Traj from kf: 1.0006 m, Rot from kf: 0.0899 rad -> Actualisation (new kf)
+  Traj from kf: 0.0271 m, Rot from kf: 0.0020 rad -> Actualisation (new kf)
 
-Sonar odometry:  90%|████████▉ | 134/149 [01:39<00:13,  1.14it/s]
+
+🟢 Frame Match: KF (13184) -> Curr (13185)
+Inliers: 167 | Tx: -0.01 | Ty: 0.03 | Theta: 0.06°
+
+Sonar odometry:  17%|█▋        | 50/299 [03:15<17:19,  4.18s/it]
 =======================================================================
- Frame matching: [(KF): 183 ---> Actual: 184] | Status: OK
- LoFTR matches total: 2282 | confidence: 0.833 | RANSAC Inliers: 2282 (100.00%)
+ Frame matching: [(KF): 13184 ---> Actual: 13185] | Status: OK
+ LoFTR matches total: 167 | confidence: 0.922 | RANSAC Inliers: 167 (91.26%)
 --- Local transformation ---
-  PRED -> tx: +0.15223 m, ty: +0.01306 m, yaw: -0.01163 rad
-  GT   -> tx: +0.28535 m, ty: +0.01355 m, yaw: -0.02478 rad
-  ERR  -> tx: -0.13312 m, ty: -0.00049 m, yaw: +0.01315 rad
+  PRED -> tx: +0.03132 m, ty: +0.01012 m, yaw: +0.00101 rad
+  GT   -> tx: +0.00873 m, ty: +0.02591 m, yaw: +0.01085 rad
+  ERR  -> tx: +0.02259 m, ty: -0.01579 m, yaw: -0.00984 rad
 --- Global pose ---
-  PRED ->  X: -0.33035,  Y: +4.67857, Yaw: -2.11845
-  GT   ->  X: +7.88000,  Y: +11.83100, Yaw: +0.51383
+  PRED ->  X: -25.38521,  Y: +2.65646, Yaw: -3.01086
+  GT   ->  X: -22.54405,  Y: +0.37698, Yaw: -2.87945
 --- Keyframe state ---
-  Traj from kf: 0.1528 m, Rot from kf: 0.0116 rad -> Waiting for kf
+  Traj from kf: 0.0329 m, Rot from kf: 0.0010 rad -> Actualisation (new kf)
+
 
-Sonar odometry:  91%|█████████ | 135/149 [01:40<00:12,  1.14it/s]
+🟢 Frame Match: KF (13185) -> Curr (13186)
+Inliers: 162 | Tx: 0.00 | Ty: 0.02 | Theta: 0.19°
+
+Sonar odometry:  17%|█▋        | 51/299 [03:19<17:17,  4.18s/it]
 =======================================================================
- Frame matching: [(KF): 183 ---> Actual: 185] | Status: OK
- LoFTR matches total: 2164 | confidence: 0.849 | RANSAC Inliers: 2164 (98.63%)
+ Frame matching: [(KF): 13185 ---> Actual: 13186] | Status: OK
+ LoFTR matches total: 162 | confidence: 0.918 | RANSAC Inliers: 162 (93.64%)
 --- Local transformation ---
-  PRED -> tx: +0.59678 m, ty: +0.03672 m, yaw: -0.04886 rad
-  GT   -> tx: +0.61547 m, ty: +0.02015 m, yaw: -0.05199 rad
-  ERR  -> tx: -0.01869 m, ty: +0.01657 m, yaw: +0.00314 rad
+  PRED -> tx: +0.02380 m, ty: -0.00218 m, yaw: +0.00325 rad
+  GT   -> tx: +0.00862 m, ty: +0.02469 m, yaw: +0.00458 rad
+  ERR  -> tx: +0.01518 m, ty: -0.02687 m, yaw: -0.00133 rad
 --- Global pose ---
-  PRED ->  X: -0.53705,  Y: +4.28428, Yaw: -2.15567
-  GT   ->  X: +8.16000,  Y: +12.00600, Yaw: +0.48662
+  PRED ->  X: -25.40910,  Y: +2.65552, Yaw: -3.00760
+  GT   ->  X: -22.54597,  Y: +0.35091, Yaw: -2.87487
 --- Keyframe state ---
-  Traj from kf: 0.5979 m, Rot from kf: 0.0489 rad -> Waiting for kf
+  Traj from kf: 0.0239 m, Rot from kf: 0.0033 rad -> Actualisation (new kf)
+
+
+🟢 Frame Match: KF (13186) -> Curr (13187)
+Inliers: 162 | Tx: -0.01 | Ty: 0.01 | Theta: 0.17°
 
-Sonar odometry:  91%|█████████▏| 136/149 [01:41<00:11,  1.14it/s]
+Sonar odometry:  17%|█▋        | 52/299 [03:23<17:17,  4.20s/it]
 =======================================================================
- Frame matching: [(KF): 183 ---> Actual: 186] | Status: OK
- LoFTR matches total: 2081 | confidence: 0.830 | RANSAC Inliers: 2081 (98.77%)
+ Frame matching: [(KF): 13186 ---> Actual: 13187] | Status: OK
+ LoFTR matches total: 162 | confidence: 0.924 | RANSAC Inliers: 162 (89.01%)
 --- Local transformation ---
-  PRED -> tx: +0.75359 m, ty: +0.02284 m, yaw: -0.06153 rad
-  GT   -> tx: +0.90822 m, ty: +0.01880 m, yaw: -0.07621 rad
-  ERR  -> tx: -0.15463 m, ty: +0.00404 m, yaw: +0.01468 rad
+  PRED -> tx: +0.01285 m, ty: +0.01187 m, yaw: +0.00291 rad
+  GT   -> tx: +0.01037 m, ty: +0.02683 m, yaw: -0.00763 rad
+  ERR  -> tx: +0.00248 m, ty: -0.01496 m, yaw: +0.01053 rad
 --- Global pose ---
-  PRED ->  X: -0.62908,  Y: +4.15656, Yaw: -2.16835
-  GT   ->  X: +8.41200,  Y: +12.15500, Yaw: +0.46239
+  PRED ->  X: -25.42025,  Y: +2.64205, Yaw: -3.00470
+  GT   ->  X: -22.54890,  Y: +0.32230, Yaw: -2.88250
 --- Keyframe state ---
-  Traj from kf: 0.7539 m, Rot from kf: 0.0615 rad -> Actualisation (new kf)
+  Traj from kf: 0.0175 m, Rot from kf: 0.0029 rad -> Actualisation (new kf)
 
-Sonar odometry:  92%|█████████▏| 137/149 [01:42<00:10,  1.14it/s]
+
+🟢 Frame Match: KF (13187) -> Curr (13188)
+Inliers: 150 | Tx: 0.01 | Ty: 0.01 | Theta: 0.36°
+
+Sonar odometry:  18%|█▊        | 53/299 [03:27<17:15,  4.21s/it]
 =======================================================================
- Frame matching: [(KF): 186 ---> Actual: 187] | Status: OK
- LoFTR matches total: 2206 | confidence: 0.835 | RANSAC Inliers: 2206 (99.41%)
+ Frame matching: [(KF): 13187 ---> Actual: 13188] | Status: OK
+ LoFTR matches total: 150 | confidence: 0.878 | RANSAC Inliers: 150 (82.87%)
 --- Local transformation ---
-  PRED -> tx: +0.45323 m, ty: +0.03787 m, yaw: -0.03911 rad
-  GT   -> tx: +0.32421 m, ty: +0.01606 m, yaw: -0.02667 rad
-  ERR  -> tx: +0.12902 m, ty: +0.02181 m, yaw: -0.01244 rad
+  PRED -> tx: +0.08687 m, ty: -0.05476 m, yaw: +0.00624 rad
+  GT   -> tx: +0.02011 m, ty: +0.04210 m, yaw: -0.00447 rad
+  ERR  -> tx: +0.06677 m, ty: -0.09686 m, yaw: +0.01071 rad
 --- Global pose ---
-  PRED ->  X: -0.85277,  Y: +3.76055, Yaw: -2.20746
-  GT   ->  X: +8.69500,  Y: +12.31400, Yaw: +0.43573
+  PRED ->  X: -25.51378,  Y: +2.68444, Yaw: -2.99845
+  GT   ->  X: -22.55755,  Y: +0.27645, Yaw: -2.88697
 --- Keyframe state ---
-  Traj from kf: 0.4548 m, Rot from kf: 0.0391 rad -> Waiting for kf
+  Traj from kf: 0.1027 m, Rot from kf: 0.0062 rad -> Actualisation (new kf)
+
 
-Sonar odometry:  93%|█████████▎| 138/149 [01:43<00:09,  1.14it/s]
+🟢 Frame Match: KF (13188) -> Curr (13189)
+Inliers: 135 | Tx: -0.01 | Ty: 0.01 | Theta: 0.20°
+
+Sonar odometry:  18%|█▊        | 54/299 [03:31<17:03,  4.18s/it]
 =======================================================================
- Frame matching: [(KF): 186 ---> Actual: 188] | Status: OK
- LoFTR matches total: 2223 | confidence: 0.844 | RANSAC Inliers: 2223 (99.20%)
+ Frame matching: [(KF): 13188 ---> Actual: 13189] | Status: OK
+ LoFTR matches total: 135 | confidence: 0.930 | RANSAC Inliers: 135 (88.82%)
 --- Local transformation ---
-  PRED -> tx: +0.60468 m, ty: +0.04370 m, yaw: -0.05166 rad
-  GT   -> tx: +0.63904 m, ty: +0.02227 m, yaw: -0.05338 rad
-  ERR  -> tx: -0.03437 m, ty: +0.02143 m, yaw: +0.00172 rad
+  PRED -> tx: +0.01491 m, ty: +0.00822 m, yaw: +0.00340 rad
+  GT   -> tx: +0.01969 m, ty: +0.04170 m, yaw: -0.01953 rad
+  ERR  -> tx: -0.00478 m, ty: -0.03348 m, yaw: +0.02294 rad
 --- Global pose ---
-  PRED ->  X: -0.93316,  Y: +3.63208, Yaw: -2.22001
-  GT   ->  X: +8.97400,  Y: +12.46000, Yaw: +0.40901
+  PRED ->  X: -25.52736,  Y: +2.67417, Yaw: -2.99505
+  GT   ->  X: -22.56610,  Y: +0.23113, Yaw: -2.90650
 --- Keyframe state ---
-  Traj from kf: 0.6063 m, Rot from kf: 0.0517 rad -> Actualisation (new kf)
+  Traj from kf: 0.0170 m, Rot from kf: 0.0034 rad -> Actualisation (new kf)
+
+
+🟢 Frame Match: KF (13189) -> Curr (13190)
+Inliers: 167 | Tx: -0.01 | Ty: 0.02 | Theta: 0.02°
 
-Sonar odometry:  93%|█████████▎| 139/149 [01:44<00:08,  1.13it/s]
+Sonar odometry:  18%|█▊        | 55/299 [03:36<17:05,  4.20s/it]
 =======================================================================
- Frame matching: [(KF): 188 ---> Actual: 189] | Status: OK
- LoFTR matches total: 2194 | confidence: 0.845 | RANSAC Inliers: 2194 (99.28%)
+ Frame matching: [(KF): 13189 ---> Actual: 13190] | Status: OK
+ LoFTR matches total: 167 | confidence: 0.950 | RANSAC Inliers: 167 (92.27%)
 --- Local transformation ---
-  PRED -> tx: +0.46118 m, ty: +0.02301 m, yaw: -0.03992 rad
-  GT   -> tx: +0.33188 m, ty: +0.01636 m, yaw: -0.02858 rad
-  ERR  -> tx: +0.12930 m, ty: +0.00665 m, yaw: -0.01134 rad
+  PRED -> tx: +0.02036 m, ty: +0.00522 m, yaw: +0.00032 rad
+  GT   -> tx: +0.01898 m, ty: +0.04232 m, yaw: -0.01047 rad
+  ERR  -> tx: +0.00138 m, ty: -0.03711 m, yaw: +0.01079 rad
 --- Global pose ---
-  PRED ->  X: -1.19364,  Y: +3.25081, Yaw: -2.25993
-  GT   ->  X: +9.27200,  Y: +12.60700, Yaw: +0.38043
+  PRED ->  X: -25.54674,  Y: +2.66604, Yaw: -2.99472
+  GT   ->  X: -22.57471,  Y: +0.18555, Yaw: -2.91697
 --- Keyframe state ---
-  Traj from kf: 0.4618 m, Rot from kf: 0.0399 rad -> Waiting for kf
+  Traj from kf: 0.0210 m, Rot from kf: 0.0003 rad -> Actualisation (new kf)
 
-Sonar odometry:  94%|█████████▍| 140/149 [01:45<00:08,  1.12it/s]
+
+🟢 Frame Match: KF (13190) -> Curr (13191)
+Inliers: 153 | Tx: -0.01 | Ty: 0.02 | Theta: -0.12°
+
+Sonar odometry:  19%|█▊        | 56/299 [03:40<17:01,  4.20s/it]
 =======================================================================
- Frame matching: [(KF): 188 ---> Actual: 190] | Status: OK
- LoFTR matches total: 2146 | confidence: 0.846 | RANSAC Inliers: 2146 (98.17%)
+ Frame matching: [(KF): 13190 ---> Actual: 13191] | Status: OK
+ LoFTR matches total: 153 | confidence: 0.879 | RANSAC Inliers: 153 (91.07%)
 --- Local transformation ---
-  PRED -> tx: +0.60968 m, ty: +0.02938 m, yaw: -0.05301 rad
-  GT   -> tx: +0.63786 m, ty: +0.02324 m, yaw: -0.05471 rad
-  ERR  -> tx: -0.02818 m, ty: +0.00614 m, yaw: +0.00169 rad
+  PRED -> tx: +0.02714 m, ty: +0.00459 m, yaw: -0.00214 rad
+  GT   -> tx: +0.02608 m, ty: +0.05982 m, yaw: -0.01014 rad
+  ERR  -> tx: +0.00106 m, ty: -0.05523 m, yaw: +0.00800 rad
 --- Global pose ---
-  PRED ->  X: -1.27834,  Y: +3.12867, Yaw: -2.27302
-  GT   ->  X: +9.55000,  Y: +12.73500, Yaw: +0.35431
+  PRED ->  X: -25.57292,  Y: +2.65753, Yaw: -2.99686
+  GT   ->  X: -22.58681,  Y: +0.12142, Yaw: -2.92711
 --- Keyframe state ---
-  Traj from kf: 0.6104 m, Rot from kf: 0.0530 rad -> Actualisation (new kf)
+  Traj from kf: 0.0275 m, Rot from kf: 0.0021 rad -> Actualisation (new kf)
+
 
-Sonar odometry:  95%|█████████▍| 141/149 [01:46<00:07,  1.10it/s]
+🟢 Frame Match: KF (13191) -> Curr (13192)
+Inliers: 165 | Tx: 0.01 | Ty: 0.02 | Theta: 0.05°
+
+Sonar odometry:  19%|█▉        | 57/299 [03:44<16:51,  4.18s/it]
 =======================================================================
- Frame matching: [(KF): 190 ---> Actual: 191] | Status: OK
- LoFTR matches total: 1992 | confidence: 0.846 | RANSAC Inliers: 1992 (99.30%)
+ Frame matching: [(KF): 13191 ---> Actual: 13192] | Status: OK
+ LoFTR matches total: 165 | confidence: 0.943 | RANSAC Inliers: 165 (95.93%)
 --- Local transformation ---
-  PRED -> tx: +0.47618 m, ty: +0.00494 m, yaw: -0.03957 rad
-  GT   -> tx: +0.35655 m, ty: +0.01845 m, yaw: -0.03066 rad
-  ERR  -> tx: +0.11963 m, ty: -0.01351 m, yaw: -0.00890 rad
+  PRED -> tx: +0.00895 m, ty: -0.00789 m, yaw: +0.00084 rad
+  GT   -> tx: +0.01842 m, ty: +0.04345 m, yaw: +0.00727 rad
+  ERR  -> tx: -0.00947 m, ty: -0.05134 m, yaw: -0.00643 rad
 --- Global pose ---
-  PRED ->  X: -1.58214,  Y: +2.76196, Yaw: -2.31259
-  GT   ->  X: +9.87800,  Y: +12.87600, Yaw: +0.32364
+  PRED ->  X: -25.58292,  Y: +2.66405, Yaw: -2.99602
+  GT   ->  X: -22.59555,  Y: +0.07505, Yaw: -2.91984
 --- Keyframe state ---
-  Traj from kf: 0.4762 m, Rot from kf: 0.0396 rad -> Waiting for kf
+  Traj from kf: 0.0119 m, Rot from kf: 0.0008 rad -> Actualisation (new kf)
+
+
+🟢 Frame Match: KF (13192) -> Curr (13193)
+Inliers: 126 | Tx: 0.00 | Ty: 0.02 | Theta: 0.02°
 
-Sonar odometry:  95%|█████████▌| 142/149 [01:47<00:06,  1.11it/s]
+Sonar odometry:  19%|█▉        | 58/299 [03:48<16:43,  4.17s/it]
 =======================================================================
- Frame matching: [(KF): 190 ---> Actual: 192] | Status: OK
- LoFTR matches total: 1950 | confidence: 0.837 | RANSAC Inliers: 1950 (98.48%)
+ Frame matching: [(KF): 13192 ---> Actual: 13193] | Status: OK
+ LoFTR matches total: 126 | confidence: 0.923 | RANSAC Inliers: 126 (79.25%)
 --- Local transformation ---
-  PRED -> tx: +0.64387 m, ty: +0.02270 m, yaw: -0.05323 rad
-  GT   -> tx: +0.68715 m, ty: +0.02730 m, yaw: -0.06099 rad
-  ERR  -> tx: -0.04328 m, ty: -0.00460 m, yaw: +0.00776 rad
+  PRED -> tx: +0.02703 m, ty: +0.01369 m, yaw: +0.00033 rad
+  GT   -> tx: +0.03316 m, ty: +0.08336 m, yaw: -0.01141 rad
+  ERR  -> tx: -0.00613 m, ty: -0.06967 m, yaw: +0.01174 rad
 --- Global pose ---
-  PRED ->  X: -1.67690,  Y: +2.62247, Yaw: -2.32625
-  GT   ->  X: +10.18500,  Y: +12.99900, Yaw: +0.29332
+  PRED ->  X: -25.60768,  Y: +2.64658, Yaw: -2.99569
+  GT   ->  X: -22.60957,  Y: -0.01356, Yaw: -2.93125
 --- Keyframe state ---
-  Traj from kf: 0.6443 m, Rot from kf: 0.0532 rad -> Actualisation (new kf)
+  Traj from kf: 0.0303 m, Rot from kf: 0.0003 rad -> Actualisation (new kf)
 
-Sonar odometry:  96%|█████████▌| 143/149 [01:48<00:05,  1.12it/s]
+
+🟢 Frame Match: KF (13193) -> Curr (13194)
+Inliers: 146 | Tx: -0.01 | Ty: 0.01 | Theta: 0.43°
+
+Sonar odometry:  20%|█▉        | 59/299 [03:52<16:32,  4.14s/it]
 =======================================================================
- Frame matching: [(KF): 192 ---> Actual: 193] | Status: OK
- LoFTR matches total: 2161 | confidence: 0.851 | RANSAC Inliers: 2161 (98.86%)
+ Frame matching: [(KF): 13193 ---> Actual: 13194] | Status: OK
+ LoFTR matches total: 146 | confidence: 0.898 | RANSAC Inliers: 146 (91.25%)
 --- Local transformation ---
-  PRED -> tx: +0.48990 m, ty: +0.03000 m, yaw: -0.04612 rad
-  GT   -> tx: +0.34993 m, ty: +0.02071 m, yaw: -0.03019 rad
-  ERR  -> tx: +0.13997 m, ty: +0.00929 m, yaw: -0.01593 rad
+  PRED -> tx: +0.10618 m, ty: -0.09077 m, yaw: +0.00745 rad
+  GT   -> tx: +0.02747 m, ty: +0.07229 m, yaw: -0.00290 rad
+  ERR  -> tx: +0.07871 m, ty: -0.16305 m, yaw: +0.01035 rad
 --- Global pose ---
-  PRED ->  X: -1.99095,  Y: +2.24527, Yaw: -2.37237
-  GT   ->  X: +10.51400,  Y: +13.12000, Yaw: +0.26313
+  PRED ->  X: -25.72592,  Y: +2.72095, Yaw: -2.98824
+  GT   ->  X: -22.62135,  Y: -0.08999, Yaw: -2.93415
 --- Keyframe state ---
-  Traj from kf: 0.4908 m, Rot from kf: 0.0461 rad -> Waiting for kf
+  Traj from kf: 0.1397 m, Rot from kf: 0.0074 rad -> Actualisation (new kf)
+
 
-Sonar odometry:  97%|█████████▋| 144/149 [01:48<00:04,  1.13it/s]
+🟢 Frame Match: KF (13194) -> Curr (13195)
+Inliers: 164 | Tx: -0.00 | Ty: 0.03 | Theta: -0.28°
+
+Sonar odometry:  20%|██        | 60/299 [03:56<16:32,  4.15s/it]
 =======================================================================
- Frame matching: [(KF): 192 ---> Actual: 194] | Status: OK
- LoFTR matches total: 2085 | confidence: 0.837 | RANSAC Inliers: 2085 (96.89%)
+ Frame matching: [(KF): 13194 ---> Actual: 13195] | Status: OK
+ LoFTR matches total: 164 | confidence: 0.930 | RANSAC Inliers: 164 (94.25%)
 --- Local transformation ---
-  PRED -> tx: +0.67347 m, ty: +0.02692 m, yaw: -0.06087 rad
-  GT   -> tx: +0.69228 m, ty: +0.03013 m, yaw: -0.06455 rad
-  ERR  -> tx: -0.01881 m, ty: -0.00321 m, yaw: +0.00368 rad
+  PRED -> tx: -0.05790 m, ty: +0.08565 m, yaw: -0.00492 rad
+  GT   -> tx: +0.02430 m, ty: +0.06449 m, yaw: -0.00389 rad
+  ERR  -> tx: -0.08219 m, ty: +0.02116 m, yaw: -0.00103 rad
 --- Global pose ---
-  PRED ->  X: -2.11904,  Y: +2.11376, Yaw: -2.38712
-  GT   ->  X: +10.83900,  Y: +13.22800, Yaw: +0.22877
+  PRED ->  X: -25.65563,  Y: +2.64515, Yaw: -2.99316
+  GT   ->  X: -22.63184,  Y: -0.15810, Yaw: -2.93804
 --- Keyframe state ---
-  Traj from kf: 0.6740 m, Rot from kf: 0.0609 rad -> Actualisation (new kf)
+  Traj from kf: 0.1034 m, Rot from kf: 0.0049 rad -> Actualisation (new kf)
+
+
+🟢 Frame Match: KF (13195) -> Curr (13196)
+Inliers: 170 | Tx: -0.02 | Ty: 0.04 | Theta: 0.01°
 
-Sonar odometry:  97%|█████████▋| 145/149 [01:49<00:03,  1.14it/s]
+Sonar odometry:  20%|██        | 61/299 [04:01<16:57,  4.27s/it]
 =======================================================================
- Frame matching: [(KF): 194 ---> Actual: 195] | Status: OK
- LoFTR matches total: 2084 | confidence: 0.851 | RANSAC Inliers: 2084 (97.34%)
+ Frame matching: [(KF): 13195 ---> Actual: 13196] | Status: OK
+ LoFTR matches total: 170 | confidence: 0.904 | RANSAC Inliers: 170 (92.39%)
 --- Local transformation ---
-  PRED -> tx: +0.51602 m, ty: +0.01598 m, yaw: -0.04994 rad
-  GT   -> tx: +0.36275 m, ty: +0.02335 m, yaw: -0.03629 rad
-  ERR  -> tx: +0.15327 m, ty: -0.00737 m, yaw: -0.01365 rad
+  PRED -> tx: +0.03795 m, ty: +0.01168 m, yaw: +0.00022 rad
+  GT   -> tx: +0.02404 m, ty: +0.06459 m, yaw: -0.01903 rad
+  ERR  -> tx: +0.01390 m, ty: -0.05290 m, yaw: +0.01924 rad
 --- Global pose ---
-  PRED ->  X: -2.48408,  Y: +1.74869, Yaw: -2.43706
-  GT   ->  X: +11.18700,  Y: +13.33300, Yaw: +0.19248
+  PRED ->  X: -25.69143,  Y: +2.62798, Yaw: -2.99295
+  GT   ->  X: -22.64233,  Y: -0.22621, Yaw: -2.95707
 --- Keyframe state ---
-  Traj from kf: 0.5163 m, Rot from kf: 0.0499 rad -> Waiting for kf
+  Traj from kf: 0.0397 m, Rot from kf: 0.0002 rad -> Actualisation (new kf)
 
-Sonar odometry:  98%|█████████▊| 146/149 [01:50<00:02,  1.14it/s]
+
+🟢 Frame Match: KF (13196) -> Curr (13197)
+Inliers: 165 | Tx: 0.00 | Ty: 0.04 | Theta: 0.05°
+
+Sonar odometry:  21%|██        | 62/299 [04:05<16:45,  4.24s/it]
 =======================================================================
- Frame matching: [(KF): 194 ---> Actual: 196] | Status: OK
- LoFTR matches total: 1982 | confidence: 0.845 | RANSAC Inliers: 1982 (97.11%)
+ Frame matching: [(KF): 13196 ---> Actual: 13197] | Status: OK
+ LoFTR matches total: 165 | confidence: 0.907 | RANSAC Inliers: 165 (92.70%)
 --- Local transformation ---
-  PRED -> tx: +0.67155 m, ty: +0.01213 m, yaw: -0.06681 rad
-  GT   -> tx: +0.70021 m, ty: +0.03512 m, yaw: -0.07042 rad
-  ERR  -> tx: -0.02866 m, ty: -0.02299 m, yaw: +0.00361 rad
+  PRED -> tx: +0.04157 m, ty: -0.00015 m, yaw: +0.00091 rad
+  GT   -> tx: +0.02281 m, ty: +0.06503 m, yaw: +0.02355 rad
+  ERR  -> tx: +0.01876 m, ty: -0.06518 m, yaw: -0.02264 rad
 --- Global pose ---
-  PRED ->  X: -2.60004,  Y: +1.64497, Yaw: -2.45393
-  GT   ->  X: +11.51300,  Y: +13.42100, Yaw: +0.15835
+  PRED ->  X: -25.73256,  Y: +2.62197, Yaw: -2.99204
+  GT   ->  X: -22.65282,  Y: -0.29433, Yaw: -2.93352
 --- Keyframe state ---
-  Traj from kf: 0.6717 m, Rot from kf: 0.0668 rad -> Actualisation (new kf)
+  Traj from kf: 0.0416 m, Rot from kf: 0.0009 rad -> Actualisation (new kf)
+
 
-Sonar odometry:  99%|█████████▊| 147/149 [01:51<00:01,  1.14it/s]
+🟢 Frame Match: KF (13197) -> Curr (13198)
+Inliers: 176 | Tx: -0.00 | Ty: 0.04 | Theta: -0.07°
+
+Sonar odometry:  21%|██        | 63/299 [04:09<16:41,  4.24s/it]
 =======================================================================
- Frame matching: [(KF): 196 ---> Actual: 197] | Status: OK
- LoFTR matches total: 2055 | confidence: 0.845 | RANSAC Inliers: 2055 (96.52%)
+ Frame matching: [(KF): 13197 ---> Actual: 13198] | Status: OK
+ LoFTR matches total: 176 | confidence: 0.918 | RANSAC Inliers: 176 (95.14%)
 --- Local transformation ---
-  PRED -> tx: +0.52022 m, ty: +0.03767 m, yaw: -0.05260 rad
-  GT   -> tx: +0.39438 m, ty: +0.02816 m, yaw: -0.04005 rad
-  ERR  -> tx: +0.12584 m, ty: +0.00950 m, yaw: -0.01255 rad
+  PRED -> tx: +0.01754 m, ty: +0.00802 m, yaw: -0.00119 rad
+  GT   -> tx: +0.02521 m, ty: +0.06865 m, yaw: -0.00761 rad
+  ERR  -> tx: -0.00767 m, ty: -0.06063 m, yaw: +0.00642 rad
 --- Global pose ---
-  PRED ->  X: -2.97813,  Y: +1.28567, Yaw: -2.50653
-  GT   ->  X: +11.89800,  Y: +13.51100, Yaw: +0.11830
+  PRED ->  X: -25.74871,  Y: +2.61143, Yaw: -2.99323
+  GT   ->  X: -22.66331,  Y: -0.36670, Yaw: -2.94113
 --- Keyframe state ---
-  Traj from kf: 0.5216 m, Rot from kf: 0.0526 rad -> Waiting for kf
+  Traj from kf: 0.0193 m, Rot from kf: 0.0012 rad -> Actualisation (new kf)
+
+
+🟢 Frame Match: KF (13198) -> Curr (13199)
+Inliers: 178 | Tx: -0.00 | Ty: 0.05 | Theta: 0.05°
 
-Sonar odometry:  99%|█████████▉| 148/149 [01:52<00:00,  1.15it/s]
+Sonar odometry:  21%|██▏       | 64/299 [04:13<16:30,  4.22s/it]
 =======================================================================
- Frame matching: [(KF): 196 ---> Actual: 198] | Status: OK
- LoFTR matches total: 1975 | confidence: 0.839 | RANSAC Inliers: 1975 (95.32%)
+ Frame matching: [(KF): 13198 ---> Actual: 13199] | Status: OK
+ LoFTR matches total: 178 | confidence: 0.888 | RANSAC Inliers: 178 (95.19%)
 --- Local transformation ---
-  PRED -> tx: +0.69678 m, ty: +0.05281 m, yaw: -0.07043 rad
-  GT   -> tx: +0.74693 m, ty: +0.04174 m, yaw: -0.07408 rad
-  ERR  -> tx: -0.05015 m, ty: +0.01107 m, yaw: +0.00365 rad
+  PRED -> tx: +0.04564 m, ty: +0.00069 m, yaw: +0.00090 rad
+  GT   -> tx: +0.02453 m, ty: +0.07053 m, yaw: +0.00167 rad
+  ERR  -> tx: +0.02110 m, ty: -0.06984 m, yaw: -0.00077 rad
 --- Global pose ---
-  PRED ->  X: -3.10494,  Y: +1.16189, Yaw: -2.52436
-  GT   ->  X: +12.24400,  Y: +13.58000, Yaw: +0.08427
+  PRED ->  X: -25.79374,  Y: +2.60400, Yaw: -2.99233
+  GT   ->  X: -22.67331,  Y: -0.44070, Yaw: -2.93946
 --- Keyframe state ---
-  Traj from kf: 0.6988 m, Rot from kf: 0.0704 rad -> Actualisation (new kf)
+  Traj from kf: 0.0456 m, Rot from kf: 0.0009 rad -> Actualisation (new kf)
 
-Sonar odometry: 100%|██████████| 149/149 [01:53<00:00,  1.32it/s]
+
+🟢 Frame Match: KF (13199) -> Curr (13200)
+Inliers: 158 | Tx: 0.00 | Ty: 0.04 | Theta: 0.01°
+
+Sonar odometry:  22%|██▏       | 65/299 [04:17<16:16,  4.17s/it]
 =======================================================================
- Frame matching: [(KF): 198 ---> Actual: 199] | Status: OK
- LoFTR matches total: 2045 | confidence: 0.846 | RANSAC Inliers: 2045 (96.19%)
+ Frame matching: [(KF): 13199 ---> Actual: 13200] | Status: OK
+ LoFTR matches total: 158 | confidence: 0.921 | RANSAC Inliers: 158 (94.61%)
 --- Local transformation ---
-  PRED -> tx: +0.54100 m, ty: +0.02929 m, yaw: -0.05384 rad
-  GT   -> tx: +0.39409 m, ty: +0.03194 m, yaw: -0.03598 rad
-  ERR  -> tx: +0.14691 m, ty: -0.00265 m, yaw: -0.01786 rad
+  PRED -> tx: +0.02818 m, ty: +0.00073 m, yaw: +0.00017 rad
+  GT   -> tx: +0.02157 m, ty: +0.06168 m, yaw: +0.01751 rad
+  ERR  -> tx: +0.00661 m, ty: -0.06094 m, yaw: -0.01733 rad
 --- Global pose ---
-  PRED ->  X: -3.52917,  Y: +0.82489, Yaw: -2.57820
-  GT   ->  X: +12.63400,  Y: +13.64500, Yaw: +0.04829
+  PRED ->  X: -25.82151,  Y: +2.59908, Yaw: -2.99216
+  GT   ->  X: -22.68205,  Y: -0.50545, Yaw: -2.92195
 --- Keyframe state ---
-  Traj from kf: 0.5418 m, Rot from kf: 0.0538 rad -> Waiting for kf
-
+  Traj from kf: 0.0282 m, Rot from kf: 0.0002 rad -> Actualisation (new kf)
