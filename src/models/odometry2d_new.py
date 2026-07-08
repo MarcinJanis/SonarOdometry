@@ -396,7 +396,7 @@ class sonar_odometry(nn.Module):
                                         [0, 0, 1]])
                     est_pose = ref_pose @ (self.T_R_S_2d @ local_T @ self.T_S_R_2d)
                 else:
-                    theta = -angle
+                    theta = angle
                     tx = -raw_tx_sonar       # Czysty uślizg boczny 
                     ty = raw_ty_sonar       # Czysty ruch w przód
                     
