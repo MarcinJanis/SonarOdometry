@@ -22,5 +22,6 @@ feature_matching:
 input_dimensions:
   # Wartości dla zbioru Aracati
   cart_height: 848
+  polar_width: 768
   cart_width: 1552
   polar_height: 512
