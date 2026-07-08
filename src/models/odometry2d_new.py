@@ -398,7 +398,7 @@ class sonar_odometry(nn.Module):
                 else:
                     theta = -angle
                     tx = raw_tx_sonar       # Czysty uślizg boczny 
-                    ty = -raw_ty_sonar       # Czysty ruch w przód
+                    ty = raw_ty_sonar       # Czysty ruch w przód
                     
                     local_T = np.array([
                         [np.cos(theta), -np.sin(theta), tx], 
