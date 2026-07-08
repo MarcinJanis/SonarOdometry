@@ -374,17 +374,38 @@ class sonar_odometry(nn.Module):
                     angle = np.arctan2(M[1, 0], M[0, 0])
                     raw_tx_sonar, raw_ty_sonar = float(M[0, 2]), float(M[1, 2])
                 
-                theta = -angle if self.ref_frame_orient == 'sim' else angle
-                tx, ty = (raw_ty_sonar, raw_tx_sonar) if self.ref_frame_orient == 'sim' else (raw_ty_sonar, -raw_tx_sonar)
+                # theta = -angle if self.ref_frame_orient == 'sim' else angle
+                # tx, ty = (raw_ty_sonar, raw_tx_sonar) if self.ref_frame_orient == 'sim' else (raw_ty_sonar, -raw_tx_sonar)
                 
-                local_T = np.array([[np.cos(theta), -np.sin(theta), tx], 
-                                    [np.sin(theta), np.cos(theta), ty], 
-                                    [0, 0, 1]])
+                # local_T = np.array([[np.cos(theta), -np.sin(theta), tx], 
+                #                     [np.sin(theta), np.cos(theta), ty], 
+                #                     [0, 0, 1]])
+
+                # if self.ref_frame_orient == 'sim':
+                #     est_pose = ref_pose @ (self.T_R_S_2d @ local_T @ self.T_S_R_2d)
+                # else:
+                #     # Dla Aracati przyjmujemy, że układ sonaru = układ robota (lub są już zgrane)
+                #     est_pose = ref_pose @ local_T
 
                 if self.ref_frame_orient == 'sim':
+                    theta = -angle 
+                    tx = raw_ty_sonar   # przód
+                    ty = raw_tx_sonar   # bok
+                    local_T = np.array([[np.cos(theta), -np.sin(theta), tx], 
+                                        [np.sin(theta), np.cos(theta), ty], 
+                                        [0, 0, 1]])
                     est_pose = ref_pose @ (self.T_R_S_2d @ local_T @ self.T_S_R_2d)
                 else:
-                    # Dla Aracati przyjmujemy, że układ sonaru = układ robota (lub są już zgrane)
+                    # ARACATI MAPOWANIE:
+                    # Skrypt ewaluacyjny zakłada, że Y to przód, a X to bok (jak w nawigacji morskiej).
+                    # Aby wykresy i błędy liczyły się poprawnie dla Aracati:
+                    theta = -angle
+                    tx = raw_tx_sonar   # Odchylenie boczne
+                    ty = raw_ty_sonar   # Przemieszczenie wzdłużne (do przodu)
+                    
+                    local_T = np.array([[np.cos(theta), -np.sin(theta), tx], 
+                                        [np.sin(theta), np.cos(theta), ty], 
+                                        [0, 0, 1]])
                     est_pose = ref_pose @ local_T
                     
                 # est_pose = ref_pose @ (self.T_R_S_2d @ local_T @ self.T_S_R_2d)
