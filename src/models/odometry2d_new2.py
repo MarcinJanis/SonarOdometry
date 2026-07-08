@@ -16,18 +16,18 @@ class LocalKinematicKF:
 
         # Q: Szum Procesu (Jak mocno fizycznie robot może zmienić wektor ruchu w ułamku sekundy?)
         # Bardzo mała wariancja dla v_y, bo robot nie skacze na boki.
+       # Q: Szum Procesu (Jak szybko robot może fizycznie zmieniać prędkość?)
         self.Q = np.diag([
-            0.1,    # Akceptujemy zmiany prędkości do przodu
-            0.005,  # SILNY OPÓR przed zmianą prędkości bocznej (wirtualna masa hydrodynamiczna)
-            0.05    # Akceptujemy normalne tempo zmian skrętu
+            0.1,    # v_x: Bez zmian. Pozwalamy na naturalne przyspieszanie do przodu.
+            0.05,   # v_y: ZWIĘKSZONE (z 0.005). Skoro znak jest OK, musimy pozwolić robotowi na fizyczny poślizg boczny, żeby mógł śledzić GT.
+            0.1     # omega: ZWIĘKSZONE (z 0.05). Pozwalamy na bardziej agresywne wchodzenie w zakręty, żeby nie "przestrzelił" spadku na wykresie Yaw.
         ])
 
         # R: Szum Pomiaru (Jak bardzo ufamy wynikom z LoFTR?)
-        # Gigantyczna wariancja dla y_meas, bo wiemy, że cienie oszukują na boki.
         self.R = np.diag([
-            0.2,    # Ufamy pomiarowi X
-            10.0,   # NIE UFAMY pomiarowi Y (LoFTR musi dać potężny sygnał, żeby filtr w to uwierzył)
-            0.2     # Ufamy estymacji kąta
+            0.1,    # z_x: ZMNIEJSZONE (z 0.2). Oś X zazwyczaj działa w sonarach najlepiej, ufamy jej bardziej.
+            1.5,    # z_y: DRASTYCZNIE ZMNIEJSZONE (z 10.0). Zdejmujemy knebel z osi Y. Wartość 1.5 wciąż oznacza, że ufamy jej 15x mniej niż osi X (filtrujemy szum cieni), ale już jej nie ignorujemy!
+            0.05    # z_yaw: ZMNIEJSZONE (z 0.2). Bardzo mocno ufamy estymacji kąta. LoFTR jest zazwyczaj świetny w łapaniu rotacji obrazu. Pomoże to szybciej skręcać na końcu trajektorii.
         ])
 
     def filter_step(self, z_measured):
@@ -314,7 +314,7 @@ class sonar_odometry(nn.Module):
                     raw_tx_sonar, raw_ty_sonar = float(M[0, 2]), float(M[1, 2])
                 
                 theta = -angle if self.ref_frame_orient == 'sim' else angle
-                tx, ty = (raw_ty_sonar, -raw_tx_sonar) if self.ref_frame_orient == 'sim' else (-raw_ty_sonar, -raw_tx_sonar)
+                tx, ty = (raw_ty_sonar, raw_tx_sonar) if self.ref_frame_orient == 'sim' else (-raw_ty_sonar, -raw_tx_sonar)
                 
                 local_T = np.array([[np.cos(theta), -np.sin(theta), tx], 
                                     [np.sin(theta), np.cos(theta), ty], 

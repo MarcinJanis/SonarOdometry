@@ -8,72 +8,71 @@ import numpy as np
 import cv2 
 
 class sonar_odometry(nn.Module):
-
     def __init__(self, model_config, sonar_config, device, 
-                 depth_compesation=True,
-                 key_frames=True,
-                 input_img_format='polar',
-                 ref_frame_orient='sim',
-                 use_fls_filter=True,
-                 # --- NOWE FLAGI OPTYMALIZACYJNE ---
-                 use_spatial_bucketing=True,
-                 use_weighted_kabsch=True,
-                 use_range_masking=True):
-        
-        super().__init__()
-        self.device = device 
-
-        yaw_offset = sonar_config.position.yaw
-        x_offset = sonar_config.position.x
-        y_offset = sonar_config.position.y
-        
-        self.T_R_S_2d = np.array([
-            [np.cos(yaw_offset), -np.sin(yaw_offset), x_offset],
-            [np.sin(yaw_offset),  np.cos(yaw_offset), y_offset],
-            [0,                   0,                  1]
-        ])
-        self.T_S_R_2d = np.linalg.inv(self.T_R_S_2d)
-        
-        self.ref_frame_orient = ref_frame_orient 
-        self.depth_compesation = depth_compesation
-        self.key_frames = key_frames 
-        self.use_fls_filter = getattr(model_config, 'use_fls_filter', use_fls_filter)
-        
-        # Flagi i parametry zaawansowanej filtracji
-        self.use_spatial_bucketing = use_spatial_bucketing
-        self.use_weighted_kabsch = use_weighted_kabsch
-        self.use_range_masking = use_range_masking
-        self.max_valid_range_ratio = 0.85 # Odcinamy 15% najdalszego echa, gdzie deformacja kartezjańska jest największa
-        self.bucket_grid = (4, 4)         # Siatka podziału obrazu (4x4 sektory)
-        self.max_pts_per_bucket = 20      # Max dopasowań z jednego sektora
-        
-        self.key_frames_min_dist = model_config.key_frames_min_dist
-        self.key_frames_min_rot = model_config.key_frames_min_rot
-        self.pts_match_thresh = model_config.pts_match_thresh
-        self.ransac_thresh = model_config.ransac_thresh
-        
-        self.min_inliers_abs = getattr(model_config, 'min_inliers_abs', 12)
-        self.min_inliers_ratio = getattr(model_config, 'min_inliers_ratio', 0.06)
-                     
-        self.input_img_format = input_img_format
-        if self.input_img_format == 'polar':
-            self.cart_frame_size = (model_config.POLAR_FLS_INPUT_HEIGHT, 2 * model_config.POLAR_FLS_INPUT_HEIGHT)
-        else:
-            self.cart_frame_size = (model_config.CART_FLS_INPUT_HEIGHT, model_config.CART_FLS_INPUT_WIDTH)
+                     depth_compesation=True,
+                     key_frames=True,
+                     input_img_format='polar',
+                     ref_frame_orient='sim'):
+            
+            super().__init__()
+            self.device = device 
     
-        self.r_min = sonar_config.range.min
-        self.r_max = sonar_config.range.max
-        self.theta_max = sonar_config.fov.horizontal
-
-        self.match_points = LoFTR(pretrained='outdoor').to(device).eval()
+            yaw_offset = sonar_config.position.yaw
+            x_offset = sonar_config.position.x
+            y_offset = sonar_config.position.y
+            
+            self.T_R_S_2d = np.array([
+                [np.cos(yaw_offset), -np.sin(yaw_offset), x_offset],
+                [np.sin(yaw_offset),  np.cos(yaw_offset), y_offset],
+                [0,                   0,                  1]
+            ])
+            self.T_S_R_2d = np.linalg.inv(self.T_R_S_2d)
+            
+            self.ref_frame_orient = ref_frame_orient 
+            self.depth_compesation = depth_compesation
+            self.key_frames = key_frames 
+            
+            # --- Pobieranie z modelu YAML przez kropki ---
+            self.use_fls_filter = model_config.filtering.use_fls_filter
+            self.use_spatial_bucketing = model_config.filtering.use_spatial_bucketing
+            self.use_weighted_kabsch = model_config.filtering.use_weighted_kabsch
+            self.use_range_masking = model_config.filtering.use_range_masking
+            
+            self.max_valid_range_ratio = 0.85 
+            self.bucket_grid = (4, 4) 
+            self.max_pts_per_bucket = 20      
+            
+            # Parametry z sekcji keyframe_management
+            self.key_frames_min_dist = model_config.keyframe_management.key_frames_min_dist
+            self.key_frames_min_rot = model_config.keyframe_management.key_frames_min_rot
+            
+            # Parametry z sekcji feature_matching
+            self.pts_match_thresh = model_config.feature_matching.pts_match_thresh
+            self.ransac_thresh = model_config.feature_matching.ransac_thresh
+            self.min_inliers_abs = model_config.feature_matching.min_inliers_abs
+            self.min_inliers_ratio = model_config.feature_matching.min_inliers_ratio
+                         
+            self.input_img_format = input_img_format
+            if self.input_img_format == 'polar':
+                h = model_config.input_dimensions.polar_height
+                self.cart_frame_size = (h, 2 * h)
+            else:
+                self.cart_frame_size = (model_config.input_dimensions.cart_height, 
+                                        model_config.input_dimensions.cart_width)
         
-        self.window_size = 3 
-        self.sliding_window = [] 
-        self.current_pose = None
-        self.last_frame_data = None 
-        
-        self.polar2cart_grid = None
-        self.polar2cart_mask = None
+            self.r_min = sonar_config.range.min
+            self.r_max = sonar_config.range.max
+            self.theta_max = sonar_config.fov.horizontal
+    
+            self.match_points = LoFTR(pretrained='outdoor').to(device).eval()
+            
+            self.window_size = 3 
+            self.sliding_window = [] 
+            self.current_pose = None
+            self.last_frame_data = None 
+            
+            self.polar2cart_grid = None
+            self.polar2cart_mask = None
 
     def fls_filter(self, frame):
         device = frame.device 
@@ -352,7 +351,7 @@ class sonar_odometry(nn.Module):
                     raw_tx_sonar, raw_ty_sonar = float(M[0, 2]), float(M[1, 2])
                 
                 theta = -angle if self.ref_frame_orient == 'sim' else angle
-                tx, ty = (raw_ty_sonar, -raw_tx_sonar) if self.ref_frame_orient == 'sim' else (-raw_ty_sonar, -raw_tx_sonar)
+                tx, ty = (raw_ty_sonar, raw_tx_sonar) if self.ref_frame_orient == 'sim' else (-raw_ty_sonar, -raw_tx_sonar)
                 
                 local_T = np.array([[np.cos(theta), -np.sin(theta), tx], 
                                     [np.sin(theta), np.cos(theta), ty], 
@@ -410,7 +409,7 @@ class sonar_odometry(nn.Module):
             delta_t_local = R_curr.T @ (t_new_raw - t_curr)
             
             # Utwardzamy trajektorię
-            ty_damping_factor = 0.5 # <- Możesz regulować (np. 0.3 dławi mocniej, 1.0 wyłącza)
+            ty_damping_factor = 1.0 # <- Możesz regulować (np. 0.3 dławi mocniej, 1.0 wyłącza)
             delta_t_local_damped = np.array([delta_t_local[0], delta_t_local[1] * ty_damping_factor])
             
             t_new_damped = t_curr + R_curr @ delta_t_local_damped
