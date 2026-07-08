@@ -45,6 +45,7 @@ class sonar_odometry(nn.Module):
             # Parametry z sekcji keyframe_management
             self.key_frames_min_dist = model_config.keyframe_management.key_frames_min_dist
             self.key_frames_min_rot = model_config.keyframe_management.key_frames_min_rot
+            self.key_frame_timeout = model_config.keyframe_management.max_skip_frames
             
             # Parametry z sekcji feature_matching
             self.pts_match_thresh = model_config.feature_matching.pts_match_thresh
@@ -71,6 +72,8 @@ class sonar_odometry(nn.Module):
             self.current_pose = None
             self.last_frame_data = None 
             
+            self.skipped_frames = 0 
+
             self.polar2cart_grid = None
             self.polar2cart_mask = None
 
@@ -430,12 +433,14 @@ class sonar_odometry(nn.Module):
         prev_azimuth = np.arctan2(latest_kf_pose[1, 0], latest_kf_pose[0, 0])
         azimuth_diff = np.abs(np.arctan2(np.sin(global_azimuth - prev_azimuth), np.cos(global_azimuth - prev_azimuth)))
         
-        key_frame_detected = step_is_valid and (dist >= self.key_frames_min_dist or azimuth_diff >= self.key_frames_min_rot)
+        key_frame_detected = step_is_valid and (dist >= self.key_frames_min_dist or azimuth_diff >= self.key_frames_min_rot or self.skipped_frames >= self.self.key_frame_timeout)
         
         if key_frame_detected:
             self.sliding_window.append((new_frame, self.polar2cart_mask, new_pose, depth))
             if len(self.sliding_window) > self.window_size: 
                 self.sliding_window.pop(0)
+        else:
+            self.skipped_frames += 1
 
         self.last_frame_data = (new_frame, self.polar2cart_mask, new_pose, depth)
         self.current_pose = new_pose

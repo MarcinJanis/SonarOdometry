@@ -20,7 +20,7 @@ feature_matching:
 keyframe_management:
   key_frames_min_dist: 0.5    # Minimalny dystans dla nowej kotwicy [m]
   key_frames_min_rot: 0.15    # Minimalny obrót dla nowej kotwicy [rad]
-  max_skip_frames: 3          # Max liczba klatek "ślepych" przed wymuszonym resetem
+  max_skip_frames: 4          # Max liczba klatek "ślepych" przed wymuszonym resetem
 
 # Filtracja sygnału sonarowego
 filtering:
