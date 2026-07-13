@@ -61,7 +61,7 @@ class sonar_odometry(nn.Module):
             self.r_max = sonar_config.range.max
             self.theta_max = sonar_config.fov.horizontal
     
-            # Ładujemy tylko model. Procesor obrazów pomijamy dla lepszej kontroli nad proporcjami tensorów
+            # Inicjalizacja gołego modelu z HuggingFace
             self.match_points = AutoModelForKeypointMatching.from_pretrained("zju-community/matchanything_eloftr").to(device).eval()
             
             self.window_size = 3 
@@ -201,7 +201,9 @@ class sonar_odometry(nn.Module):
         return R, t
 
     def _match_and_estimate(self, ref_frame, ref_mask, ref_pose, ref_depth, new_frame, new_depth):
-        
+        _, _, orig_h, orig_w = ref_frame.shape
+        target_size = (512, 512) 
+
         # Powielenie kanałów do RGB (wymóg modelu)
         if ref_frame.shape[1] == 1:
             ref_frame_rgb = ref_frame.repeat(1, 3, 1, 1)
@@ -212,13 +214,17 @@ class sonar_odometry(nn.Module):
             new_frame_rgb = new_frame.repeat(1, 3, 1, 1)
         else:
             new_frame_rgb = new_frame
+
+        # Szybki resize na GPU, by usatysfakcjonować model (RoPE wymaga kwadratu 512x512 lub podobnego)
+        ref_resized = F.interpolate(ref_frame_rgb, size=target_size, mode='bilinear', align_corners=False)
+        new_resized = F.interpolate(new_frame_rgb, size=target_size, mode='bilinear', align_corners=False)
             
         # Ręczna normalizacja w standardzie ImageNet
         mean = torch.tensor([0.485, 0.456, 0.406], device=self.device).view(1, 3, 1, 1)
         std = torch.tensor([0.229, 0.224, 0.225], device=self.device).view(1, 3, 1, 1)
         
-        norm_ref = (ref_frame_rgb - mean) / std
-        norm_new = (new_frame_rgb - mean) / std
+        norm_ref = (ref_resized - mean) / std
+        norm_new = (new_resized - mean) / std
         
         # UTWORZENIE 5-WYMIAROWEGO TENSORA: [Batch, 2_obrazy, Kanały, H, W]
         pixel_values = torch.stack([norm_ref, norm_new], dim=1)
@@ -226,20 +232,31 @@ class sonar_odometry(nn.Module):
         with torch.no_grad():
             outputs = self.match_points(pixel_values=pixel_values)
             
-        pts1 = outputs.keypoints0
-        pts2 = outputs.keypoints1
+        pts1_raw = outputs.keypoints0
+        pts2_raw = outputs.keypoints1
         confidence = outputs.matching_scores
 
-        if pts1 is None or len(pts1) < 3: 
+        if pts1_raw is None or len(pts1_raw) < 3: 
             return None 
 
-        _, _, h, w = ref_frame.shape
+        # KLUCZOWE: Reskalowanie współrzędnych z kwadratu 512x512 na oryginalny rozmiar kartezjański
+        scale_x = orig_w / target_size[1]
+        scale_y = orig_h / target_size[0]
+        
+        pts1 = pts1_raw.clone()
+        pts1[:, 0] *= scale_x
+        pts1[:, 1] *= scale_y
+        
+        pts2 = pts2_raw.clone()
+        pts2[:, 0] *= scale_x
+        pts2[:, 1] *= scale_y
+
         pts1_long, pts2_long = pts1.long(), pts2.long()
         
-        # Odrzucenie punktów lądujących poza fizycznymi ramami obrazu
+        # Odrzucenie punktów lądujących poza oryginalnymi fizycznymi ramami obrazu
         valid_bounds = (
-            (pts1_long[:, 0] >= 0) & (pts1_long[:, 0] < w) & (pts1_long[:, 1] >= 0) & (pts1_long[:, 1] < h) &
-            (pts2_long[:, 0] >= 0) & (pts2_long[:, 0] < w) & (pts2_long[:, 1] >= 0) & (pts2_long[:, 1] < h)
+            (pts1_long[:, 0] >= 0) & (pts1_long[:, 0] < orig_w) & (pts1_long[:, 1] >= 0) & (pts1_long[:, 1] < orig_h) &
+            (pts2_long[:, 0] >= 0) & (pts2_long[:, 0] < orig_w) & (pts2_long[:, 1] >= 0) & (pts2_long[:, 1] < orig_h)
         )
         
         pts1, pts2, confidence = pts1[valid_bounds], pts2[valid_bounds], confidence[valid_bounds]
@@ -247,7 +264,7 @@ class sonar_odometry(nn.Module):
         
         if len(pts1) < 3: return None
 
-        # Ręczna aplikacja maski wycięcia zasięgu (zastępuje to mask0/mask1 z API Kornia)
+        # Ręczna aplikacja maski wycięcia zasięgu
         m1 = ref_mask[0, 0] if len(ref_mask.shape) == 4 else ref_mask[0]
         m2 = self.polar2cart_mask[0, 0] if len(self.polar2cart_mask.shape) == 4 else self.polar2cart_mask[0]
         
