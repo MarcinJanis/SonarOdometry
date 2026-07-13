@@ -1,0 +1,26 @@
+# model2d.yaml
+
+filtering:
+  use_fls_filter: true
+  use_spatial_bucketing: true    
+  use_weighted_kabsch: true
+  use_range_masking: true
+
+keyframe_management:
+  key_frames_min_dist: 0.5       # Wymuszamy trzymanie klatki aż robot przejedzie pół metra
+  key_frames_min_rot: 0.05       # lub obróci się o ~3 stopnie
+  max_skip_frames: 4
+  max_frames_since_kf: 40        # Zwiększone do 40 klatek, by zapobiec frame-to-frame drift - unsed
+
+feature_matching:
+  pts_match_thresh: 0.70         # Bardzo restrykcyjne dopasowania LoFTR
+  ransac_thresh: 0.15            # Tolerancja błędu: max 15 cm. Wymusza idealną sztywność
+  min_inliers_abs: 15            
+  min_inliers_ratio: 0.20        
+  
+input_dimensions:
+  cart_height: 848
+  polar_width: 768
+  cart_width: 1552
+  polar_height: 512
+

@@ -97,43 +97,64 @@ class sonar_odometry(nn.Module):
             init_frame = self.fls_filter(init_frame)
 
         b, c, h, w = init_frame.shape
-        out_h, out_w = h, 2 * h
+        
+        # 1. Poprawna alokacja rozmiarów w zależności od trybu
+        if self.input_img_format == 'polar':
+            out_h, out_w = h, 2 * h
+        else:
+            out_h, out_w = h, w
+
         self.cart_frame_size = (out_h, out_w)
 
-        y = torch.arange(out_h, device=self.device, dtype=torch.float32)
-        x = torch.arange(out_w, device=self.device, dtype=torch.float32)
-        y, x = torch.meshgrid(y, x, indexing='ij')
-        x = x - out_w / 2.0
-        y = out_h - y
-
-        scale = (self.r_max - self.r_min) / out_h
-        x_r = x * scale
-        y_r = y * scale + self.r_min
-        r = torch.sqrt(x_r**2 + y_r**2)
-        theta = torch.atan2(x_r, torch.clamp(y_r, min=1e-5))
-        
-        norm_theta = theta / (self.theta_max / 2.0)
-        norm_r = (r - self.r_min) / (self.r_max - self.r_min) * 2.0 - 1.0
-
-        self.polar2cart_grid = torch.stack((norm_theta, -norm_r), dim=-1).unsqueeze(0) 
-        
+        # 2. Inicjalizacja siatki przekształceń TYLKO dla obrazów polarnych
         if self.input_img_format == 'polar':
+            y = torch.arange(out_h, device=self.device, dtype=torch.float32)
+            x = torch.arange(out_w, device=self.device, dtype=torch.float32)
+            y, x = torch.meshgrid(y, x, indexing='ij')
+            x = x - out_w / 2.0
+            y = out_h - y
+
+            scale = (self.r_max - self.r_min) / out_h
+            x_r = x * scale
+            y_r = y * scale + self.r_min
+            r = torch.sqrt(x_r**2 + y_r**2)
+            theta = torch.atan2(x_r, torch.clamp(y_r, min=1e-5))
+            
+            norm_theta = theta / (self.theta_max / 2.0)
+            norm_r = (r - self.r_min) / (self.r_max - self.r_min) * 2.0 - 1.0
+
+            self.polar2cart_grid = torch.stack((norm_theta, -norm_r), dim=-1).unsqueeze(0) 
+            
             valid_mask = (norm_theta >= -1.0) & (norm_theta <= 1.0) & (norm_r >= -1.0) & (norm_r <= 1.0)
             self.polar2cart_mask = valid_mask.unsqueeze(0).expand(b, -1, -1).float()
-        elif carth_mask is not None:
-            self.polar2cart_mask = carth_mask 
+            
         else:
-            init_frame_np = init_frame.view(h, w).detach().cpu().numpy()
-            mask = (init_frame_np == 0.0).astype(np.uint8)
-            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-            cleaned_mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
-            self.polar2cart_mask = torch.tensor(cleaned_mask, device=init_frame.device, dtype=torch.float).unsqueeze(0)
+            # Obrazy kartezjańskie (np. z Aracati) nie potrzebują siatki konwersji
+            self.polar2cart_grid = None
+            
+            if carth_mask is not None:
+                self.polar2cart_mask = carth_mask 
+            else:
+                init_frame_np = init_frame.view(h, w).detach().cpu().numpy()
+                mask = (init_frame_np == 0.0).astype(np.uint8)
+                kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+                cleaned_mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+                self.polar2cart_mask = torch.tensor(cleaned_mask, device=init_frame.device, dtype=torch.float).unsqueeze(0)
 
         init_pose = np.array([[np.cos(init_azimuth), -np.sin(init_azimuth), init_x], 
                               [np.sin(init_azimuth),  np.cos(init_azimuth), init_y], 
                               [0,                     0,                    1]])
         
-        first_frame = self.polar2car(init_frame)
+        # 3. Zastosowanie odpowiednich modyfikacji dla pierwszej klatki
+        if self.input_img_format == 'polar':
+            first_frame = self.polar2car(init_frame)
+        else:
+            # Odpowiednie zaaplikowanie maski uwzględniające wymiary tensorów [B, C, H, W]
+            if len(self.polar2cart_mask.shape) == 3:
+                first_frame = init_frame * self.polar2cart_mask.unsqueeze(1)
+            else:
+                first_frame = init_frame * self.polar2cart_mask
+                
         self.current_pose = init_pose
         self.sliding_window = [(first_frame, self.polar2cart_mask, init_pose, init_depth)]
         self.last_frame_data = (first_frame, self.polar2cart_mask, init_pose, init_depth)
@@ -353,14 +374,53 @@ class sonar_odometry(nn.Module):
                     angle = np.arctan2(M[1, 0], M[0, 0])
                     raw_tx_sonar, raw_ty_sonar = float(M[0, 2]), float(M[1, 2])
                 
-                theta = -angle if self.ref_frame_orient == 'sim' else angle
-                tx, ty = (raw_ty_sonar, raw_tx_sonar) if self.ref_frame_orient == 'sim' else (-raw_ty_sonar, -raw_tx_sonar)
+                # theta = -angle if self.ref_frame_orient == 'sim' else angle
+                # tx, ty = (raw_ty_sonar, raw_tx_sonar) if self.ref_frame_orient == 'sim' else (raw_ty_sonar, -raw_tx_sonar)
                 
-                local_T = np.array([[np.cos(theta), -np.sin(theta), tx], 
-                                    [np.sin(theta), np.cos(theta), ty], 
-                                    [0, 0, 1]])
-                
-                est_pose = ref_pose @ (self.T_R_S_2d @ local_T @ self.T_S_R_2d)
+                # local_T = np.array([[np.cos(theta), -np.sin(theta), tx], 
+                #                     [np.sin(theta), np.cos(theta), ty], 
+                #                     [0, 0, 1]])
+
+                # if self.ref_frame_orient == 'sim':
+                #     est_pose = ref_pose @ (self.T_R_S_2d @ local_T @ self.T_S_R_2d)
+                # else:
+                #     # Dla Aracati przyjmujemy, że układ sonaru = układ robota (lub są już zgrane)
+                #     est_pose = ref_pose @ local_T
+
+                if self.ref_frame_orient == 'sim':
+                    theta = -angle 
+                    tx = raw_ty_sonar   # przód
+                    ty = raw_tx_sonar   # bok
+                    local_T = np.array([[np.cos(theta), -np.sin(theta), tx], 
+                                        [np.sin(theta), np.cos(theta), ty], 
+                                        [0, 0, 1]])
+                    est_pose = ref_pose @ (self.T_R_S_2d @ local_T @ self.T_S_R_2d)
+                else:
+                    # ARACATI MAPOWANIE:
+                    # Skrypt ewaluacyjny zakłada, że Y to przód, a X to bok (jak w nawigacji morskiej).
+                    # Aby wykresy i błędy liczyły się poprawnie dla Aracati:
+                    
+                    theta = angle          # ZMIANA: usunięto minus
+                    tx = raw_tx_sonar      # ZMIANA: usunięto minus (czysty ruch poprzeczny)
+                    ty = raw_ty_sonar   
+                    
+                    # ZMIANA: Transponowana macierz rotacji (dla lewoskrętnego układu / NED)
+                    local_T = np.array([[np.cos(theta), np.sin(theta), tx], 
+                                        [-np.sin(theta), np.cos(theta), ty], 
+                                        [0, 0, 1]])
+                    est_pose = ref_pose @ local_T
+                    
+                    # theta = -angle
+                    # tx = - raw_tx_sonar   # Odchylenie boczne
+                    # ty = raw_ty_sonar   # Przemieszczenie wzdłużne (do przodu)
+
+                    
+                    # local_T = np.array([[np.cos(theta), -np.sin(theta), tx], 
+                    #                     [np.sin(theta), np.cos(theta), ty], 
+                    #                     [0, 0, 1]])
+                    # est_pose = ref_pose @ local_T
+                    
+                # est_pose = ref_pose @ (self.T_R_S_2d @ local_T @ self.T_S_R_2d)
                 
                 return {
                     'est_pose': est_pose, 'pts1': pts1[inlier_mask], 'pts2': pts2[inlier_mask], 'confidence': confidence[inlier_mask],
@@ -395,15 +455,19 @@ class sonar_odometry(nn.Module):
                 latest_visu_match = match_res
 
         step_is_valid = False
+        # ======== 
         if len(est_poses) > 0:
             est_x_list = [p['est_pose'][0, 2] for p in est_poses]
             est_y_list = [p['est_pose'][1, 2] for p in est_poses]
-            est_yaw_list = [np.arctan2(p['est_pose'][1, 0], p['est_pose'][0, 0]) for p in est_poses]
+            
+            # 1. ZMIANA: Wyciągamy komponenty rotacji do mediany (zamiast sumy/średniej)
+            cos_list = [p['est_pose'][0, 0] for p in est_poses]
+            sin_list = [p['est_pose'][1, 0] for p in est_poses]
             
             median_x, median_y = np.median(est_x_list), np.median(est_y_list)
-            median_azimuth = np.arctan2(np.sum(np.sin(est_yaw_list)), np.sum(np.cos(est_yaw_list)))
+            median_azimuth = np.arctan2(np.median(sin_list), np.median(cos_list))
             
-            # --- Zastosowanie Tłumienia Poprzecznego (TY DAMPING) ---
+            # --- Zastosowanie Tłumienia Poprzecznego ---
             # Liczymy deltę pozy względem ostatniej AKCEPTOWANEJ ramki w układzie lokalnym robota
             R_curr = self.current_pose[0:2, 0:2]
             t_curr = self.current_pose[0:2, 2]
@@ -411,18 +475,63 @@ class sonar_odometry(nn.Module):
             t_new_raw = np.array([median_x, median_y])
             delta_t_local = R_curr.T @ (t_new_raw - t_curr)
             
-            # Utwardzamy trajektorię
-            ty_damping_factor = 1.0 # <- Możesz regulować (np. 0.3 dławi mocniej, 1.0 wyłącza)
-            delta_t_local_damped = np.array([delta_t_local[0], delta_t_local[1] * ty_damping_factor])
+            # 2. ZMIANA: Tłumimy poślizg w osi X (Aracati: X = bok, Y = przód)
+            if self.ref_frame_orient != 'sim':
+                tx_damping = 1.0  # Redukujemy boczny poślizg o połowę, by zawęzić łuk
+                ty_damping = 1.0  # Zostawiamy pełną prędkość w przód
+            else:
+                tx_damping = 1.0  # W symulatorze osie były odwrotnie (X = przód)
+                ty_damping = 1.0
+            
+            delta_t_local_damped = np.array([delta_t_local[0] * tx_damping, delta_t_local[1] * ty_damping])
             
             t_new_damped = t_curr + R_curr @ delta_t_local_damped
+
+            if self.ref_frame_orient == 'sim':
+                new_pose = np.array([[np.cos(median_azimuth), -np.sin(median_azimuth), t_new_damped[0]], 
+                                     [np.sin(median_azimuth),  np.cos(median_azimuth), t_new_damped[1]], 
+                                     [0, 0, 1]])
             
-            new_pose = np.array([[np.cos(median_azimuth), -np.sin(median_azimuth), t_new_damped[0]], 
-                                 [np.sin(median_azimuth), np.cos(median_azimuth), t_new_damped[1]], 
-                                 [0, 0, 1]])
+        
+            # ZMIANA: Transponowana macierz dla ostatecznej pozy
+            else:
+                new_pose = np.array([[np.cos(median_azimuth), np.sin(median_azimuth), t_new_damped[0]], 
+                                     [-np.sin(median_azimuth), np.cos(median_azimuth), t_new_damped[1]], 
+                                     [0, 0, 1]])
             step_is_valid = True
+        
         else:
             new_pose = self.current_pose
+        # =========
+        
+        # if len(est_poses) > 0:
+        #     est_x_list = [p['est_pose'][0, 2] for p in est_poses]
+        #     est_y_list = [p['est_pose'][1, 2] for p in est_poses]
+        #     est_yaw_list = [np.arctan2(p['est_pose'][1, 0], p['est_pose'][0, 0]) for p in est_poses]
+            
+        #     median_x, median_y = np.median(est_x_list), np.median(est_y_list)
+        #     median_azimuth = np.arctan2(np.sum(np.sin(est_yaw_list)), np.sum(np.cos(est_yaw_list)))
+            
+        #     # --- Zastosowanie Tłumienia Poprzecznego (TY DAMPING) ---
+        #     # Liczymy deltę pozy względem ostatniej AKCEPTOWANEJ ramki w układzie lokalnym robota
+        #     R_curr = self.current_pose[0:2, 0:2]
+        #     t_curr = self.current_pose[0:2, 2]
+            
+        #     t_new_raw = np.array([median_x, median_y])
+        #     delta_t_local = R_curr.T @ (t_new_raw - t_curr)
+            
+        #     # Utwardzamy trajektorię
+        #     ty_damping_factor = 1.0 # <- Możesz regulować (np. 0.3 dławi mocniej, 1.0 wyłącza)
+        #     delta_t_local_damped = np.array([delta_t_local[0], delta_t_local[1] * ty_damping_factor])
+            
+        #     t_new_damped = t_curr + R_curr @ delta_t_local_damped
+            
+        #     new_pose = np.array([[np.cos(median_azimuth), -np.sin(median_azimuth), t_new_damped[0]], 
+        #                          [np.sin(median_azimuth), np.cos(median_azimuth), t_new_damped[1]], 
+        #                          [0, 0, 1]])
+        #     step_is_valid = True
+        # else:
+        #     new_pose = self.current_pose
 
         global_x, global_y = float(new_pose[0, 2]), float(new_pose[1, 2])
         global_azimuth = float(np.arctan2(new_pose[1, 0], new_pose[0, 0]))
@@ -499,13 +608,37 @@ class sonar_odometry(nn.Module):
         out = F.grid_sample(frame, self.polar2cart_grid, mode='bilinear', padding_mode='zeros', align_corners=True)
         return out * self.polar2cart_mask.unsqueeze(1)
 
+    # def scale_px2physcial(self, pts_px):
+    #     out_h, out_w = self.cart_frame_size
+    #     scale = (self.r_max - self.r_min) / out_h
+    #     x = (pts_px[:, 0] - out_w / 2.0) * scale
+    #     y = (out_h - pts_px[:, 1]) * scale + self.r_min
+    #     return torch.stack([x, y], dim=1)
+        
     def scale_px2physcial(self, pts_px):
         out_h, out_w = self.cart_frame_size
-        scale = (self.r_max - self.r_min) / out_h
-        x = (pts_px[:, 0] - out_w / 2.0) * scale
-        y = (out_h - pts_px[:, 1]) * scale + self.r_min
+        
+        if self.input_img_format == 'polar':
+            # Klasyczne, bezpieczne podejście dla symulatora (zwykle proporcje 1:1)
+            resolution_m_per_px = (self.r_max - self.r_min) / out_h
+            x = (pts_px[:, 0] - out_w / 2.0) * resolution_m_per_px
+            y = (out_h - pts_px[:, 1]) * resolution_m_per_px + self.r_min
+        else:
+            # PODEJŚCIE DLA ARACATI (Odporne na asymetryczne kadrowanie)
+            # 1. Rozdzielczość wzdłużna (oś Y obrazu -> ruch Tx)
+            res_y = (self.r_max - self.r_min) / out_h
+            
+            # 2. Rozdzielczość poprzeczna (oś X obrazu -> ruch Ty)
+            # Wyliczamy fizyczną szerokość "okna" na maksymalnym zasięgu.
+            # Jeśli FOV wynosi np. 120 stopni (2.09 rad), to całkowita szerokość to:
+            # 2 * r_max * sin(FOV / 2)
+            physical_width = 2.0 * self.r_max * np.sin(self.theta_max / 2.0)
+            res_x = physical_width / out_w
+            
+            x = (pts_px[:, 0] - out_w / 2.0) * res_x
+            y = (out_h - pts_px[:, 1]) * res_y + self.r_min
+            
         return torch.stack([x, y], dim=1)
-    
     
 # import torch
 # import torch.nn.functional as F
