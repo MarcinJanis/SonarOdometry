@@ -206,36 +206,35 @@ class sonar_odometry(nn.Module):
         return R, t
 
     def _match_and_estimate(self, ref_frame, ref_mask, ref_pose, ref_depth, new_frame, new_depth):
-        # ZMIANA: Konwersja tensorów Pytorch do RGB Numpy Array, aby procesor HF mógł to zjeść
-        ref_np = (ref_frame.squeeze(0).permute(1, 2, 0).detach().cpu().numpy() * 255.0).clip(0, 255).astype(np.uint8)
-        new_np = (new_frame.squeeze(0).permute(1, 2, 0).detach().cpu().numpy() * 255.0).clip(0, 255).astype(np.uint8)
-        
-        if ref_np.shape[-1] == 1:
-            ref_np = cv2.cvtColor(ref_np, cv2.COLOR_GRAY2RGB)
-        if new_np.shape[-1] == 1:
-            new_np = cv2.cvtColor(new_np, cv2.COLOR_GRAY2RGB)
-
-        images = [ref_np, new_np]
-        
-        # ZMIANA: Wywołanie MatchAnything zamiast LoFTR
-        inputs = self.processor(images, return_tensors="pt").to(self.device)
-        with torch.no_grad():
-            outputs = self.match_points(**inputs)
+        # 1. OPTYMALIZACJA: Bezpośrednio na GPU bez procesora z HuggingFace
+        # MatchAnything wymaga 3 kanałów (RGB)
+        if ref_frame.shape[1] == 1:
+            ref_frame = ref_frame.repeat(1, 3, 1, 1)
+        if new_frame.shape[1] == 1:
+            new_frame = new_frame.repeat(1, 3, 1, 1)
             
-        h, w = ref_np.shape[:2]
-        image_sizes = [[(h, w), (h, w)]]
+        # Ręczna normalizacja statystykami ImageNet (wymagane przez model)
+        mean = torch.tensor([0.485, 0.456, 0.406], device=self.device).view(1, 3, 1, 1)
+        std = torch.tensor([0.229, 0.224, 0.225], device=self.device).view(1, 3, 1, 1)
         
-        # ZMIANA: Odbieranie wyników i rzutowanie z powrotem na GPU w formacie tensorów
-        processed_outputs = self.processor.post_process_keypoint_matching(outputs, image_sizes, threshold=0.0)[0]
+        pixel_values = (ref_frame - mean) / std
+        pixel_values2 = (new_frame - mean) / std
         
-        pts1 = processed_outputs.get('keypoints0', torch.empty((0, 2))).to(self.device)
-        pts2 = processed_outputs.get('keypoints1', torch.empty((0, 2))).to(self.device)
-        confidence = processed_outputs.get('scores', torch.empty((0,))).to(self.device)
+        # Infeencja - punkty od razu zwracane są w poprawnej skali HxW!
+        with torch.no_grad():
+            outputs = self.match_points(pixel_values=pixel_values, pixel_values2=pixel_values2)
+            
+        pts1 = outputs.keypoints0
+        pts2 = outputs.keypoints1
+        confidence = outputs.matching_scores
 
-        if len(pts1) < 3: return None 
+        if pts1 is None or len(pts1) < 3: 
+            return None 
 
-        # ZMIANA: Filtracja masek. HF pipeline nie przyjmuje masek, więc ignorujemy dopasowania wykraczające poza obszar
+        # 2. Filtracja masek na tensorach
+        _, _, h, w = ref_frame.shape
         pts1_long, pts2_long = pts1.long(), pts2.long()
+        
         valid_bounds = (
             (pts1_long[:, 0] >= 0) & (pts1_long[:, 0] < w) & (pts1_long[:, 1] >= 0) & (pts1_long[:, 1] < h) &
             (pts2_long[:, 0] >= 0) & (pts2_long[:, 0] < w) & (pts2_long[:, 1] >= 0) & (pts2_long[:, 1] < h)
@@ -253,7 +252,7 @@ class sonar_odometry(nn.Module):
         
         pts1, pts2, confidence = pts1[valid_mask_filter], pts2[valid_mask_filter], confidence[valid_mask_filter]
 
-        # Reszta kodu działa bez zmian
+        # 3. Reszta logiki odometrycznej
         valid_matches = confidence > self.pts_match_thresh
         pts1, pts2, confidence = pts1[valid_matches], pts2[valid_matches], confidence[valid_matches]
         
@@ -302,7 +301,6 @@ class sonar_odometry(nn.Module):
             inliers_p = inliers_abs / len(pts1_np) if len(pts1_np) > 0 else 0.0
             
             if inliers_abs >= self.min_inliers_abs and inliers_p >= self.min_inliers_ratio:
-                
                 if self.use_weighted_kabsch:
                     pts1_inliers = pts1_np[inlier_mask]
                     pts2_inliers = pts2_np[inlier_mask]
@@ -327,7 +325,6 @@ class sonar_odometry(nn.Module):
                     theta = angle
                     tx = -raw_tx_sonar       
                     ty = raw_ty_sonar       
-                    
                     local_T = np.array([
                         [np.cos(theta), -np.sin(theta), tx], 
                         [np.sin(theta),  np.cos(theta), ty], 
@@ -358,7 +355,9 @@ class sonar_odometry(nn.Module):
                 est_poses.append(match_res)
                 if i == len(self.sliding_window) - 1:
                     latest_visu_match = match_res
-
+                    
+        step_is_valid = False
+        
         if len(est_poses) > 0:
             est_x_list = [p['est_pose'][0, 2] for p in est_poses]
             est_y_list = [p['est_pose'][1, 2] for p in est_poses]
