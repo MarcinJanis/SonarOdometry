@@ -991,4 +991,8 @@ class sonar_odometry(nn.Module):
 #             x = (pts_px[:, 0] - out_w / 2.0) * res_x
 #             y = (out_h - pts_px[:, 1]) * res_y + self.r_min
             
+<<<<<<< HEAD
 #         return torch.stack([x, y], dim=1)
+=======
+#         return torch.stack([x, y], dim=1)
+>>>>>>> 20f29644a6541eafa3c1dc962542a2e0be61096d
