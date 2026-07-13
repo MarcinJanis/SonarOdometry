@@ -230,7 +230,7 @@ class sonar_odometry(nn.Module):
         
         pts1 = processed_outputs.get('keypoints0', torch.empty((0, 2))).to(self.device)
         pts2 = processed_outputs.get('keypoints1', torch.empty((0, 2))).to(self.device)
-        confidence = processed_outputs.get('scores', torch.empty((0,))).to(self.device)
+        confidence = processed_outputs.get('matching_scores', torch.empty((0,))).to(self.device)
 
         if len(pts1) < 3: return None 
 
