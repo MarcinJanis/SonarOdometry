@@ -310,7 +310,7 @@ class sonar_odometry(nn.Module):
         valid_matches = confidence > self.pts_match_thresh
         pts1, pts2, confidence = pts1[valid_matches], pts2[valid_matches], confidence[valid_matches]
         
-        step_is_valid = False
+        
         
         if len(pts1) < 3: return None 
 
@@ -462,6 +462,7 @@ class sonar_odometry(nn.Module):
                     latest_visu_match = match_res
 
         # =========
+        step_is_valid = False
         
         if len(est_poses) > 0:
             est_x_list = [p['est_pose'][0, 2] for p in est_poses]
