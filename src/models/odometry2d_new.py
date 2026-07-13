@@ -310,6 +310,8 @@ class sonar_odometry(nn.Module):
         valid_matches = confidence > self.pts_match_thresh
         pts1, pts2, confidence = pts1[valid_matches], pts2[valid_matches], confidence[valid_matches]
         
+        step_is_valid = False
+        
         if len(pts1) < 3: return None 
 
         # 1. SPATIAL BUCKETING
