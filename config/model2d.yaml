@@ -4,10 +4,11 @@
 
 # Wymiary wejściowe dla przetwarzania obrazu
 input_dimensions:
-  polar_height: 400
-  polar_width: 384
-  cart_height: 424
-  cart_width: 776
+  cart_height: 848
+  polar_width: 768
+  cart_width: 1552
+  polar_height: 512
+
 
 # Konfiguracja dopasowania cech (LoFTR) i RANSAC
 feature_matching:
