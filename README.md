@@ -5,9 +5,14 @@ ___
 
 **This is repositorium contains source code for master engineering thesis.** 
 
-This project focus on implementation of odometry system based on **Forward Looking Sonar**, using **Deep Neural Networks**.
+This project focus on implementation of odometry system based on **Forward Looking Sonar**, using **Deep Neural Networks**. Key features:
 
-Architecture core is inspired by [**DPVO** (*Deep Patch-based Visual Odometry*)](https://github.com/princeton-vl/DPVO), in order to use proven and efficient visual odometry techniques to process sonar data in underwater environments. 
+- **Key points matching** system based on **[LoFTR](https://github.com/zju3dv/LoFTR)** architecture.
+- Filtration and matched points outliers rejection.
+- **Multi-frame tracking** for robustness improvment.
+
+
+
 
 ___
 ## Repository content and structure
