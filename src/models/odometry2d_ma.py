@@ -245,7 +245,7 @@ class sonar_odometry(nn.Module):
             return None 
 
         # Powrót do oryginalnych wymiarów (z np. 832x832 z powrotem do np. 1024x512)
-        scale_x = orig_w / target_size[1]
+        scale_x = orig_w / target_size[1]W
         scale_y = orig_h / target_size[0]
         
         pts1 = pts1_raw.clone().float()
