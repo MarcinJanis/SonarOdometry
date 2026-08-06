@@ -1,34 +1,42 @@
-# ==============================================================================
-# KONFIGURACJA MODELU ODOMETRII SONAROWEJ (2D)
-# ==============================================================================
 
-# Wymiary wejściowe dla przetwarzania obrazu
-input_dimensions:
+
+input:
   cart_height: 848
-  polar_width: 768
   cart_width: 1552
   polar_height: 512
+  polar_width: 768
+  format: 'polar' # 'polar' or 'carthesian' sonar image  format 
+  
+setup: 
+  axis_map: 'sim'               # axis mapping 'sim' (for own dataset) or 'aracati' 
+  use_depth_compensation: true  # depth compensation, only id depth measurements available
 
+filtering:
+  use_fls_filter: true          # use filtration(MedianBlur + CLAHE)
+  use_spatial_bucketing: true   # use_spatial_bucketing for equally distributed key points
+  use_weighted_kabsch: true     # Use weighted SVD for motion estimation
+  use_range_masking: true       # Wytnij zaszumione krawędzie zasięgu (Range Masking)
 
-# Konfiguracja dopasowania cech (LoFTR) i RANSAC
+  range_masking_max_range: 0.85 # [%] 
+  bucket_grid: 4                # bucketing grid grid size (x, x) 
+  self.max_pts_per_bucket: 20   # max pts per one cell in bucket grid 
+
 feature_matching:
-  pts_match_thresh: 0.40      # Próg ufności LoFTR (zwiększ przy zbyt dużej liczbie szumu)
-  ransac_thresh: 0.25         # Tolerancja reprojekcji w RANSAC [m]
-  min_inliers_abs: 12         # Min. liczba punktów do zaakceptowania dopasowania
-  min_inliers_ratio: 0.06     # Min. procent inlierów względem wszystkich punktów
+  pts_match_thresh: 0.40      # [%] LoFTR confidence threshhold 
+  ransac_thresh: 0.25         # [m] RANSAC tolerance 
+  min_inliers_abs: 12         # [-] Min amount of detected points to accept two image matching
+  min_inliers_ratio: 0.06     # [%] Min inliers ratio, relative to total pts number 
 
-# Zarządzanie klatkami kluczowymi (Keyframes)
-keyframe_management:
-  key_frames_min_dist: 0.5    # Minimalny dystans dla nowej kotwicy [m]
-  key_frames_min_rot: 0.15    # Minimalny obrót dla nowej kotwicy [rad]
+keyframes:
+  use: true
+  window_size: 3
+  min_dist: 0.5    # Minimalny dystans dla nowej kotwicy [m]
+  min_rot: 0.15    # Minimalny obrót dla nowej kotwicy [rad]
   max_skip_frames: 4          # Max liczba klatek "ślepych" przed wymuszonym resetem
 
-# Filtracja sygnału sonarowego
-filtering:
-  use_fls_filter: true        # Włącz filtrację (MedianBlur + CLAHE)
-  use_spatial_bucketing: true # Wymuś rozproszenie punktów na siatce
-  use_weighted_kabsch: true   # Użyj ważonego algorytmu SVD
-  use_range_masking: true     # Wytnij zaszumione krawędzie zasięgu (Range Masking)
+
+  
+
 
 # Parametry odzyskiwania śledzenia (gdy model "zgubi" dno)
 fallback_logic:
