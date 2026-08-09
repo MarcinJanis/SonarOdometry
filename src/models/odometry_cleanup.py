@@ -310,12 +310,13 @@ class sonar_odometry(nn.Module):
         return None
 
     def set_init_state(self, init_x, init_y, init_azimuth, init_frame, init_depth, carth_mask=None):
+
         if self.use_fls_filter:
             init_frame = self.fls_filter(init_frame)
 
         b, c, h, w = init_frame.shape
         
-        # 1. Poprawna alokacja rozmiarów w zależności od trybu
+        # Allocate proper size according to input format data
         if self.input_format == 'polar':
             out_h, out_w = h, 2 * h
         else:
@@ -323,7 +324,7 @@ class sonar_odometry(nn.Module):
 
         self.cart_frame_size = (out_h, out_w)
 
-        # 2. Inicjalizacja siatki przekształceń TYLKO dla obrazów polarnych
+        # init transform grid for polar -> cart transformation
         if self.input_format == 'polar':
             y = torch.arange(out_h, device=self.device, dtype=torch.float32)
             x = torch.arange(out_w, device=self.device, dtype=torch.float32)
@@ -346,7 +347,7 @@ class sonar_odometry(nn.Module):
             self.polar2cart_mask = valid_mask.unsqueeze(0).expand(b, -1, -1).float()
             
         else:
-            # Obrazy kartezjańskie (np. z Aracati) nie potrzebują siatki konwersji
+            # for csrthesian input not needed
             self.polar2cart_grid = None
             
             if carth_mask is not None:
@@ -362,11 +363,10 @@ class sonar_odometry(nn.Module):
                               [np.sin(init_azimuth),  np.cos(init_azimuth), init_y], 
                               [0,                     0,                    1]])
         
-        # 3. Zastosowanie odpowiednich modyfikacji dla pierwszej klatki
+        # transforms for first frame
         if self.input_format == 'polar':
             first_frame = self.polar2car(init_frame)
         else:
-            # Odpowiednie zaaplikowanie maski uwzględniające wymiary tensorów [B, C, H, W]
             if len(self.polar2cart_mask.shape) == 3:
                 first_frame = init_frame * self.polar2cart_mask.unsqueeze(1)
             else:
@@ -430,8 +430,7 @@ class sonar_odometry(nn.Module):
             # t_new_raw = np.array([median_x, median_y])
             # delta_t_local = R_curr.T @ (t_new_raw - t_curr)
             
-            # # Utwardzamy trajektorię
-            # ty_damping_factor = 1.0 # <- Możesz regulować (np. 0.3 dławi mocniej, 1.0 wyłącza)
+            # ty_damping_factor = 1.0 
             # delta_t_local_damped = np.array([delta_t_local[0], delta_t_local[1] * ty_damping_factor])
             
             # t_new_damped = t_curr + R_curr @ delta_t_local_damped

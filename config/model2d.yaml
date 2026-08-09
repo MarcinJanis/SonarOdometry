@@ -3,8 +3,8 @@
 input:
   cart_height: 848
   cart_width: 1552
-  polar_height: 512
-  polar_width: 768
+  polar_height: 768
+  polar_width: 800 
   format: 'polar' # 'polar' or 'carthesian' sonar image  format 
   
 setup: 
