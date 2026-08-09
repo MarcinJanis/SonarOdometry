@@ -1,26 +1,39 @@
 # model2d.yaml
+   
+input:
+  cart_height: 848
+  cart_width: 1552
+  polar_height: 768
+  polar_width: 800 
+  format: 'polar' # 'polar' or 'carthesian' sonar image  format 
+  
+setup: 
+  axis_map: 'aracati'               # axis mapping 'sim' (for own dataset) or 'aracati' 
+  use_depth_compensation: false  # depth compensation, only id depth measurements available
 
 filtering:
-  use_fls_filter: true
-  use_spatial_bucketing: true    
-  use_weighted_kabsch: true
-  use_range_masking: true
+  use_fls_filter: true          # use filtration(MedianBlur + CLAHE)
+  use_spatial_bucketing: true   # use_spatial_bucketing for equally distributed key points
+  use_weighted_kabsch: true     # Use weighted SVD for motion estimation
+  use_range_masking: true       # Wytnij zaszumione krawędzie zasięgu (Range Masking)
 
-keyframe_management:
-  key_frames_min_dist: 0.5       # Wymuszamy trzymanie klatki aż robot przejedzie pół metra
-  key_frames_min_rot: 0.05       # lub obróci się o ~3 stopnie
-  max_skip_frames: 4
-  max_frames_since_kf: 40        # Zwiększone do 40 klatek, by zapobiec frame-to-frame drift - unsed
+  range_masking_max_range: 0.85 # [%] 
+  bucket_grid: 4                # bucketing grid grid size (x, x) 
+  self.max_pts_per_bucket: 20   # max pts per one cell in bucket grid 
 
 feature_matching:
-  pts_match_thresh: 0.70         # Bardzo restrykcyjne dopasowania LoFTR
-  ransac_thresh: 0.15            # Tolerancja błędu: max 15 cm. Wymusza idealną sztywność
-  min_inliers_abs: 15            
-  min_inliers_ratio: 0.20        
-  
-input_dimensions:
-  cart_height: 848
-  polar_width: 768
-  cart_width: 1552
-  polar_height: 512
+  pts_match_thresh: 0.40      # [%] LoFTR confidence threshhold 
+  ransac_thresh: 0.25         # [m] RANSAC tolerance 
+  min_inliers_abs: 12         # [-] Min amount of detected points to accept two image matching
+  min_inliers_ratio: 0.06     # [%] Min inliers ratio, relative to total pts number 
 
+keyframes:
+  use: true
+  window_size: 3
+  min_dist: 0.5    # Minimalny dystans dla nowej kotwicy [m]
+  min_rot: 0.15    # Minimalny obrót dla nowej kotwicy [rad]
+  max_skip_frames: 4          # Max liczba klatek "ślepych" przed wymuszonym resetem
+
+fallback_logic:
+  cvm_decay: 0.9              # Współczynnik zwalniania przy braku dopasowań
+  min_confidence: 0.12        # Próg pewności przy dopasowaniu awaryjnym
