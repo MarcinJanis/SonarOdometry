@@ -8,11 +8,7 @@ import cv2
 
 class sonar_odometry(nn.Module):
   
-    def __init__(self, model_config, sonar_config, 
-                     device, 
-                     depth_compesation=True,
-                     key_frames=True,
-                     ):
+    def __init__(self, model_config, sonar_config, device):
             
             super().__init__()
                        
@@ -30,6 +26,7 @@ class sonar_odometry(nn.Module):
                 [np.sin(yaw_offset),  np.cos(yaw_offset), y_offset],
                 [0,                   0,                  1]
             ]) # Transform matrix Robot -> Sonar frame
+            # assumption -> roll and pitch = 0 
             self.T_S_R_2d = np.linalg.inv(self.T_R_S_2d) # Transform matrix Sonar -> Robot frame
 
             # Mapping of local to global frame of refernce
@@ -443,10 +440,13 @@ class sonar_odometry(nn.Module):
             
         else: # fallback - if there is no new matches, keep current pose
             new_pose = self.current_pose
+            # assign old values as median variables
+            median_x, median_y = new_pose[0, 2], new_pose[1, 2]
+            opt_azimuth = np.arctan2(new_pose[1, 0], new_pose[0, 0])
 
 
         global_x, global_y = float(median_x), float(median_y)# float(new_pose[0, 2]), float(new_pose[1, 2])
-        global_azimuth = float(median_azimuth) # float(np.arctan2(new_pose[1, 0], new_pose[0, 0]))
+        global_azimuth = float(opt_azimuth) # float(np.arctan2(new_pose[1, 0], new_pose[0, 0]))
 
         # get distance from lates key frame
         _, latest_kf_pose, _ = self.sliding_window[-1]
@@ -479,6 +479,7 @@ class sonar_odometry(nn.Module):
 
             R_rel = R_kf.T @ R_new
             t_rel = R_kf.T @ (t_new - t_kf)
+            yaw_mapped = np.arctan2(R_rel[1, 0], R_rel[0, 0])
 
             b, c, h, w = new_frame.shape
 
@@ -516,7 +517,7 @@ class sonar_odometry(nn.Module):
                 'matches_total': len(pts1_visu), 'mean_matched_confidence': conf_visu,
                 'key_frame_detected': key_frame_detected, 'step_is_valid': step_is_valid,
                 'tx_sonar': float(v_raw_tx_sonar), 'ty_sonar': float(v_raw_ty_sonar),
-                'tx_mapped': float(t_rel[0]), 'ty_mapped': float(t_rel[1]), 'theta': float(v_raw_theta_sonar),
+                'tx_mapped': float(t_rel[0]), 'ty_mapped': float(t_rel[1]), 'yaw_mapped':float(yaw_mapped), 'theta': float(v_raw_theta_sonar),
                 'displacement': float(dist), 'azimuth_diff': float(azimuth_diff),
                 'global_pose': (global_x, global_y, global_azimuth),
                 'window_matches_count': f"{len(est_poses)}/{len(self.sliding_window)}",

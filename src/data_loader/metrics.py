@@ -5,7 +5,7 @@ import pypose as pp
 from scipy.spatial.transform import Rotation as R
 
 
-def eval_metrics(pred, gt, reduction = 'mean'):
+def eval_metrics_3d(pred, gt, reduction = 'mean'):
 
     # torch + pypose
 
@@ -66,53 +66,102 @@ def eval_metrics(pred, gt, reduction = 'mean'):
 
 def eval_metrics_2d(pred, gt):
     """
-    Oblicza i wyświetla metryki odometrii w standardzie publikacji naukowych.
-    pred: numpy array (N, 2)
-    gt: numpy array (N, 2)
+    Oblicza i wyświetla metryki odometrii 2D (translacja + rotacja) 
+    w standardzie publikacji naukowych.
+    
+    pred: numpy array (N, 3) -> [x, y, theta]
+    gt: numpy array (N, 3) -> [x, y, theta]
     """
-    # 1. Obliczenie całkowitej długości trajektorii GT
-    step_distances_gt = np.linalg.norm((gt[1:, :] - gt[:-1, :]), axis=1)
+    # --- Rozdzielenie translacji i rotacji ---
+    pred_xy, pred_theta = pred[:, :2], pred[:, 2]
+    gt_xy, gt_theta = gt[:, :2], gt[:, 2]
+
+    # Bezpieczna różnica kątowa eliminująca problem przeskoku na -pi/pi
+    def norm_angle(angle):
+        return np.arctan2(np.sin(angle), np.cos(angle))
+
+    # ==========================================
+    # 1. TRANSLACJA (Translational Metrics)
+    # ==========================================
+    step_distances_gt = np.linalg.norm((gt_xy[1:] - gt_xy[:-1]), axis=1)
     total_distance = np.sum(step_distances_gt)
     
-    # 2. Absolute Trajectory Error (ATE)
-    abs_traj_l2 = np.linalg.norm((gt - pred), axis=1)
+    # Absolute Trajectory Error (ATE)
+    abs_traj_l2 = np.linalg.norm((gt_xy - pred_xy), axis=1)
     ate_rmse = np.sqrt(np.mean(abs_traj_l2**2))
     ate_perc = (ate_rmse / total_distance) * 100 if total_distance > 0 else 0.0
     
-    # 3. Final Drift (Błąd końcowej pozycji - kluczowe w nawigacji AUV)
+    # Final Position Drift
     final_drift_m = abs_traj_l2[-1]
     final_drift_perc = (final_drift_m / total_distance) * 100 if total_distance > 0 else 0.0
 
-    # 4. Relative Translation Error (RTE / RPE)
-    relative_step_pred = pred[1:, :] - pred[:-1, :]
-    relative_step_gt = gt[1:, :] - gt[:-1, :]
+    # Relative Translation Error (RTE)
+    relative_step_pred = pred_xy[1:] - pred_xy[:-1]
+    relative_step_gt = gt_xy[1:] - gt_xy[:-1]
     
     rel_traj_l2 = np.linalg.norm((relative_step_gt - relative_step_pred), axis=1)
     rte_rmse = np.sqrt(np.mean(rel_traj_l2**2))
-    
-    # Błąd relatywny jako % długości kroku (zabezpieczenie przed dzieleniem przez zero)
     rte_step_perc = np.mean(rel_traj_l2 / (step_distances_gt + 1e-8)) * 100
 
-    # --- Renderowanie tabeli ---
-    print("=" * 68)
-    print(f"{'Odometry Evaluation Metrics (SOTA format)':^68}")
-    print("=" * 68)
-    print(f"{'Metric':<30} | {'Absolute [m]':>14} | {'Relative [%]':>15}")
-    print("-" * 68)
-    print(f"{'Total Trajectory Length':<30} | {total_distance:>12.4f} m | {'-':>14} ")
-    print(f"{'Absolute Trajectory Err (ATE)':<30} | {ate_rmse:>12.4f} m | {ate_perc:>13.4f} %")
-    print(f"{'Final Position Drift':<30} | {final_drift_m:>12.4f} m | {final_drift_perc:>13.4f} %")
-    print(f"{'Relative Translation Err (RTE)':<30} | {rte_rmse:>12.4f} m | {rte_step_perc:>13.4f} %")
-    print("=" * 68)
+    # ==========================================
+    # 2. ROTACJA (Rotational Metrics)
+    # ==========================================
+    # Całkowity obrót (suma bezwzględnych kroków kątowych)
+    step_rotations_gt = np.abs(norm_angle(gt_theta[1:] - gt_theta[:-1]))
+    total_rotation = np.sum(step_rotations_gt)
+    
+    # Absolute Rotation Error (ARE)
+    abs_rot_err = np.abs(norm_angle(gt_theta - pred_theta))
+    are_rmse = np.sqrt(np.mean(abs_rot_err**2))
+    are_perc = (are_rmse / total_rotation) * 100 if total_rotation > 0 else 0.0
+    
+    # Final Rotation Drift
+    final_rot_drift = abs_rot_err[-1]
+    final_rot_perc = (final_rot_drift / total_rotation) * 100 if total_rotation > 0 else 0.0
+    
+    # Relative Rotation Error (RRE)
+    rel_step_theta_pred = norm_angle(pred_theta[1:] - pred_theta[:-1])
+    rel_step_theta_gt = norm_angle(gt_theta[1:] - gt_theta[:-1])
+    
+    rel_rot_err = np.abs(norm_angle(rel_step_theta_gt - rel_step_theta_pred))
+    rre_rmse = np.sqrt(np.mean(rel_rot_err**2))
+    rre_step_perc = np.mean(rel_rot_err / (step_rotations_gt + 1e-8)) * 100
+
+
+    print("=" * 80)
+    print(f"{'Odometry Evaluation Metrics (Translation & Rotation)':^80}")
+    print("=" * 80)
+    print(f"{'Metric':<35} | {'Absolute':>16} | {'Relative [%]':>15}")
+    print("-" * 80)
+    print(f"{'Total Trajectory Length':<35} | {total_distance:>14.4f} m | {'-':>15} ")
+    print(f"{'Total Rotation Length':<35} | {total_rotation:>12.4f} rad | {'-':>15} ")
+    print("-" * 80)
+    print(f"{'Absolute Trajectory Err (ATE)':<35} | {ate_rmse:>14.4f} m | {ate_perc:>14.4f} %")
+    print(f"{'Final Position Drift':<35} | {final_drift_m:>14.4f} m | {final_drift_perc:>14.4f} %")
+    print(f"{'Relative Translation Err (RTE)':<35} | {rte_rmse:>14.4f} m | {rte_step_perc:>14.4f} %")
+    print("-" * 80)
+    print(f"{'Absolute Rotation Err (ARE)':<35} | {are_rmse:>12.4f} rad | {are_perc:>14.4f} %")
+    print(f"{'Final Rotation Drift':<35} | {final_rot_drift:>12.4f} rad | {final_rot_perc:>14.4f} %")
+    print(f"{'Relative Rotation Err (RRE)':<35} | {rre_rmse:>12.4f} rad | {rre_step_perc:>14.4f} %")
+    print("=" * 80)
 
     metrics = {
         "distance": total_distance,
+        "rotation": total_rotation,
+        
         "ate_rmse": ate_rmse,
         "ate_perc": ate_perc,
         "final_drift_m": final_drift_m,
         "final_drift_perc": final_drift_perc,
         "rte_rmse": rte_rmse,
-        "rte_perc": rte_step_perc
+        "rte_perc": rte_step_perc,
+        
+        "are_rmse": are_rmse,
+        "are_perc": are_perc,
+        "final_rot_drift": final_rot_drift,
+        "final_rot_perc": final_rot_perc,
+        "rre_rmse": rre_rmse,
+        "rre_perc": rre_step_perc
     }
     
     return metrics

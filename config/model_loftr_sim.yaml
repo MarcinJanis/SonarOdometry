@@ -1,5 +1,3 @@
-
-
 input:
   cart_height: 848
   cart_width: 1552
@@ -19,7 +17,7 @@ filtering:
 
   range_masking_max_range: 0.85 # [%] 
   bucket_grid: 4                # bucketing grid grid size (x, x) 
-  self.max_pts_per_bucket: 20   # max pts per one cell in bucket grid 
+  max_pts_per_bucket: 20   # max pts per one cell in bucket grid 
 
 feature_matching:
   pts_match_thresh: 0.40      # [%] LoFTR confidence threshhold 
@@ -33,12 +31,3 @@ keyframes:
   min_dist: 0.5    # Minimalny dystans dla nowej kotwicy [m]
   min_rot: 0.15    # Minimalny obrót dla nowej kotwicy [rad]
   max_skip_frames: 4          # Max liczba klatek "ślepych" przed wymuszonym resetem
-
-
-  
-
-
-# Parametry odzyskiwania śledzenia (gdy model "zgubi" dno)
-fallback_logic:
-  cvm_decay: 0.9              # Współczynnik zwalniania przy braku dopasowań
-  min_confidence: 0.12        # Próg pewności przy dopasowaniu awaryjnym
