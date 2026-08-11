@@ -14,7 +14,7 @@ import torchvision.transforms.functional as F_t
 import matplotlib.pyplot as plt
 import matplotlib.style as style
 
-from .metrics import eval_metrics
+from .metrics import eval_metrics_3d
 
 style.use('fast')
 

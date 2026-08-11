@@ -129,7 +129,7 @@ def eval_metrics_2d(pred, gt):
 
 
     print("=" * 80)
-    print(f"{'Odometry Evaluation Metrics (Translation & Rotation)':^80}")
+    print(f"{'Odometry Evaluation Metrics':^80}")
     print("=" * 80)
     print(f"{'Metric':<35} | {'Absolute':>16} | {'Relative [%]':>15}")
     print("-" * 80)
