@@ -5,8 +5,9 @@ input:
   cart_width: 1552
   polar_height: 768
   polar_width: 800 
-  format: 'polar' # 'polar' or 'carthesian' sonar image  format 
-  
+  format: 'carthesian' # 'polar' or 'carthesian' sonar image  format 
+
+
 setup: 
   axis_map: 'aracati'               # axis mapping 'sim' (for own dataset) or 'aracati' 
   use_depth_compensation: false  # depth compensation, only id depth measurements available
