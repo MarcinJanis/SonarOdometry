@@ -166,3 +166,160 @@ def eval_metrics_2d(pred, gt):
     
     return metrics
 
+
+
+from evo.core import trajectory, metrics
+from evo.core.metrics import PoseRelation, Unit
+import pandas as pd
+
+def yaw_to_quaternion_wxyz(yaw_array: np.ndarray) -> np.ndarray:
+    """Converts an array of yaw angles to quaternions [qw, qx, qy, qz]."""
+    qz = np.sin(yaw_array / 2.0)
+    qw = np.cos(yaw_array / 2.0)
+    qx = np.zeros_like(yaw_array)
+    qy = np.zeros_like(yaw_array)
+    return np.column_stack([qw, qx, qy, qz])
+
+
+def metrics_evo(df: pd.DataFrame, rpe_percent: float = 10.0) -> dict:
+    """
+    Takes a DataFrame containing odometry data, calculates APE and RPE metrics
+    using the evo package, and prints a unified, neatly formatted evaluation table.
+    
+    Args:
+        df: Pandas DataFrame with ground truth and predicted poses.
+        rpe_percent: The segment length for RPE calculation, expressed as a 
+                     percentage of the total Ground Truth trajectory length.
+    
+    Returns a dictionary with raw statistics.
+    """
+    # 1. Extract data from DataFrame
+    timestamps = df["frame_id"].to_numpy(dtype=float)
+
+    gt_xyz = np.column_stack([df["gt_x"], df["gt_y"], np.zeros(len(df))])
+    pred_xyz = np.column_stack([df["pred_x"], df["pred_y"], np.zeros(len(df))])
+
+    # Generate quaternions
+    gt_quat = yaw_to_quaternion_wxyz(df["gt_theta"].to_numpy())
+    pred_quat = yaw_to_quaternion_wxyz(df["pred_theta"].to_numpy())
+
+    # 2. Calculate Total Distance & target RPE segment length
+    step_distances = np.linalg.norm(np.diff(gt_xyz, axis=0), axis=1)
+    total_distance = np.sum(step_distances)
+    
+    # Calculate distance equivalent to the requested percentage
+    rpe_delta_meters = total_distance * (rpe_percent / 100.0)
+    
+    # Fallback to avoid division by zero in case of completely static trajectory
+    if rpe_delta_meters <= 0.0:
+        rpe_delta_meters = 1.0 
+
+    # 3. Initialize trajectories
+    gt_traj = trajectory.PoseTrajectory3D(
+        positions_xyz=gt_xyz, 
+        orientations_quat_wxyz=gt_quat, 
+        timestamps=timestamps
+    )
+    
+    pred_traj = trajectory.PoseTrajectory3D(
+        positions_xyz=pred_xyz, 
+        orientations_quat_wxyz=pred_quat, 
+        timestamps=timestamps
+    )
+
+    # 4. Calculate APE (Absolute Pose Error) / ATE - Translation
+    ape_trans = metrics.APE(PoseRelation.translation_part)
+    ape_trans.process_data((gt_traj, pred_traj))
+    ape_trans_stats = ape_trans.get_all_statistics()
+
+    # 5. Calculate APE (Absolute Pose Error) - Rotation
+    ape_rot = metrics.APE(PoseRelation.rotation_angle_rad)
+    ape_rot.process_data((gt_traj, pred_traj))
+    ape_rot_stats = ape_rot.get_all_statistics()
+
+    # 6. Calculate RPE (Relative Pose Error) USING METERS instead of frames
+    rpe_trans = metrics.RPE(
+        PoseRelation.translation_part, 
+        delta=rpe_delta_meters, 
+        delta_unit=Unit.meters, 
+        all_pairs=False
+    )
+    rpe_trans.process_data((gt_traj, pred_traj))
+    rpe_trans_stats = rpe_trans.get_all_statistics()
+    
+    rpe_rot = metrics.RPE(
+        PoseRelation.rotation_angle_rad, 
+        delta=rpe_delta_meters, 
+        delta_unit=Unit.meters, 
+        all_pairs=False
+    )
+    rpe_rot.process_data((gt_traj, pred_traj))
+    rpe_rot_stats = rpe_rot.get_all_statistics()
+
+    # 7. Calculate KITTI-style relative errors (drift)
+    # The error is accumulated over rpe_delta_meters, so we divide by that distance
+    trans_error_percent = (rpe_trans_stats["mean"] / rpe_delta_meters) * 100.0
+
+    rot_error_deg = np.degrees(rpe_rot_stats["mean"])
+    rot_error_deg_per_m = rot_error_deg / rpe_delta_meters
+
+    # ---------------------------------------------------------
+    # DISPLAYING THE UNIFIED RESULTS TABLE
+    # ---------------------------------------------------------
+    table_width = 97
+    
+    print("=" * table_width)
+    print(f"{'ODOMETRY EVALUATION METRICS':^{table_width}}")
+    print("=" * table_width)
+    print(f" Trajectory Length (GT) : {total_distance:.2f} m")
+    print(f" RPE Evaluation Step    : {rpe_percent:.1f}% of trajectory length ({rpe_delta_meters:.2f} m)")
+    print("-" * table_width)
+    print(f"{'METRIC [UNIT]':<32} | {'RMSE':>8} | {'MEAN':>8} | {'MEDIAN':>8} | {'MIN':>8} | {'MAX':>8} | {'STD':>8}")
+    print("-" * table_width)
+    
+    def print_row(name: str, stats: dict):
+        print(f"{name:<32} | "
+              f"{stats['rmse']:8.4f} | "
+              f"{stats['mean']:8.4f} | "
+              f"{stats['median']:8.4f} | "
+              f"{stats['min']:8.4f} | "
+              f"{stats['max']:8.4f} | "
+              f"{stats['std']:8.4f}")
+              
+    def print_kitti_row(name: str, mean_val: float):
+        print(f"{name:<32} | "
+              f"{'---':>8} | "
+              f"{mean_val:8.4f} | "
+              f"{'---':>8} | "
+              f"{'---':>8} | "
+              f"{'---':>8} | "
+              f"{'---':>8}")
+
+    # Standard metrics
+    print_row("APE Translation (ATE) [m]", ape_trans_stats)
+    print_row("APE Rotation [rad]", ape_rot_stats)
+    
+    print_row(f"RPE Translation (d={rpe_delta_meters:.1f}m) [m]", rpe_trans_stats)
+    print_row(f"RPE Rotation (d={rpe_delta_meters:.1f}m) [rad]", rpe_rot_stats)
+    
+    print("-" * table_width)
+    print(f"{'RELATIVE DRIFT (KITTI STYLE)':^{table_width}}")
+    print("-" * table_width)
+    
+    # KITTI-style metrics (using only the MEAN column)
+    print_kitti_row(f"Translation Error [%]", trans_error_percent)
+    print_kitti_row(f"Rotation Error [deg/m]", rot_error_deg_per_m)
+    
+    print("=" * table_width)
+
+    return {
+        "ape_trans": ape_trans_stats,
+        "ape_rot": ape_rot_stats,
+        "rpe_trans": rpe_trans_stats,
+        "rpe_rot": rpe_rot_stats,
+        "kitti_trans_pct": trans_error_percent,
+        "kitti_rot_deg_per_m": rot_error_deg_per_m,
+        "total_distance_m": total_distance,
+        "rpe_segment_meters": rpe_delta_meters,
+        "rpe_segment_percent": rpe_percent
+    }
