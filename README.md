@@ -1,8 +1,8 @@
-# Forward Looking Sonar Odometry using Deep Learning
+# 🌊🧭 Forward Looking Sonar Odometry using Deep Learning
 
 This repository contains the source code for a Master's Engineering Thesis. The project focuses on the implementation of a robust odometry system designed specifically for **Forward Looking Sonar (FLS)** data, utilizing **Deep Neural Networks**.
 
-## Visualization
+## ✨ Visualisation of results
 
 https://github.com/user-attachments/assets/1df754c3-b942-44a8-90f0-d4547678d91d
 
@@ -12,7 +12,7 @@ Odometry system estimation visualisation: trajectory prediction and key points d
 
 ---
 
-## Key Features of LoFTR-based Sonar Odometry Module
+## 🔎 Key Features of LoFTR-based Sonar Odometry Module
 
 * **Deep Feature Matching:** Utilizes the state-of-the-art **[LoFTR](https://github.com/zju3dv/LoFTR)** (Local Feature Matching with Transformers) architecture for reliable keypoint extraction and matching in noisy acoustic imagery.
 * **Advanced Preprocessing & Filtering:** Implements adaptive spatial bucketing, CLAHE histogram equalization, range masking, and median/bilateral filtering to mitigate acoustic noise and enhance feature detection.
