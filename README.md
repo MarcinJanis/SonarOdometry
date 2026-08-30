@@ -4,12 +4,9 @@ This repository contains the source code for a Master's Engineering Thesis. The 
 
 ## Visualization
 
-<div align="center">
-  <video src="imgs/seq_15_visu.mp4" controls autoplay loop muted playsinline width="100%">
-    Your browser does not support the video tag.
-  </video>
-  <p><i>Odometry pipeline in action: feature matching and trajectory estimation.</i></p>
-</div>
+https://github.com/user-attachments/assets/1df754c3-b942-44a8-90f0-d4547678d91d
+
+Odometry system estimation visualisation: trajectory prediction and key points detection.
 
 ---
 
