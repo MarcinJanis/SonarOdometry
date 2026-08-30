@@ -1,5 +1,5 @@
---extra-index-url https://download.pytorch.org/whl/cpu
--f https://data.pyg.org/whl/torch-2.4.0+cpu.html
+--extra-index-url https://download.pytorch.org/whl/cu124
+-f https://data.pyg.org/whl/torch-2.4.0+cu124.html
 
 torch
 torchvision
@@ -30,8 +30,3 @@ matplotlib
 
 tqdm
 wandb
-
-
-
-
-

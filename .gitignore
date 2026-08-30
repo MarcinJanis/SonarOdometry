@@ -223,4 +223,5 @@ bundle_adjustment_maths_equations.md
 *.ckpt
 
 data/aracati2017
-
+do_not_upload/
+/obsolete

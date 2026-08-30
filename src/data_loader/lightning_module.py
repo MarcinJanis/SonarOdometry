@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 import lightning.pytorch as pl
 
-from .metrics import eval_metrics
+from .metrics import eval_metrics_3d as eval_metrics
 
 # traning_param = {
 # 'freeze_poses_steps':0.0,
