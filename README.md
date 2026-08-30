@@ -160,29 +160,30 @@ The system was trained and evaluated using a custom dataset generated within the
 ### 1. Clone the repository
 Open your terminal and run the following commands to download the repository and navigate into it:
 
-Bash
-git clone https://github.com/YOUR_USERNAME/YOUR_REPO_NAME.git
-cd YOUR_REPO_NAME
-(Remember to replace YOUR_USERNAME/YOUR_REPO_NAME with your actual GitHub repository URL).
+```Bash
+git clone https://github.com/MarcinJanis/SonarOdometry.git
+cd SonarOdometry
+```
 
 ## 2. Install dependencies
 It is highly recommended to use a virtual environment. Install the required packages based on your operating system and hardware:
 
-Bash
+```Bash
 pip install -r requirements/ubuntu_gpu.txt
-For Windows without GPU (CPU only):
+```
 
 ## 3. Running the Code (Jupyter Notebooks)
 The core training and evaluation processes are handled via Jupyter Notebooks. 
 To execute a specific task, launch Jupyter and open the corresponding notebook:
 
-DPSO Model Training: Run notebooks/training/train_lightning.ipynb
+DPSO Model Training: Run `notebooks/training/train_lightning.ipynb`
 
-DPSO Model Evaluation: Run notebooks/evaluation/evaluation_dpso_test.ipynb
+DPSO Model Evaluation: Run `notebooks/evaluation/evaluation_dpso_test.ipynb`
 
-LoFTR-based Odometry Evaluation (Simulated Data): Run notebooks/evaluation/odometry_loftr_eval_sim.ipynb
+LoFTR-based Odometry Evaluation (Simulated Data): Run `notebooks/evaluation/odometry_loftr_eval_sim.ipynb`
 
-LoFTR-based Odometry Evaluation (Real Aracati Data): Run notebooks/evaluation/odometry_loftr_eval_aracati.ipynb
+LoFTR-based Odometry Evaluation (Real Aracati Data): Run `notebooks/evaluation/odometry_loftr_eval_aracati.ipynb`
 
 ⚠️ Jupyter Notebooks are prepared to work either on Google Colab or on local computer. 
+
 ⚠️ It is necessery to specifie paths to dataset folders etc. 
