@@ -12,7 +12,7 @@ Odometry system estimation visualisation: trajectory prediction and key points d
 
 ---
 
-## Key Features
+## Key Features of LoFTR-based Sonar Odometry Module
 
 * **Deep Feature Matching:** Utilizes the state-of-the-art **[LoFTR](https://github.com/zju3dv/LoFTR)** (Local Feature Matching with Transformers) architecture for reliable keypoint extraction and matching in noisy acoustic imagery.
 * **Advanced Preprocessing & Filtering:** Implements adaptive spatial bucketing, CLAHE histogram equalization, range masking, and median/bilateral filtering to mitigate acoustic noise and enhance feature detection.
@@ -22,7 +22,16 @@ Odometry system estimation visualisation: trajectory prediction and key points d
 * **Versatile Data Support:** Natively supports both Polar and Cartesian FLS data formats with built-in transformations and depth compensation.
 
 ---
-## ⚙️ System Architecture & Pipeline
+
+## 🔬 Experimental Research: DPSO (Deep Patch-Based Sonar Odometry)
+
+Beyond the fully functional LoFTR-based pipeline, this repository also contains experimental source code for **DPSO**—an acoustic adaptation of the state-of-the-art **[DPVO (Deep Patch-based Visual Odometry)](https://github.com/princeton-vl/DPVO)** model. 
+
+* **Project Scope:** The repository includes the complete infrastructure for the implementation, training, and evaluation of the DPSO model.
+* **Current Status (WIP):** Please note that this specific project track is currently unfinished. The adaptation encountered fundamental mathematical barriers related to iterative **Bundle Adjustment** when applied to the highly ambiguous geometry and elevation uncertainties of Forward Looking Sonar data. 
+
+---
+## ⚙️ System Architecture & Pipeline of LoFTR-based Sonar Odometry Module
 
 The system is built upon two main pillars: a **Front-end** module responsible for acoustic data preprocessing, robust feature matching, and local motion estimation, and a **Back-end** optimization layer that manages keyframes and aggregates trajectory predictions across a sliding time window.
 
@@ -68,4 +77,111 @@ The system was trained and evaluated using a custom dataset generated within the
 
 ---
 
+## 📁 Repository structure
 
+.
+├── config/                                    # YAML configuration files
+│   ├── model_dpso.yaml                        # Parameters for DPSO model
+│   ├── model_loftr_aracati.yaml               # Parameters for LoFTR-based model (for Aracati2017 dataset)
+│   ├── model_loftr_sim.yaml                   # Parameters for LoFTR-based model (own dataset)
+│   ├── sonar_aracati.yaml                     # Parameters and calibration for the physical sonar (Aracati dataset)
+│   └── sonar_sim.yaml                         # Parameters and calibration for the simulated sonar
+├── imgs/                                      # Multimedia assets for documentation
+│   └── seq_15_visu.mp4                        # Feature matching visualization for the README file
+├── notebooks/                                 # Jupyter notebooks for analysis, experiments, and visualizations
+│   ├── evaluation/                            # Evaluation of trained models on test datasets
+│   │   ├── evaluation_dpso_test.ipynb         # Tests and metrics for the DPSO model
+│   │   ├── odometry_loftr_eval_aracati.ipynb  # Evaluation of LoFTR-based odometry (real data - Aracati2017)
+│   │   └── odometry_loftr_eval_sim.ipynb      # Evaluation of LoFTR-based odometry (simulated data - own dataset)
+│   ├── test/                                  # Preliminary tests, prototyping, and concept verification
+│   │   ├── BA_test.ipynb                      # Testing the Bundle Adjustment optimizer on data
+│   │   ├── LoFTR_test._aracati.ipynb          # Prototyping LoFTR matches for real-world data (Aracati2017)
+│   │   ├── LoFTR_test_sim.ipynb               # Prototyping LoFTR matches for simulator data
+│   │   ├── MatchAnythingVsLoFtr.ipynb         # Comparison of matching quality between MatchAnything and LoFTR  models
+│   │   ├── dpso_graph_training_test.ipynb     # Verification of graph-based training (DPSO model)
+│   │   ├── dpso_key_points.ipynb              # Keypoint extraction tests (DPSO model)
+│   │   ├── odometry2d_test.ipynb              # General mathematical tests for planar 2D motion
+│   │   ├── sonar_noise_reduction.ipynb        # Experiments with filters (median, bilateral, CLAHE)
+│   │   ├── sonar_noise_simulation.ipynb       # Testing methods for injecting artificial acoustic noise
+│   │   └── sonar_preprocessing.ipynb          # Tests of the full FLS image processing and transformation pipeline
+│   ├── training/                              # Scripts and logs from the model training process
+│   │   ├── output/                            # Saved checkpoints, TensorBoard logs, and training reports
+│   │   ├── test_lightning.ipynb               # Running model validation in the PyTorch Lightning environment
+│   │   └── train_lightning.ipynb              # Main notebooks for running network training
+│   ├── utils/                                 # Helper tools and utility scripts
+│   │   ├── create_gif.py                      # Script for generating animations (GIFs) from output frames
+│   │   ├── dataset_test.ipynb                 # Verification of dataset integrity and loading correctness
+│   │   ├── fix_odometry_sequence.py           # Script to fix and align reference frames between prediction and ground truth (for tests)
+│   │   └── reduce_yaw_estim.py                # Script replacing yaw prediction with magnetometer measurements (for tests)
+│   └── visu/                                  # Tools for generating plots and visualizing results
+│       ├── dataset_sequence_visu.ipynb        # Viewer for sequences of raw frames from the dataset
+│       ├── fls_img_visu.ipynb                 # Visualizer for single acoustic scans (single ping)
+│       └── trajectory_visu.ipynb              # Plotting estimated trajectories against the ground truth reference
+├── obsolete/                                  # Deprecated code, previous iterations, and backups
+│   ├── logger.py                              # Deprecated error logging system
+│   ├── odometry2d_MFT.py                      # Deprecated Multi-Frame Tracking implementation
+│   ├── odometry2d_ma.py                       # Deprecated odometry version based on MatchAnything
+│   ├── odometry2d_mft_eval_sim.ipynb          # Deprecated evaluation file for MFT
+│   ├── odometry2d_new2.py                     # Scratchpad for old, experimental odometry code
+│   └── odometry2d_new_backup.py               # Backup copy of an older odometry algorithm version
+├── requirements/                              # System dependency files for installation (pip)
+│   ├── ubuntu_gpu.txt                         # Packages for Linux environment with GPU acceleration (CUDA) support
+│   └── windows_npgpu.txt                      # Packages for Windows environment without GPU support (CPU only)
+├── src/                                       # Core source code of the system
+│   ├── data_loader/                           # Scripts responsible for data loading and augmentation
+│   │   ├── data_module_lightning.py           # PyTorch Lightning DataModule class organizing data loaders
+│   │   ├── dataset.py                         # Dataset class loading image pairs and ground truth
+│   │   ├── evaluation_data_generator.py       # Generator creating data pools specifically for testing/evaluation
+│   │   ├── lightning_module.py                # Class binding the model, loss functions, and optimizers
+│   │   ├── metrics.py                         # Implementation of error metrics with evo package(e.g., ATE, RTE, rotation drift)
+│   │   ├── test.py                            # Quick testing script for data loading modules
+│   │   ├── transforms.py                      # Augmentations implementation (speckle noise, artifacts)
+│   │   └── utils.py                           # Minor helper functions used during data processing
+│   └── models/                                # Implementations of neural networks, optimizers, and logic
+│       ├── bundle_adjustment_v2.py            # First-order Bundle Adjustment optimizer (Adam algorithm)
+│       ├── bundle_adjustment_v3.py            # Second-order Bundle Adjustment (Levenberg-Marquardt)
+│       ├── dpso_inference.py                  # Inference version for the DPSO model for long trajectories (in progress)
+│       ├── dpso_train.py                      # Training version for the DPSO model 
+│       ├── encoders.py                        # Convolutional layer architectures for feature extraction (DPSO)
+│       ├── graph_inference.py                 # Pose graph for DPSO (inference version for long trajectory)
+│       ├── graph_train.py                     # Pose graph for DPSO (training version, optimized for fast learning)
+│       ├── odometry_loftr.py                  # LoFTR-based odometry module implementation
+│       ├── patchifier.py                      # Patch extraction and feature map generation (DPSO model)
+│       ├── update.py                          # Recurrent layers for DPSO model 
+│       └── utils.py                           # Mathematical functions, quaternion operations and other minor helpers
+├── .gitignore                                 # 
+├── README.md                                  # 
+└── download_dataset.py                        # Automated script for downloading the dataset archives
+
+---
+
+## 🚀 How to Run
+### 1. Clone the repository
+Open your terminal and run the following commands to download the repository and navigate into it:
+
+Bash
+git clone https://github.com/YOUR_USERNAME/YOUR_REPO_NAME.git
+cd YOUR_REPO_NAME
+(Remember to replace YOUR_USERNAME/YOUR_REPO_NAME with your actual GitHub repository URL).
+
+## 2. Install dependencies
+It is highly recommended to use a virtual environment. Install the required packages based on your operating system and hardware:
+
+Bash
+pip install -r requirements/ubuntu_gpu.txt
+For Windows without GPU (CPU only):
+
+## 3. Running the Code (Jupyter Notebooks)
+The core training and evaluation processes are handled via Jupyter Notebooks. 
+To execute a specific task, launch Jupyter and open the corresponding notebook:
+
+DPSO Model Training: Run notebooks/training/train_lightning.ipynb
+
+DPSO Model Evaluation: Run notebooks/evaluation/evaluation_dpso_test.ipynb
+
+LoFTR-based Odometry Evaluation (Simulated Data): Run notebooks/evaluation/odometry_loftr_eval_sim.ipynb
+
+LoFTR-based Odometry Evaluation (Real Aracati Data): Run notebooks/evaluation/odometry_loftr_eval_aracati.ipynb
+
+⚠️ Jupyter Notebooks are prepared to work either on Google Colab or on local computer. 
+⚠️ It is necessery to specifie paths to dataset folders etc. 
