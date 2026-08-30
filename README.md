@@ -26,7 +26,7 @@ Odometry system estimation visualisation: trajectory prediction and key points d
 
 The system is built upon two main pillars: a **Front-end** module responsible for acoustic data preprocessing, robust feature matching, and local motion estimation, and a **Back-end** optimization layer that manages keyframes and aggregates trajectory predictions across a sliding time window.
 
-<img width="1572" height="1633" alt="schemat_architektury2" src="https://github.com/user-attachments/assets/79bcaf69-5963-4d4c-994c-50ec4e118771" />
+<img width="3144" height="3265" alt="LoFTR_architecture_eng" src="https://github.com/user-attachments/assets/5ba7d1e5-cf0f-4e4b-a780-29477f8bab14" />
 
 ---
 
@@ -55,7 +55,6 @@ The verified matches are processed using the **RANSAC** algorithm to isolate geo
 Because global Loop Closure is computationally expensive and highly prone to catastrophic failures in repetitive underwater environments, a custom local optimization mechanism is implemented:
 * **Dynamic Keyframing:** The system dynamically spawns keyframes based on distance traveled or rotation angle, storing them in a sliding time window (empirically optimized to 3 frames).
 * **Multi-perspective Aggregation:** Each incoming frame is independently matched against multiple historical keyframes from the buffer. Translation vectors are filtered using a **median** function, while rotation angles are aggregated using a **circular mean**. This approach acts as a robust filter against temporal anomalies and significantly reduces cumulative drift.
-
 
 ---
 
