@@ -26,11 +26,7 @@ Odometry system estimation visualisation: trajectory prediction and key points d
 
 The system is built upon two main pillars: a **Front-end** module responsible for acoustic data preprocessing, robust feature matching, and local motion estimation, and a **Back-end** optimization layer that manages keyframes and aggregates trajectory predictions across a sliding time window.
 
-<div align="center">
-  <!-- Podmień poniższy link na ścieżkę do Twojego schematu -->
-  <img src="imgs/architecture_diagram.png" alt="System Architecture Diagram" width="85%">
-  <p><i>Overview of the proposed Forward Looking Sonar odometry pipeline.</i></p>
-</div>
+<img width="1572" height="1633" alt="schemat_architektury2" src="https://github.com/user-attachments/assets/79bcaf69-5963-4d4c-994c-50ec4e118771" />
 
 ---
 
