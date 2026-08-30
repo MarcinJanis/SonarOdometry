@@ -6,9 +6,11 @@ This repository contains the source code for a Master's Engineering Thesis. The 
 
 https://github.com/user-attachments/assets/1df754c3-b942-44a8-90f0-d4547678d91d
 
-Odometry system estimation visualisation: trajectory prediction and key points detection.
-🟢 - predicted trajectory 
-⚪ - reference trajectory (ground truth)
+Odometry system estimation visualization: trajectory prediction and key points detection. <br>
+Points marked on the sonar image represent matches found by the LoFTR module from previous frames. <br>
+Green points have coherent motion model, determined by RANSAC algorytm and red are detected as outliers. <br>
+🟢 - predicted trajectory <br>
+⚪ - reference trajectory (ground truth)<br>
 
 ---
 
