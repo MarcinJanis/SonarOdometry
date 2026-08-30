@@ -7,6 +7,8 @@ This repository contains the source code for a Master's Engineering Thesis. The 
 https://github.com/user-attachments/assets/1df754c3-b942-44a8-90f0-d4547678d91d
 
 Odometry system estimation visualisation: trajectory prediction and key points detection.
+🟢 - predicted trajectory 
+⚪ - reference trajectory (ground truth)
 
 ---
 
@@ -20,30 +22,55 @@ Odometry system estimation visualisation: trajectory prediction and key points d
 * **Versatile Data Support:** Natively supports both Polar and Cartesian FLS data formats with built-in transformations and depth compensation.
 
 ---
+## ⚙️ System Architecture & Pipeline
 
-## System Architecture & Pipeline
+The system is built upon two main pillars: a **Front-end** module responsible for acoustic data preprocessing, robust feature matching, and local motion estimation, and a **Back-end** optimization layer that manages keyframes and aggregates trajectory predictions across a sliding time window.
 
-1.  **Preprocessing:** Raw sonar frames are filtered to reduce noise and enhance contrast. If the input is in polar coordinates, it is mathematically transformed into a Cartesian grid.
-2.  **Feature Matching:** The LoFTR model processes consecutive frames (or keyframes) to find dense point correspondences.
-3.  **Outlier Rejection:** Spatial bucketing ensures uniform distribution of matches, while range masking and confidence thresholding filter out weak points.
-4.  **Motion Estimation:** RANSAC isolates inliers, and a weighted Kabsch algorithm calculates the translation and rotation between frames.
-5.  **Keyframe Management:** The system intelligently decides when to spawn a new keyframe based on distance, rotation, or skipped frame timeouts to maintain tracking stability.
+<div align="center">
+  <!-- Podmień poniższy link na ścieżkę do Twojego schematu -->
+  <img src="imgs/architecture_diagram.png" alt="System Architecture Diagram" width="85%">
+  <p><i>Overview of the proposed Forward Looking Sonar odometry pipeline.</i></p>
+</div>
+
+---
+
+The complete processing pipeline operates through the following sequential stages:
+
+### 🌊 1. Acoustic Preprocessing
+Due to the challenging nature of acoustic imaging—particularly high-frequency speckle noise and poor contrast—raw FLS data undergoes a specialized filtering pipeline:
+* **Median & Bilateral Filtering:** Effectively eliminates isolated noise peaks and smooths the image while strictly preserving sharp topological boundaries.
+* **Adaptive Histogram Equalization (CLAHE):** Locally enhances image contrast, pulling critical seabed textures and structures out of acoustic shadows to provide a stable base for feature extraction.
+
+### 🧠 2. Deep Feature Matching (LoFTR)
+Instead of relying on classical keypoint detectors, which struggle with the monotonous textures of the seabed, the system utilizes the **[LoFTR](https://github.com/zju3dv/LoFTR)** model. 
+> By leveraging both self-attention and cross-attention mechanisms, LoFTR analyzes the global context of the sonar image, allowing for the reliable extraction of dense point correspondences on both coarse and fine levels. 
+
+### 🎯 3. Advanced Filtering & Depth Compensation
+Extracted point pairs undergo rigorous geometric verification before motion estimation:
+* **Confidence Thresholding:** Matches with low network confidence or those located at the extreme edges of the measurement range (prone to interpolation distortions) are masked and discarded.
+* **Depth Change Compensation:** A critical challenge in sonar odometry is that altitude changes can be misinterpreted as planar translation. By integrating measurements from a depth sensor, the system recalculates the slant range into the true horizontal plane distance, rendering the system invariant to vehicle depth changes.
+
+### 📐 4. Robust Motion Estimation
+The verified matches are processed using the **RANSAC** algorithm to isolate geometrically consistent inliers based on a 2D Euclidean transformation model. 
+* To avoid the numerical instabilities often associated with iterative non-linear optimization (e.g., Bundle Adjustment) in ambiguous sonar geometries, the final rotation and translation matrices are calculated **analytically** using **Singular Value Decomposition (SVD)**. 
+* The estimated movement is then adjusted by the sensor's calibration matrix to reflect the true motion of the robot's center of mass.
+
+### 🔄 5. Local Optimization & Keyframe Management
+Because global Loop Closure is computationally expensive and highly prone to catastrophic failures in repetitive underwater environments, a custom local optimization mechanism is implemented:
+* **Dynamic Keyframing:** The system dynamically spawns keyframes based on distance traveled or rotation angle, storing them in a sliding time window (empirically optimized to 3 frames).
+* **Multi-perspective Aggregation:** Each incoming frame is independently matched against multiple historical keyframes from the buffer. Translation vectors are filtered using a **median** function, while rotation angles are aggregated using a **circular mean**. This approach acts as a robust filter against temporal anomalies and significantly reduces cumulative drift.
+
 
 ---
 
 ## Dataset
 
-The system was trained and evaluated using a custom dataset generated within the **Stonefish** marine robotics simulator. 
+The system was trained and evaluated using a custom dataset generated within the **[Stonefish] (https://github.com/patrykcieslak/stonefish)** marine robotics simulator. 
 
-> **Note:** The raw dataset contains clean, noiseless sonar data. Realistic acoustic noise (speckle, ambient, etc.) is injected dynamically during training using custom augmentations located in `src/data_loader/transforms.py`.
+> **Note:** The raw dataset contains clean, noiseless sonar data. Realistic acoustic noise (speckle, artifacts, etc.) is injected dynamically during training and evaluating using custom augmentations located in `src/data_loader/transforms.py`.
 
-🔗 **[Download the Dataset Here](#)** *(Add link)*
+🔗 **[Download the Dataset Here](https://drive.google.com/drive/folders/1WPsnUuISalV1vTJvZHb2KsWKuzgSGwIQ?usp=sharing)** 
 
 ---
 
-## Installation & Setup
 
-**1. Clone the repository:**
-```bash
-git clone <YOUR_REPO_URL>
-cd <REPO_NAME>
