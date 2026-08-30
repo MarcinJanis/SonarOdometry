@@ -29,6 +29,7 @@ Beyond the fully functional LoFTR-based pipeline, this repository also contains 
 
 * **Project Scope:** The repository includes the complete infrastructure for the implementation, training, and evaluation of the DPSO model.
 * **Current Status (WIP):** Please note that this specific project track is currently unfinished. The adaptation encountered fundamental mathematical barriers related to iterative **Bundle Adjustment** when applied to the highly ambiguous geometry and elevation uncertainties of Forward Looking Sonar data. 
+> **Note:** While the DPSO module remains an experimental work-in-progress, the primary **LoFTR-based odometry pipeline is fully operational and evaluated**. The DPSO files are included in this repository to provide valuable insights, showcase alternative deep learning approaches, and offer a solid foundation for future research in patch-based acoustic odometry.
 
 ---
 ## ⚙️ System Architecture & Pipeline of LoFTR-based Sonar Odometry Module
