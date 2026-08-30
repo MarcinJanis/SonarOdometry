@@ -79,9 +79,9 @@ The system was trained and evaluated using a custom dataset generated within the
 ---
 
 ## 📁 Repository structure
-
+```
 .
-├── config/                                    # YAML configuration files
+├── config/                                    # YAML configuration files 
 │   ├── model_dpso.yaml                        # Parameters for DPSO model
 │   ├── model_loftr_aracati.yaml               # Parameters for LoFTR-based model (for Aracati2017 dataset)
 │   ├── model_loftr_sim.yaml                   # Parameters for LoFTR-based model (own dataset)
@@ -153,7 +153,7 @@ The system was trained and evaluated using a custom dataset generated within the
 ├── .gitignore                                 # 
 ├── README.md                                  # 
 └── download_dataset.py                        # Automated script for downloading the dataset archives
-
+```
 ---
 
 ## 🚀 How to Run
